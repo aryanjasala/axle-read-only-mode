@@ -1,15 +1,14 @@
 // Regenerates .wordpress-org/screenshot-N.png (readme.txt "== Screenshots ==" and README.md).
 // Run on demand: npm run screenshots
-const path = require( 'path' );
 const { test, expect, wp, wpEval, openEditor } = require( './utils' );
-
-const shot = ( page, number ) => page.screenshot( { path: path.join( __dirname, '..', '..', '.wordpress-org', `screenshot-${ number }.png` ) } );
+const { prepareSite, shot } = require( './utils/media' );
 
 test.describe.serial( 'Screenshots', () => {
-	test.use( { viewport: { width: 1280, height: 800 } } );
+	test.use( { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 } );
 	let postId;
 
 	test.beforeAll( () => {
+		prepareSite( 'Kitchen Notes' );
 		postId = wp(
 			'post',
 			'create',
@@ -39,7 +38,7 @@ test.describe.serial( 'Screenshots', () => {
 	} );
 
 	test( '3: what visitors see when they send a form', async ( { browser } ) => {
-		const visitor = await browser.newContext( { storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } } );
+		const visitor = await browser.newContext( { storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 } );
 		const page = await visitor.newPage();
 		const response = await page.request.post( '/wp-comments-post.php', { form: { comment: 'Looks great!', comment_post_ID: postId, author: 'Sam', email: 'sam@example.com' } } );
 		expect( response.status() ).toBe( 503 );
