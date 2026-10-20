@@ -1,3 +1,5 @@
+<p align="center"><img src=".wordpress-org/icon-256x256.png" alt="" width="88"></p>
+
 <h1 align="center">Deploy Freeze</h1>
 
 <p align="center">
@@ -17,7 +19,7 @@
 <p align="center">Read-only mode for migrations and deploys. Visitors still see the site, but nothing can be saved, so no edit, order or comment gets lost in the switch.</p>
 
 <p align="center">
-  <img src=".wordpress-org/screenshot-2.png" alt="Tools > Deploy Freeze during a freeze, with countdown and blocked attempts" width="880">
+  <img src=".github/media/demo.gif" alt="Freezing the site, the read-only editor, a visitor comment refused, then unfreezing" width="880">
 </p>
 
 ---
@@ -65,6 +67,9 @@ If the script dies halfway, the freeze still ends after 30 minutes.
 <table>
   <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-1.png" alt="The block editor during a freeze"><br><sub>The block editor during a freeze</sub></td>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-2.png" alt="Tools > Deploy Freeze during a freeze, with countdown and blocked attempts"><br><sub>Tools > Deploy Freeze during a freeze, with countdown and blocked attempts</sub></td>
+  </tr>
+  <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-3.png" alt="What visitors see when they send a form during a freeze"><br><sub>What visitors see when they send a form during a freeze</sub></td>
   </tr>
 </table>
