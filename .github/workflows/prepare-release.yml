@@ -1,0 +1,85 @@
+name: Prepare release
+
+# After every merge to main, works out whether there is anything to release
+# (feat, fix, perf or breaking commits since the last tag). If there is, it
+# keeps one pull request open on the release/next branch that bumps the
+# version and adds the readme.txt changelog entry. Merging that pull request
+# publishes the release (see release.yml).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  release-pr:
+    name: Open or update the release pull request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Work out the next version
+        id: next
+        run: |
+          next="$(bin/release.sh next)"
+          echo "version=${next%% *}" >> "$GITHUB_OUTPUT"
+          echo "bump=${next##* }" >> "$GITHUB_OUTPUT"
+          echo "Next release: ${next:-nothing to release}"
+
+      - name: Update the release branch
+        if: steps.next.outputs.version != ''
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          bin/release.sh notes > "$RUNNER_TEMP/notes.txt"
+          git switch -C release/next
+          bin/release.sh apply "$VERSION" "$RUNNER_TEMP/notes.txt"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore(release): $VERSION"
+          git push --force origin release/next
+
+      - name: Open or update the pull request
+        if: steps.next.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.next.outputs.version }}
+          BUMP: ${{ steps.next.outputs.bump }}
+        run: |
+          {
+            echo "Merging this publishes **$VERSION** ($BUMP release): it tags \`v$VERSION\`, builds the zip and creates the GitHub release."
+            echo
+            echo "Changelog entry added to \`readme.txt\`:"
+            echo
+            cat "$RUNNER_TEMP/notes.txt"
+            echo
+            echo "This pull request is kept up to date automatically after each merge to \`main\`."
+          } > "$RUNNER_TEMP/body.md"
+          title="chore(release): $VERSION"
+          if [ "$(gh pr view release/next --json state --jq .state 2>/dev/null)" = "OPEN" ]; then
+            gh pr edit release/next --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --head release/next --base main --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+      - name: Run the checks on the release branch
+        if: steps.next.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Pushes and pull requests made with GITHUB_TOKEN do not start workflows,
+        # but workflow_dispatch does, so the required checks are started by hand.
+        run: |
+          for workflow in phpcs.yml phpstan.yml unit-tests.yml e2e-tests.yml plugin-check.yml pr-title.yml; do
+            gh workflow run "$workflow" --ref release/next
+          done

@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets the release workflow run these checks on its own pull request.
+  workflow_dispatch:
 
 permissions:
   contents: read

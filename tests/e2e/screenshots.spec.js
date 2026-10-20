@@ -1,0 +1,58 @@
+// Regenerates .wordpress-org/screenshot-N.png (readme.txt "== Screenshots ==" and README.md).
+// Run on demand: npm run screenshots
+const path = require( 'path' );
+const { test, expect, wp, wpEval, openEditor } = require( './utils' );
+
+const shot = ( page, number ) => page.screenshot( { path: path.join( __dirname, '..', '..', '.wordpress-org', `screenshot-${ number }.png` ) } );
+
+test.describe.serial( 'Screenshots', () => {
+	test.use( { viewport: { width: 1280, height: 800 } } );
+	let postId;
+
+	test.beforeAll( () => {
+		postId = wp(
+			'post',
+			'create',
+			'--post_title=Spring menu',
+			'--post_status=publish',
+			'--post_content=<!-- wp:paragraph --><p>Our spring menu starts on Monday, with three new dishes and a lemon tart.</p><!-- /wp:paragraph -->',
+			'--porcelain'
+		);
+		// One finished freeze for the history table.
+		wpEval( `AryanX\\DeployFreeze\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP 8.3 upgrade' ) );` );
+		wpEval( `AryanX\\DeployFreeze\\Plugin::instance()->freezer()->expire_if_needed();` );
+		wp( 'deploy-freeze', 'on', '--minutes=90', '--reason=Moving to the new server', '--visitor-message=We are moving to a new server and will be back within the hour. Please try again soon.' );
+	} );
+
+	test.afterAll( () => {
+		wp( 'deploy-freeze', 'off' );
+		for ( const option of [ 'deploy_freeze_state', 'deploy_freeze_log', 'deploy_freeze_history' ] ) {
+			wp( 'option', 'delete', option );
+		}
+		wp( 'post', 'delete', postId, '--force' );
+	} );
+
+	test( '1: the block editor during a freeze', async ( { page } ) => {
+		await openEditor( page, postId );
+		await expect( page.locator( '.components-notice' ).filter( { hasText: 'frozen for maintenance' } ) ).toBeVisible();
+		await shot( page, 1 );
+	} );
+
+	test( '3: what visitors see when they send a form', async ( { browser } ) => {
+		const visitor = await browser.newContext( { storageState: { cookies: [], origins: [] }, viewport: { width: 1280, height: 800 } } );
+		const page = await visitor.newPage();
+		const response = await page.request.post( '/wp-comments-post.php', { form: { comment: 'Looks great!', comment_post_ID: postId, author: 'Sam', email: 'sam@example.com' } } );
+		expect( response.status() ).toBe( 503 );
+		await page.setContent( await response.text() );
+		await shot( page, 3 );
+		await visitor.close();
+	} );
+
+	test( '2: Tools > Deploy Freeze with the countdown and blocked attempts', async ( { page, rest } ) => {
+		await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Spring menu (updated)' } );
+		await page.goto( '/wp-admin/tools.php?page=deploy-freeze' );
+		await expect( page.locator( '.df-blocked tbody tr' ).first() ).toBeVisible();
+		await page.waitForTimeout( 1200 );
+		await shot( page, 2 );
+	} );
+} );
