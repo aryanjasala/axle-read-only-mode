@@ -1,46 +1,46 @@
 <?php
 /**
- * Removes Deploy Freeze's state, log and history, on every site.
+ * Removes Site Read-Only Mode's state, log and history, on every site.
  *
- * @package DeployFreeze
+ * @package SiteReadOnlyMode
  */
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 /**
- * Removes Deploy Freeze data from the current site.
+ * Removes Site Read-Only Mode data from the current site.
  */
-function deploy_freeze_uninstall_site(): void {
+function site_read_only_mode_uninstall_site(): void {
 	global $wpdb;
 
-	delete_option( 'deploy_freeze_state' );
-	delete_option( 'deploy_freeze_log' );
-	delete_option( 'deploy_freeze_history' );
+	delete_option( 'site_read_only_mode_state' );
+	delete_option( 'site_read_only_mode_log' );
+	delete_option( 'site_read_only_mode_history' );
 
 	// One-time expiry markers, one per freeze.
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off cleanup on uninstall.
-	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'deploy_freeze_expired_' ) . '%' ) );
+	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'site_read_only_mode_expired_' ) . '%' ) );
 }
 
 if ( is_multisite() ) {
-	$deploy_freeze_offset = 0;
+	$site_read_only_mode_offset = 0;
 	do {
-		$deploy_freeze_sites = get_sites(
+		$site_read_only_mode_sites = get_sites(
 			array(
 				'fields' => 'ids',
 				'number' => 100,
-				'offset' => $deploy_freeze_offset,
+				'offset' => $site_read_only_mode_offset,
 			)
 		);
 
-		foreach ( $deploy_freeze_sites as $deploy_freeze_site ) {
-			switch_to_blog( $deploy_freeze_site );
-			deploy_freeze_uninstall_site();
+		foreach ( $site_read_only_mode_sites as $site_read_only_mode_site ) {
+			switch_to_blog( $site_read_only_mode_site );
+			site_read_only_mode_uninstall_site();
 			restore_current_blog();
 		}
 
-		$deploy_freeze_offset += 100;
-	} while ( $deploy_freeze_sites );
+		$site_read_only_mode_offset += 100;
+	} while ( $site_read_only_mode_sites );
 } else {
-	deploy_freeze_uninstall_site();
+	site_read_only_mode_uninstall_site();
 }

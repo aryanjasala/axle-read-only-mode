@@ -2,21 +2,21 @@
 /**
  * Plugin bootstrap.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze;
+namespace AryanX\SiteReadOnlyMode;
 
-use AryanX\DeployFreeze\Admin\AdminBar;
-use AryanX\DeployFreeze\Admin\Notice;
-use AryanX\DeployFreeze\Admin\ToolsPage;
-use AryanX\DeployFreeze\Cli\Command;
-use AryanX\DeployFreeze\Editor\EditorLock;
-use AryanX\DeployFreeze\Guards\AdminGuard;
-use AryanX\DeployFreeze\Guards\Blocker;
-use AryanX\DeployFreeze\Guards\FrontEndGuard;
-use AryanX\DeployFreeze\Guards\RestGuard;
-use AryanX\DeployFreeze\Guards\SideEffects;
+use AryanX\SiteReadOnlyMode\Admin\AdminBar;
+use AryanX\SiteReadOnlyMode\Admin\Notice;
+use AryanX\SiteReadOnlyMode\Admin\ToolsPage;
+use AryanX\SiteReadOnlyMode\Cli\Command;
+use AryanX\SiteReadOnlyMode\Editor\EditorLock;
+use AryanX\SiteReadOnlyMode\Guards\AdminGuard;
+use AryanX\SiteReadOnlyMode\Guards\Blocker;
+use AryanX\SiteReadOnlyMode\Guards\FrontEndGuard;
+use AryanX\SiteReadOnlyMode\Guards\RestGuard;
+use AryanX\SiteReadOnlyMode\Guards\SideEffects;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -143,7 +143,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'deploy-freeze', new Command( $this->state, $this->freezer, $this->log ) );
+			\WP_CLI::add_command( 'site-read-only-mode', new Command( $this->state, $this->freezer, $this->log ) );
 		}
 	}
 }

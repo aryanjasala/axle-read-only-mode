@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name:       Deploy Freeze
- * Plugin URI:        https://wordpress.org/plugins/deploy-freeze/
+ * Plugin Name:       Site Read-Only Mode
+ * Plugin URI:        https://wordpress.org/plugins/site-read-only-mode/
  * Description:       Puts the site in read-only mode during a migration or deploy, so nothing written in the meantime gets lost. Visitors still see the site; edits, uploads, comments, forms and scheduled tasks wait until you unfreeze.
  * Version:           1.3.0
  * Requires at least: 6.6
@@ -10,19 +10,19 @@
  * Author URI:        https://profiles.wordpress.org/aryanjasala/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       deploy-freeze
+ * Text Domain:       site-read-only-mode
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze;
+namespace AryanX\SiteReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
 const VERSION     = '1.3.0';
 const PLUGIN_FILE = __FILE__;
 
-// PSR-4: AryanX\DeployFreeze\Foo\Bar lives in src/Foo/Bar.php.
+// PSR-4: AryanX\SiteReadOnlyMode\Foo\Bar lives in src/Foo/Bar.php.
 spl_autoload_register(
 	static function ( $class_name ) {
 		$prefix = __NAMESPACE__ . '\\';

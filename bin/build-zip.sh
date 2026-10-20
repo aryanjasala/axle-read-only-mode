@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds dist/deploy-freeze/ and dist/deploy-freeze.zip from the working tree, leaving out
+# Builds dist/site-read-only-mode/ and dist/site-read-only-mode.zip from the working tree, leaving out
 # everything listed in .distignore. Used by the release and Plugin Check workflows.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-slug="deploy-freeze"
+slug="site-read-only-mode"
 rm -rf dist
 mkdir -p "dist/$slug"
 rsync -a --exclude-from=.distignore ./ "dist/$slug/"

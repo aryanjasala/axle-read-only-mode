@@ -1,6 +1,6 @@
 # WordPress for the end-to-end tests: npm run env:start / npm run env:stop.
 # The plugin is mounted read-only, so nothing in WordPress can change or delete the source.
-name: deploy-freeze-e2e
+name: site-read-only-mode-e2e
 
 x-wp-env: &wp-env
   WORDPRESS_DB_HOST: db
@@ -14,7 +14,7 @@ x-wp-env: &wp-env
 
 x-mounts: &mounts
   - wp_data:/var/www/html
-  - ../../..:/var/www/html/wp-content/plugins/deploy-freeze:ro
+  - ../../..:/var/www/html/wp-content/plugins/site-read-only-mode:ro
 
 services:
   db:

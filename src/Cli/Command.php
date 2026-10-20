@@ -1,15 +1,15 @@
 <?php
 /**
- * `wp deploy-freeze` commands.
+ * `wp site-read-only-mode` commands.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Cli;
+namespace AryanX\SiteReadOnlyMode\Cli;
 
-use AryanX\DeployFreeze\BlockedLog;
-use AryanX\DeployFreeze\Freezer;
-use AryanX\DeployFreeze\State;
+use AryanX\SiteReadOnlyMode\BlockedLog;
+use AryanX\SiteReadOnlyMode\Freezer;
+use AryanX\SiteReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -58,7 +58,7 @@ final class Command {
 	 * ## OPTIONS
 	 *
 	 * [--minutes=<minutes>]
-	 * : Minutes until the freeze ends on its own. 0 means it lasts until `wp deploy-freeze off`. Default 60, or the deploy_freeze_default_duration filter.
+	 * : Minutes until the freeze ends on its own. 0 means it lasts until `wp site-read-only-mode off`. Default 60, or the site_read_only_mode_default_duration filter.
 	 *
 	 * [--reason=<reason>]
 	 * : Shown to logged-in users who try to save something.
@@ -74,7 +74,7 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp deploy-freeze on --minutes=30 --reason="Moving servers"
+	 *     wp site-read-only-mode on --minutes=30 --reason="Moving servers"
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Named arguments.

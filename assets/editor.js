@@ -1,11 +1,11 @@
 /**
- * Deploy Freeze: locks Save and Publish in the block editor while the site is
+ * Site Read-Only Mode: locks Save and Publish in the block editor while the site is
  * frozen, and unlocks them when the heartbeat reports the freeze has ended.
  */
 ( function ( wp, $, settings ) {
 	'use strict';
 
-	var LOCK = 'deploy-freeze';
+	var LOCK = 'site-read-only-mode';
 	var frozen = false;
 
 	function apply( message ) {
@@ -29,9 +29,9 @@
 		apply( settings.message );
 
 		$( document ).on( 'heartbeat-tick', function ( event, data ) {
-			if ( data && 'deploy_freeze' in data ) {
-				apply( data.deploy_freeze );
+			if ( data && 'site_read_only_mode' in data ) {
+				apply( data.site_read_only_mode );
 			}
 		} );
 	} );
-} )( window.wp, window.jQuery, window.deployFreezeEditor || { message: '' } );
+} )( window.wp, window.jQuery, window.siteReadOnlyModeEditor || { message: '' } );

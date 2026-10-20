@@ -1,7 +1,7 @@
 const path = require( 'path' );
 
 module.exports = {
-	SLUG: 'deploy-freeze',
+	SLUG: 'site-read-only-mode',
 	BASE_URL: process.env.WP_BASE_URL || 'http://localhost:8895',
 	// Test-only credentials for the throwaway Docker site.
 	USERNAME: process.env.WP_USERNAME || 'admin',
@@ -10,5 +10,5 @@ module.exports = {
 	// This plugin's own Docker site by default. A shared site can be used by pointing WP_COMPOSE_DIR at its compose folder.
 	COMPOSE_DIR: process.env.WP_COMPOSE_DIR || path.join( __dirname, '..', 'env' ),
 	// Options the plugin stores, cleared before each run.
-	OPTIONS: ['deploy_freeze_state', 'deploy_freeze_log', 'deploy_freeze_history'],
+	OPTIONS: ['site_read_only_mode_state', 'site_read_only_mode_log', 'site_read_only_mode_history'],
 };

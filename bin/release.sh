@@ -15,7 +15,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-slug="deploy-freeze"
+slug="site-read-only-mode"
 main_file="$slug.php"
 
 header_version() {

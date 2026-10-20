@@ -2,10 +2,10 @@
 /**
  * The saved freeze.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze;
+namespace AryanX\SiteReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class State {
 
-	public const OPTION = 'deploy_freeze_state';
+	public const OPTION = 'site_read_only_mode_state';
 
 	private const DEFAULTS = array(
 		'active'          => false,
@@ -64,7 +64,7 @@ final class State {
 	 * @return bool
 	 */
 	public function forced_by_constant(): bool {
-		return defined( 'DEPLOY_FREEZE' ) && DEPLOY_FREEZE;
+		return defined( 'SITE_READ_ONLY_MODE' ) && SITE_READ_ONLY_MODE;
 	}
 
 	/**
@@ -90,12 +90,12 @@ final class State {
 		 *
 		 * Lets a deploy system freeze every site from one switch (an environment
 		 * variable, a cache key). Runs on plugins_loaded, so add it from a
-		 * must-use plugin. The DEPLOY_FREEZE constant always wins.
+		 * must-use plugin. The SITE_READ_ONLY_MODE constant always wins.
 		 *
 		 * @param bool  $frozen Whether the freeze is on.
 		 * @param array $state  The saved freeze.
 		 */
-		return (bool) apply_filters( 'deploy_freeze_is_frozen', $frozen, $state );
+		return (bool) apply_filters( 'site_read_only_mode_is_frozen', $frozen, $state );
 	}
 
 	/**
@@ -148,7 +148,7 @@ final class State {
 		 * @param bool $exempt  Whether the user is exempt.
 		 * @param int  $user_id Current user ID, 0 for visitors.
 		 */
-		return (bool) apply_filters( 'deploy_freeze_user_can_bypass', $exempt, $user_id );
+		return (bool) apply_filters( 'site_read_only_mode_user_can_bypass', $exempt, $user_id );
 	}
 
 	/**
@@ -168,17 +168,17 @@ final class State {
 	 * @return string
 	 */
 	public function message(): string {
-		$reason = $this->forced_by_constant() && defined( 'DEPLOY_FREEZE_REASON' ) ? (string) DEPLOY_FREEZE_REASON : (string) $this->get( 'reason' );
+		$reason = $this->forced_by_constant() && defined( 'SITE_READ_ONLY_MODE_REASON' ) ? (string) SITE_READ_ONLY_MODE_REASON : (string) $this->get( 'reason' );
 		$until  = $this->end_time();
 
 		$message = $until
 			/* translators: %s: time the freeze ends. */
-			? sprintf( __( 'This site is frozen for maintenance until %s. Changes cannot be saved right now.', 'deploy-freeze' ), $until )
-			: __( 'This site is frozen for maintenance. Changes cannot be saved right now.', 'deploy-freeze' );
+			? sprintf( __( 'This site is frozen for maintenance until %s. Changes cannot be saved right now.', 'site-read-only-mode' ), $until )
+			: __( 'This site is frozen for maintenance. Changes cannot be saved right now.', 'site-read-only-mode' );
 
 		if ( '' !== $reason ) {
 			/* translators: %s: reason for the freeze. */
-			$message .= ' ' . sprintf( __( 'Reason: %s', 'deploy-freeze' ), $reason );
+			$message .= ' ' . sprintf( __( 'Reason: %s', 'site-read-only-mode' ), $reason );
 		}
 
 		/**
@@ -187,7 +187,7 @@ final class State {
 		 * @param string $message Message.
 		 * @param array  $state   The freeze.
 		 */
-		return (string) apply_filters( 'deploy_freeze_message', $message, $this->all() );
+		return (string) apply_filters( 'site_read_only_mode_message', $message, $this->all() );
 	}
 
 	/**
@@ -201,8 +201,8 @@ final class State {
 			$until   = $this->end_time();
 			$message = $until
 				/* translators: %s: time the site is back. */
-				? sprintf( __( 'We are doing some maintenance and cannot accept submissions right now. Please try again after %s.', 'deploy-freeze' ), $until )
-				: __( 'We are doing some maintenance and cannot accept submissions right now. Please try again shortly.', 'deploy-freeze' );
+				? sprintf( __( 'We are doing some maintenance and cannot accept submissions right now. Please try again after %s.', 'site-read-only-mode' ), $until )
+				: __( 'We are doing some maintenance and cannot accept submissions right now. Please try again shortly.', 'site-read-only-mode' );
 		}
 
 		/**
@@ -211,6 +211,6 @@ final class State {
 		 * @param string $message Message, the one set for this freeze or the default.
 		 * @param array  $state   The freeze.
 		 */
-		return (string) apply_filters( 'deploy_freeze_visitor_message', $message, $this->all() );
+		return (string) apply_filters( 'site_read_only_mode_visitor_message', $message, $this->all() );
 	}
 }

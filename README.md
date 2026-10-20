@@ -1,19 +1,19 @@
 <p align="center"><img src=".wordpress-org/icon-256x256.png" alt="" width="88"></p>
 
-<h1 align="center">Deploy Freeze</h1>
+<h1 align="center">Site Read-Only Mode</h1>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/aryanjasala/deploy-freeze/main/blueprint.json"><img src="https://img.shields.io/badge/Try%20in-WordPress%20Playground-3858e9?logo=wordpress&logoColor=white" alt="Try in WordPress Playground"></a>
-  <a href="https://github.com/aryanjasala/deploy-freeze/releases/latest"><img src="https://img.shields.io/github/v/release/aryanjasala/deploy-freeze?label=release&color=2271b1" alt="Latest release"></a>
+  <a href="https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/aryanjasala/site-read-only-mode/main/blueprint.json"><img src="https://img.shields.io/badge/Try%20in-WordPress%20Playground-3858e9?logo=wordpress&logoColor=white" alt="Try in WordPress Playground"></a>
+  <a href="https://github.com/aryanjasala/site-read-only-mode/releases/latest"><img src="https://img.shields.io/github/v/release/aryanjasala/site-read-only-mode?label=release&color=2271b1" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/WordPress-6.6%2B-3858e9?logo=wordpress&logoColor=white" alt="WordPress 6.6+">
   <img src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?logo=php&logoColor=white" alt="PHP 7.4+">
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-GPL--2.0--or--later-blue" alt="License: GPL-2.0-or-later"></a>
   <br>
-  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpcs.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpcs.yml/badge.svg" alt="PHPCS"></a>
-  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpstan.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpstan.yml/badge.svg" alt="PHPStan"></a>
-  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/unit-tests.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/unit-tests.yml/badge.svg" alt="Unit tests"></a>
-  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/e2e-tests.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/e2e-tests.yml/badge.svg" alt="E2E tests"></a>
-  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/plugin-check.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/plugin-check.yml/badge.svg" alt="Plugin Check"></a>
+  <a href="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/phpcs.yml"><img src="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/phpcs.yml/badge.svg" alt="PHPCS"></a>
+  <a href="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/phpstan.yml"><img src="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/phpstan.yml/badge.svg" alt="PHPStan"></a>
+  <a href="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/unit-tests.yml"><img src="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/unit-tests.yml/badge.svg" alt="Unit tests"></a>
+  <a href="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/e2e-tests.yml"><img src="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/e2e-tests.yml/badge.svg" alt="E2E tests"></a>
+  <a href="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/plugin-check.yml"><img src="https://github.com/aryanjasala/site-read-only-mode/actions/workflows/plugin-check.yml/badge.svg" alt="Plugin Check"></a>
 </p>
 
 <p align="center">Read-only mode for migrations and deploys. Visitors still see the site, but nothing can be saved, so no edit, order or comment gets lost in the switch.</p>
@@ -24,7 +24,7 @@
 
 ---
 
-When you move a site to a new server, or replace the live database with one from staging, anything saved on the old copy during the move is lost. Maintenance mode hides the whole site. Deploy Freeze keeps it online and makes it read-only until you unfreeze, or until the freeze ends on its own.
+When you move a site to a new server, or replace the live database with one from staging, anything saved on the old copy during the move is lost. Maintenance mode hides the whole site. Site Read-Only Mode keeps it online and makes it read-only until you unfreeze, or until the freeze ends on its own.
 
 > [!NOTE]
 > Free and open source under the GPL. No pro version, no upsells, no ads in wp-admin, no tracking. And it stays that way.
@@ -42,13 +42,13 @@ When you move a site to a new server, or replace the live database with one from
 
 ## Install
 
-1. Download `deploy-freeze.zip` from the [latest release](https://github.com/aryanjasala/deploy-freeze/releases/latest).
+1. Download `site-read-only-mode.zip` from the [latest release](https://github.com/aryanjasala/site-read-only-mode/releases/latest).
 2. In WordPress, go to **Plugins > Add New Plugin > Upload Plugin**, choose the zip and activate it.
 
 Or with WP-CLI:
 
 ```sh
-wp plugin install https://github.com/aryanjasala/deploy-freeze/releases/latest/download/deploy-freeze.zip --activate
+wp plugin install https://github.com/aryanjasala/site-read-only-mode/releases/latest/download/site-read-only-mode.zip --activate
 ```
 
 Needs WordPress 6.6+ and PHP 7.4+. To try it first, the **Try in WordPress Playground** badge opens a throwaway WordPress in your browser with the plugin and some demo content.
@@ -58,9 +58,9 @@ Needs WordPress 6.6+ and PHP 7.4+. To try it first, the **Try in WordPress Playg
 WP-CLI is never blocked, so a deploy script can wrap the migration:
 
 ```sh
-wp deploy-freeze on --minutes=30 --reason="Moving servers"
+wp site-read-only-mode on --minutes=30 --reason="Moving servers"
 # ... migrate ...
-wp deploy-freeze off
+wp site-read-only-mode off
 ```
 
 If the script dies halfway, the freeze still ends after 30 minutes.
@@ -70,7 +70,7 @@ If the script dies halfway, the freeze still ends after 30 minutes.
 <table>
   <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-1.png" alt="The block editor during a freeze"><br><sub>The block editor during a freeze</sub></td>
-    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-2.png" alt="Tools > Deploy Freeze during a freeze, with countdown and blocked attempts"><br><sub>Tools > Deploy Freeze during a freeze, with countdown and blocked attempts</sub></td>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-2.png" alt="Tools > Site Read-Only Mode during a freeze, with countdown and blocked attempts"><br><sub>Tools > Site Read-Only Mode during a freeze, with countdown and blocked attempts</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-3.png" alt="What visitors see when they send a form during a freeze"><br><sub>What visitors see when they send a form during a freeze</sub></td>
@@ -91,7 +91,7 @@ If the script dies halfway, the freeze still ends after 30 minutes.
 ## Project structure
 
 ```
-deploy-freeze.php        plugin header and PSR-4 autoloader
+site-read-only-mode.php        plugin header and PSR-4 autoloader
 src/
 ├── Plugin.php           creates the services, guards load only while frozen
 ├── State.php            the saved freeze, its timing and messages
@@ -101,7 +101,7 @@ src/
 ├── Guards/              wp-admin, REST, front-end and cron guards
 ├── Admin/               freeze screen, notice, admin bar
 ├── Editor/EditorLock.php  locks the block editor through the heartbeat
-└── Cli/Command.php      wp deploy-freeze
+└── Cli/Command.php      wp site-read-only-mode
 assets/                  editor lock and countdown scripts
 tests/
 ├── Unit/                PHPUnit
@@ -116,10 +116,10 @@ Small plugins that each fill one gap in WordPress, all free with no pro version:
 
 | | Plugin | What it does |
 | --- | --- | --- |
-| <img src="https://raw.githubusercontent.com/aryanjasala/template-usage-column/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Template Usage Column](https://github.com/aryanjasala/template-usage-column) | See which template every page uses, and fix the pages on a missing template |
+| <img src="https://raw.githubusercontent.com/aryanjasala/page-template-usage/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Page Template Usage](https://github.com/aryanjasala/page-template-usage) | See which template every page uses, and fix the pages on a missing template |
 | <img src="https://raw.githubusercontent.com/aryanjasala/staging-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Staging Guard](https://github.com/aryanjasala/staging-guard) | Stops staging copies from emailing real people or getting indexed |
-| <img src="https://raw.githubusercontent.com/aryanjasala/term-trash/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Term Trash](https://github.com/aryanjasala/term-trash) | A trash for categories, tags and custom terms, with undo and full restore |
-| <img src="https://raw.githubusercontent.com/aryanjasala/restore-one-block/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Restore One Block](https://github.com/aryanjasala/restore-one-block) | Restore a single block from an old revision, not the whole post |
+| <img src="https://raw.githubusercontent.com/aryanjasala/category-tag-trash/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Category & Tag Trash](https://github.com/aryanjasala/category-tag-trash) | A trash for categories, tags and custom terms, with undo and full restore |
+| <img src="https://raw.githubusercontent.com/aryanjasala/restore-blocks-from-revisions/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Restore Blocks from Revisions](https://github.com/aryanjasala/restore-blocks-from-revisions) | Restore a single block from an old revision, not the whole post |
 
 ## License
 

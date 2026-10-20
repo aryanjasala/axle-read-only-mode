@@ -3,7 +3,7 @@ const { test, expect, wp, openEditor } = require( './utils' );
 const { prepareSite, recordDemo } = require( './utils/media' );
 
 const reset = () => {
-	for ( const option of [ 'deploy_freeze_state', 'deploy_freeze_log', 'deploy_freeze_history' ] ) {
+	for ( const option of [ 'site_read_only_mode_state', 'site_read_only_mode_log', 'site_read_only_mode_history' ] ) {
 		try {
 			wp( 'option', 'delete', option );
 		} catch ( error ) {
@@ -27,16 +27,16 @@ test( 'demo: freeze, see what is blocked, unfreeze', async ( { browser } ) => {
 
 	try {
 		await recordDemo( browser, async ( page, demo ) => {
-			await page.goto( '/wp-admin/tools.php?page=deploy-freeze' );
+			await page.goto( '/wp-admin/tools.php?page=site-read-only-mode' );
 			await demo.start();
 			await demo.pause( 1200 );
-			await demo.type( page.locator( '#df-reason' ), 'Moving to the new server' );
-			await demo.choose( page.locator( '#df-minutes' ), '60' );
+			await demo.type( page.locator( '#sro-reason' ), 'Moving to the new server' );
+			await demo.choose( page.locator( '#sro-minutes' ), '60' );
 			await demo.click( page.getByRole( 'button', { name: 'Freeze the site' } ), 300 );
-			await expect( page.locator( '.df-status h2' ) ).toHaveText( 'The site is frozen' );
-			await demo.moveTo( page.locator( '.df-countdown' ) );
+			await expect( page.locator( '.sro-status h2' ) ).toHaveText( 'The site is frozen' );
+			await demo.moveTo( page.locator( '.sro-countdown' ) );
 			await demo.pause( 1500 );
-			await demo.moveTo( page.locator( '#wp-admin-bar-deploy-freeze > a' ) );
+			await demo.moveTo( page.locator( '#wp-admin-bar-site-read-only-mode > a' ) );
 			await demo.pause( 1000 );
 
 			// The editor is read-only for the length of the freeze.
@@ -56,13 +56,13 @@ test( 'demo: freeze, see what is blocked, unfreeze', async ( { browser } ) => {
 			const comment = await page.evaluate( ( id ) => fetch( '/wp-comments-post.php', { method: 'POST', credentials: 'omit', body: new URLSearchParams( { comment: 'See you on Monday!', author: 'Sam', email: 'sam@example.com', comment_post_ID: String( id ) } ) } ).then( ( response ) => response.status ), Number( post ) );
 			expect( comment ).toBe( 503 );
 
-			await page.goto( '/wp-admin/tools.php?page=deploy-freeze' );
-			await expect( page.locator( '.df-blocked tbody tr' ) ).toHaveCount( 2 );
-			await demo.moveTo( page.locator( '.df-blocked tbody tr' ).first() );
+			await page.goto( '/wp-admin/tools.php?page=site-read-only-mode' );
+			await expect( page.locator( '.sro-blocked tbody tr' ) ).toHaveCount( 2 );
+			await demo.moveTo( page.locator( '.sro-blocked tbody tr' ).first() );
 			await demo.pause( 1800 );
 			await demo.click( page.getByRole( 'button', { name: 'Unfreeze now' } ), 300 );
 			await expect( page.locator( '.notice-success' ) ).toContainText( 'The site is unfrozen.' );
-			await demo.moveTo( page.locator( '.df-history tbody tr' ).first() );
+			await demo.moveTo( page.locator( '.sro-history tbody tr' ).first() );
 			await demo.pause( 1800 );
 		} );
 	} finally {

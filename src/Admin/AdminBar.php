@@ -2,14 +2,14 @@
 /**
  * Freeze status and quick actions in the admin bar.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Admin;
+namespace AryanX\SiteReadOnlyMode\Admin;
 
-use AryanX\DeployFreeze\Freezer;
-use AryanX\DeployFreeze\Service;
-use AryanX\DeployFreeze\State;
+use AryanX\SiteReadOnlyMode\Freezer;
+use AryanX\SiteReadOnlyMode\Service;
+use AryanX\SiteReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -57,9 +57,9 @@ final class AdminBar implements Service {
 				$admin_bar->add_node(
 					array(
 						'parent' => 'site-name',
-						'id'     => 'deploy-freeze-quick',
+						'id'     => 'site-read-only-mode-quick',
 						/* translators: %s: length, e.g. "1 hour". */
-						'title'  => esc_html( sprintf( __( 'Freeze site for %s', 'deploy-freeze' ), ToolsPage::duration_label( Freezer::default_duration() ) ) ),
+						'title'  => esc_html( sprintf( __( 'Freeze site for %s', 'site-read-only-mode' ), ToolsPage::duration_label( Freezer::default_duration() ) ) ),
 						'href'   => ToolsPage::action_url( 'quick_freeze', Freezer::default_duration() ),
 					)
 				);
@@ -70,9 +70,9 @@ final class AdminBar implements Service {
 		$until = $this->state->end_time();
 		$admin_bar->add_node(
 			array(
-				'id'    => 'deploy-freeze',
+				'id'    => 'site-read-only-mode',
 				/* translators: %s: time the freeze ends. */
-				'title' => esc_html( $until ? sprintf( __( 'Frozen until %s', 'deploy-freeze' ), $until ) : __( 'Frozen', 'deploy-freeze' ) ),
+				'title' => esc_html( $until ? sprintf( __( 'Frozen until %s', 'site-read-only-mode' ), $until ) : __( 'Frozen', 'site-read-only-mode' ) ),
 				'href'  => $can_manage ? admin_url( 'tools.php?page=' . ToolsPage::SLUG ) : false,
 				'meta'  => array( 'title' => $this->state->message() ),
 			)
@@ -84,9 +84,9 @@ final class AdminBar implements Service {
 
 		$admin_bar->add_node(
 			array(
-				'parent' => 'deploy-freeze',
-				'id'     => 'deploy-freeze-unfreeze',
-				'title'  => esc_html__( 'Unfreeze now', 'deploy-freeze' ),
+				'parent' => 'site-read-only-mode',
+				'id'     => 'site-read-only-mode-unfreeze',
+				'title'  => esc_html__( 'Unfreeze now', 'site-read-only-mode' ),
 				'href'   => ToolsPage::action_url( 'unfreeze' ),
 			)
 		);
@@ -94,10 +94,10 @@ final class AdminBar implements Service {
 		if ( $this->state->get( 'end' ) ) {
 			$admin_bar->add_node(
 				array(
-					'parent' => 'deploy-freeze',
-					'id'     => 'deploy-freeze-extend',
+					'parent' => 'site-read-only-mode',
+					'id'     => 'site-read-only-mode-extend',
 					/* translators: %s: length, e.g. "30 minutes". */
-					'title'  => esc_html( sprintf( __( 'Add %s', 'deploy-freeze' ), ToolsPage::duration_label( Freezer::extend_steps()[0] ) ) ),
+					'title'  => esc_html( sprintf( __( 'Add %s', 'site-read-only-mode' ), ToolsPage::duration_label( Freezer::extend_steps()[0] ) ) ),
 					'href'   => ToolsPage::action_url( 'extend', Freezer::extend_steps()[0] ),
 				)
 			);
@@ -109,7 +109,7 @@ final class AdminBar implements Service {
 	 */
 	public function add_style(): void {
 		if ( is_admin_bar_showing() && $this->state->is_frozen() ) {
-			wp_add_inline_style( 'admin-bar', '#wpadminbar #wp-admin-bar-deploy-freeze>.ab-item{background:#135e96;color:#fff;font-weight:600}' );
+			wp_add_inline_style( 'admin-bar', '#wpadminbar #wp-admin-bar-site-read-only-mode>.ab-item{background:#135e96;color:#fff;font-weight:600}' );
 		}
 	}
 }

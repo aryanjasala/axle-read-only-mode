@@ -72,13 +72,13 @@ jobs:
             echo
             echo "### Install"
             echo
-            echo "Download \`deploy-freeze.zip\` below and upload it under **Plugins > Add New Plugin > Upload Plugin**, or run:"
+            echo "Download \`site-read-only-mode.zip\` below and upload it under **Plugins > Add New Plugin > Upload Plugin**, or run:"
             echo
             echo '```'
-            echo "wp plugin install https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/deploy-freeze.zip --activate"
+            echo "wp plugin install https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/site-read-only-mode.zip --activate"
             echo '```'
             echo
-            echo "SHA-256 of the zip: \`$(sha256sum dist/deploy-freeze.zip | cut -d ' ' -f 1)\`"
+            echo "SHA-256 of the zip: \`$(sha256sum dist/site-read-only-mode.zip | cut -d ' ' -f 1)\`"
             if [ -n "$previous" ]; then
               echo
               echo "**Full diff:** https://github.com/$GITHUB_REPOSITORY/compare/$previous...v$VERSION"
@@ -92,9 +92,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v$VERSION" "dist/deploy-freeze.zip" \
+          gh release create "v$VERSION" "dist/site-read-only-mode.zip" \
             --target "$GITHUB_SHA" \
-            --title "Deploy Freeze $VERSION" \
+            --title "Site Read-Only Mode $VERSION" \
             --notes-file "$RUNNER_TEMP/notes.md"
 
   wordpress-org:
@@ -109,5 +109,5 @@ jobs:
         env:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
-          SLUG: deploy-freeze
+          SLUG: site-read-only-mode
           VERSION: ${{ needs.release.outputs.version }}

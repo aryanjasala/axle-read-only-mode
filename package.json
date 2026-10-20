@@ -1,5 +1,5 @@
 {
-  "name": "deploy-freeze",
+  "name": "site-read-only-mode",
   "private": true,
   "description": "Read-only mode for WordPress during migrations and deploys.",
   "license": "GPL-2.0-or-later",
