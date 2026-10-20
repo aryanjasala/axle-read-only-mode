@@ -67,11 +67,19 @@ jobs:
             echo "This pull request is kept up to date automatically after each merge to \`main\`."
           } > "$RUNNER_TEMP/body.md"
           title="chore(release): $VERSION"
-          if [ "$(gh pr view release/next --json state --jq .state 2>/dev/null)" = "OPEN" ]; then
-            gh pr edit release/next --title "$title" --body-file "$RUNNER_TEMP/body.md"
-          else
-            gh pr create --head release/next --base main --title "$title" --body-file "$RUNNER_TEMP/body.md"
-          fi
+          # The GitHub API now and then answers "Something went wrong" yet does the
+          # work, so try a few times and check what is there before each try.
+          for attempt in 1 2 3; do
+            if [ "$(gh pr view release/next --json state --jq .state 2>/dev/null)" = "OPEN" ]; then
+              gh pr edit release/next --title "$title" --body-file "$RUNNER_TEMP/body.md" && exit 0
+            else
+              gh pr create --head release/next --base main --title "$title" --body-file "$RUNNER_TEMP/body.md" && exit 0
+            fi
+            echo "::warning::Attempt $attempt to open or update the release pull request failed, trying again."
+            sleep $(( attempt * 10 ))
+          done
+          echo "::error::Could not open or update the release pull request."
+          exit 1
 
       - name: Start the checks on the release pull request
         if: steps.next.outputs.version != ''
