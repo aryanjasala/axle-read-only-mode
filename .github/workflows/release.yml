@@ -1,0 +1,75 @@
+name: Release
+
+# Push a tag like v1.2.0 to publish a GitHub release with the plugin zip.
+# Deploying to WordPress.org as well needs the repository variable WPORG_DEPLOY=true
+# and the secrets SVN_USERNAME and SVN_PASSWORD.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches the plugin version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          header="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*([^[:space:]]+).*/\1/p' deploy-freeze.php | head -1)"
+          constant="$(sed -nE "s/^const VERSION[[:space:]]*=[[:space:]]*'([^']+)';/\1/p" deploy-freeze.php | head -1)"
+          stable="$(sed -nE 's/^Stable tag:[[:space:]]*([^[:space:]]+).*/\1/p' readme.txt | head -1)"
+          echo "tag $tag, header $header, VERSION $constant, stable tag $stable"
+          if [ "$tag" != "$header" ] || [ "$tag" != "$constant" ] || [ "$tag" != "$stable" ]; then
+            echo "::error::Tag v$tag does not match the plugin header ($header), VERSION ($constant) and readme Stable tag ($stable)."
+            exit 1
+          fi
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - uses: ramsey/composer-install@v4
+
+      - name: Lint and unit test before releasing
+        run: |
+          vendor/bin/phpcs -q
+          vendor/bin/phpunit
+
+      - name: Build the zip
+        run: bin/build-zip.sh
+
+      - name: Release notes from the readme changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="= $version =" '$0 == heading { found = 1; next } /^= / { found = 0 } found' readme.txt > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::readme.txt has no changelog entry for $version."
+            exit 1
+          fi
+          cat release-notes.md
+
+      - name: Publish the release
+        run: gh release create "$GITHUB_REF_NAME" "dist/deploy-freeze.zip" --title "Deploy Freeze ${GITHUB_REF_NAME#v}" --notes-file release-notes.md --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  wordpress-org:
+    name: Deploy to WordPress.org
+    needs: release
+    if: vars.WPORG_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: 10up/action-wordpress-plugin-deploy@2.3.0
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: deploy-freeze

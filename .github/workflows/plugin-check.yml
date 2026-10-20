@@ -1,0 +1,27 @@
+name: Plugin Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin-check:
+    name: WordPress.org Plugin Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the release folder
+        run: bin/build-zip.sh
+
+      - uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: dist/deploy-freeze
