@@ -28,7 +28,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       released: ${{ steps.version.outputs.release }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -45,13 +45,13 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         if: steps.version.outputs.release == 'true'
         with:
           php-version: '8.3'
           coverage: none
 
-      - uses: ramsey/composer-install@v4
+      - uses: ramsey/composer-install@26d8a556604053a9612623447203a691f406fbe6 # v4
         if: steps.version.outputs.release == 'true'
 
       - name: Lint and unit test before releasing
@@ -66,7 +66,24 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           bin/build-zip.sh
-          awk -v heading="= $VERSION =" '$0 == heading { found = 1; next } /^= / { found = 0 } found' readme.txt > "$RUNNER_TEMP/notes.md"
+          previous="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          {
+            awk -v heading="= $VERSION =" '$0 == heading { found = 1; next } /^= / { found = 0 } found' readme.txt
+            echo
+            echo "### Install"
+            echo
+            echo "Download \`deploy-freeze.zip\` below and upload it under **Plugins > Add New Plugin > Upload Plugin**, or run:"
+            echo
+            echo '```'
+            echo "wp plugin install https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/deploy-freeze.zip --activate"
+            echo '```'
+            echo
+            echo "SHA-256 of the zip: \`$(sha256sum dist/deploy-freeze.zip | cut -d ' ' -f 1)\`"
+            if [ -n "$previous" ]; then
+              echo
+              echo "**Full diff:** https://github.com/$GITHUB_REPOSITORY/compare/$previous...v$VERSION"
+            fi
+          } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
 
       - name: Publish the release
@@ -86,9 +103,9 @@ jobs:
     if: needs.release.outputs.released == 'true' && vars.WPORG_DEPLOY == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: 10up/action-wordpress-plugin-deploy@2.3.0
+      - uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2 # 2.3.0
         env:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
