@@ -130,6 +130,7 @@ test.describe( 'Site Read-Only Mode', () => {
 	} );
 
 	test( 'abilities: an agent can check, freeze and unfreeze, and other abilities that write are refused', async ( { rest } ) => {
+		test.skip( 'yes' !== wpEval( "echo function_exists( 'wp_register_ability' ) ? 'yes' : 'no';" ), 'The Abilities API needs WordPress 6.9.' );
 		const run = ( name, method, input ) => {
 			const path = `/wp-abilities/v1/abilities/site-read-only-mode/${ name }/run`;
 			if ( 'GET' === method ) {

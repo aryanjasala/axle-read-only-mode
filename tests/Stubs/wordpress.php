@@ -49,6 +49,64 @@ if ( ! class_exists( 'WP_Error' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WP_Post' ) ) {
+	/**
+	 * A post built from an array of fields.
+	 */
+	class WP_Post {
+		/** @var int */
+		public $ID = 0;
+		/** @var string */
+		public $post_content = '';
+
+		public function __construct( $fields = array() ) {
+			foreach ( (array) $fields as $key => $value ) {
+				$this->$key = $value;
+			}
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	/**
+	 * Enough of WP_REST_Request for code that reads parameters.
+	 */
+	class WP_REST_Request {
+		/** @var array */
+		private $params;
+
+		public function __construct( array $params = array() ) {
+			$this->params = $params;
+		}
+
+		public function get_param( $key ) {
+			return $this->params[ $key ] ?? null;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	/**
+	 * Enough of WP_REST_Response for code that reads and changes its data.
+	 */
+	class WP_REST_Response {
+		/** @var mixed */
+		private $data;
+
+		public function __construct( $data = null ) {
+			$this->data = $data;
+		}
+
+		public function get_data() {
+			return $this->data;
+		}
+
+		public function set_data( $data ) {
+			$this->data = $data;
+		}
+	}
+}
+
 if ( ! class_exists( 'WP_Query' ) ) {
 	/**
 	 * Minimal WP_Query for unit tests. Each new query takes the next queued result.
