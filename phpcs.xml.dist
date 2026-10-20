@@ -18,6 +18,9 @@
 	<rule ref="WordPress"/>
 	<rule ref="PHPCompatibilityWP"/>
 
+	<!-- The bar for WordPress VIP and other enterprise hosts: no unbounded queries, no uncached remote calls, no restricted functions. -->
+	<rule ref="WordPress-VIP-Go"/>
+
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">

@@ -32,7 +32,9 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase {
 		Functions\stubTranslationFunctions();
 		Functions\stubEscapeFunctions();
 
-		$this->options = array();
+		$this->options     = array();
+		\WP_Query::$queue = array();
+		\WP_Query::$made  = array();
 		Functions\when( 'get_option' )->alias(
 			function ( $name, $default = false ) {
 				return array_key_exists( $name, $this->options ) ? $this->options[ $name ] : $default;
