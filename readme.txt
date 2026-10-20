@@ -1,0 +1,91 @@
+=== Deploy Freeze ===
+Contributors: aryanjasala
+Tags: maintenance, migration, read only, deploy, freeze
+Requires at least: 6.6
+Tested up to: 7.1
+Requires PHP: 7.4
+Stable tag: 1.1.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Read-only mode for migrations and deploys. Visitors still see the site; nothing can be saved, so no edits, orders or comments get lost.
+
+== Description ==
+
+When you move a site to a new server, or replace the live database with one from staging, anything saved on the old copy during the move is lost: a post an editor was finishing, a comment, a form entry, a WooCommerce order.
+
+Maintenance mode hides the whole site from visitors. Deploy Freeze keeps the site online but makes it **read-only**:
+
+* **Editors** can open and read everything in wp-admin, but cannot save. The block editor disables Save and Publish and shows why. People who already have the editor open are locked within a minute, through the WordPress heartbeat, and unlocked again when the freeze ends.
+* **Admin actions** that change data are refused: saving settings, uploading media, installing or updating plugins, trashing posts. Automatic updates are paused.
+* **The REST API and XML-RPC** refuse anything that writes, with HTTP status 423. Reading still works.
+* **Visitor submissions** (optional, on by default): comments, sign-ups, contact forms, checkouts and any other form post get a "back soon" page with HTTP 503 and a Retry-After header, which search engines understand.
+* **Scheduled tasks** (optional, on by default) are held back and run when the freeze ends.
+
+Logging in always works, so an admin can always unfreeze.
+
+= See what was blocked =
+
+Every blocked attempt is listed: who tried, when, and what (a post save, an upload, a REST request, a contact form). After the move you know exactly which edits to redo on the new server. The last ten freezes are kept too, with how many attempts each one blocked.
+
+= Freeze safely =
+
+* Pick an end time and the freeze ends by itself. A deploy script that fails halfway cannot leave the site frozen for days.
+* Running late? Add 30 minutes or an hour from the freeze screen or the admin bar. A live countdown shows the time left.
+* Schedule a freeze for later, for example the start of a maintenance window.
+* Tick "Let me keep editing" to exempt yourself.
+* Write your own message for visitors, for example "We are moving servers. Back by 3 pm."
+* Freeze for an hour straight from the admin bar (under the site name), and unfreeze from the admin bar or the notice on every screen.
+
+= From a deploy script =
+
+`wp deploy-freeze on --minutes=30 --reason="Moving servers"`
+`wp deploy-freeze off`
+`wp deploy-freeze status`
+`wp deploy-freeze extend 30`
+`wp deploy-freeze log`
+
+WP-CLI itself is never blocked, so your scripts can keep importing and replacing data. Use `--no-visitors` or `--no-cron` to leave those running.
+
+Or freeze from wp-config.php while files are being swapped:
+
+`define( 'DEPLOY_FREEZE', true );`
+`define( 'DEPLOY_FREEZE_REASON', 'Moving servers' );`
+
+== Frequently Asked Questions ==
+
+= How is this different from a maintenance mode plugin? =
+
+Maintenance mode shows visitors a placeholder page instead of the site. Deploy Freeze keeps the site fully visible and only stops changes. Use it when the site has to stay online during the move.
+
+= Does it stop every plugin's forms? =
+
+It stops every form that posts to the site from the front end, every REST API write and every admin-ajax request that is not on the read-only list. A form that sends data straight to an outside service is not affected.
+
+= A read-only screen of my plugin stopped working during the freeze. =
+
+Admin-ajax requests are blocked unless they are known to be read-only. Add the action name with the `deploy_freeze_allowed_ajax_actions` filter.
+
+= Can someone keep working while the site is frozen? =
+
+Yes. Tick "Let me keep editing" when you freeze, or use the `deploy_freeze_user_can_bypass` filter.
+
+== Screenshots ==
+
+1. The block editor during a freeze.
+2. Tools > Deploy Freeze during a freeze, with countdown and blocked attempts.
+3. What visitors see when they send a form during a freeze.
+
+== Changelog ==
+
+= 1.1.0 =
+* New: list of blocked attempts, so you know which edits to redo after a migration.
+* New: history of the last ten freezes.
+* New: extend a freeze by 30 minutes or an hour, with a live countdown.
+* New: freeze and unfreeze from the admin bar.
+* New: custom message for visitors.
+* New: `wp deploy-freeze extend` and `wp deploy-freeze log`.
+* Rewritten as PSR-4 classes.
+
+= 1.0.0 =
+* First release.

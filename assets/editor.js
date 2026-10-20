@@ -1,0 +1,37 @@
+/**
+ * Deploy Freeze: locks Save and Publish in the block editor while the site is
+ * frozen, and unlocks them when the heartbeat reports the freeze has ended.
+ */
+( function ( wp, $, settings ) {
+	'use strict';
+
+	var LOCK = 'deploy-freeze';
+	var frozen = false;
+
+	function apply( message ) {
+		var editor = wp.data.dispatch( 'core/editor' );
+		var notices = wp.data.dispatch( 'core/notices' );
+
+		if ( message && ! frozen ) {
+			editor.lockPostSaving( LOCK );
+			editor.lockPostAutosaving( LOCK );
+			notices.createWarningNotice( message, { id: LOCK, isDismissible: false } );
+		} else if ( ! message && frozen ) {
+			editor.unlockPostSaving( LOCK );
+			editor.unlockPostAutosaving( LOCK );
+			notices.removeNotice( LOCK );
+		}
+
+		frozen = !! message;
+	}
+
+	wp.domReady( function () {
+		apply( settings.message );
+
+		$( document ).on( 'heartbeat-tick', function ( event, data ) {
+			if ( data && 'deploy_freeze' in data ) {
+				apply( data.deploy_freeze );
+			}
+		} );
+	} );
+} )( window.wp, window.jQuery, window.deployFreezeEditor || { message: '' } );
