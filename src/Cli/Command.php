@@ -58,10 +58,7 @@ final class Command {
 	 * ## OPTIONS
 	 *
 	 * [--minutes=<minutes>]
-	 * : Minutes until the freeze ends on its own. 0 means it lasts until `wp deploy-freeze off`.
-	 * ---
-	 * default: 60
-	 * ---
+	 * : Minutes until the freeze ends on its own. 0 means it lasts until `wp deploy-freeze off`. Default 60, or the deploy_freeze_default_duration filter.
 	 *
 	 * [--reason=<reason>]
 	 * : Shown to logged-in users who try to save something.
@@ -85,7 +82,7 @@ final class Command {
 	public function on( array $args, array $assoc_args ): void {
 		$this->freezer->freeze(
 			array(
-				'minutes'         => (int) ( $assoc_args['minutes'] ?? 60 ),
+				'minutes'         => isset( $assoc_args['minutes'] ) ? (int) $assoc_args['minutes'] : Freezer::default_duration(),
 				'reason'          => (string) ( $assoc_args['reason'] ?? '' ),
 				'visitor_message' => (string) ( $assoc_args['visitor-message'] ?? '' ),
 				'visitors'        => \WP_CLI\Utils\get_flag_value( $assoc_args, 'visitors', true ),

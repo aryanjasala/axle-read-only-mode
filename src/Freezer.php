@@ -65,7 +65,7 @@ final class Freezer {
 	 */
 	public function freeze( array $args ): void {
 		$start   = ! empty( $args['start'] ) ? (int) $args['start'] : time();
-		$minutes = isset( $args['minutes'] ) ? max( 0, (int) $args['minutes'] ) : 60;
+		$minutes = isset( $args['minutes'] ) ? max( 0, (int) $args['minutes'] ) : self::default_duration();
 
 		// The previous freeze's one-time expiry marker is no longer needed.
 		delete_option( self::expiry_key( (int) $this->state->get( 'start' ) ) );
@@ -106,7 +106,75 @@ final class Freezer {
 
 		$this->state->update( array( 'end' => max( $end, time() ) + $minutes * MINUTE_IN_SECONDS ) );
 
+		/**
+		 * Fires when a freeze is extended.
+		 *
+		 * @param array $state   The freeze with its new end.
+		 * @param int   $minutes Minutes added.
+		 */
+		do_action( 'deploy_freeze_extended', $this->state->all(), $minutes );
+
 		return true;
+	}
+
+	/**
+	 * Minutes a freeze lasts when nobody says: the quick freeze in the admin bar,
+	 * `wp deploy-freeze on` without --minutes, and the PHP API.
+	 *
+	 * @return int Minutes, 0 for no end.
+	 */
+	public static function default_duration(): int {
+		/**
+		 * Filters how long a freeze lasts when no length is given.
+		 *
+		 * Also preselects that length on Tools > Deploy Freeze.
+		 *
+		 * @param int $minutes Default 60. 0 means until someone unfreezes.
+		 */
+		return max( 0, (int) apply_filters( 'deploy_freeze_default_duration', 60 ) );
+	}
+
+	/**
+	 * Lengths offered on Tools > Deploy Freeze.
+	 *
+	 * @return int[] Minutes, 0 for no end. Always includes the default length.
+	 */
+	public static function durations(): array {
+		/**
+		 * Filters the lengths offered on Tools > Deploy Freeze.
+		 *
+		 * @param int[] $minutes Default 30, 60, 120, 240, 480 and 0 (until someone unfreezes).
+		 */
+		$durations = array_map( 'absint', (array) apply_filters( 'deploy_freeze_durations', array( 30, 60, 120, 240, 480, 0 ) ) );
+		$durations = array_values( array_unique( array_merge( $durations, array( self::default_duration() ) ) ) );
+
+		// Lengths first, shortest to longest, then "until I unfreeze it".
+		usort(
+			$durations,
+			static function ( int $a, int $b ): int {
+				return ( 0 === $a ? PHP_INT_MAX : $a ) <=> ( 0 === $b ? PHP_INT_MAX : $b );
+			}
+		);
+
+		return $durations;
+	}
+
+	/**
+	 * Steps offered for extending a freeze, in the admin bar and on the screen.
+	 *
+	 * @return int[] Minutes, at least one.
+	 */
+	public static function extend_steps(): array {
+		/**
+		 * Filters the "+30 minutes" style buttons for extending a freeze.
+		 *
+		 * The first one is also the admin bar's "Add 30 minutes".
+		 *
+		 * @param int[] $minutes Default 30 and 60.
+		 */
+		$steps = array_values( array_filter( array_map( 'absint', (array) apply_filters( 'deploy_freeze_extend_minutes', array( 30, 60 ) ) ) ) );
+
+		return $steps ? $steps : array( 30 );
 	}
 
 	/**

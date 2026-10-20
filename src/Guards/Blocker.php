@@ -59,6 +59,17 @@ final class Blocker {
 	 * @param string $source admin, ajax, rest or front-end.
 	 */
 	public function record( string $where, string $source ): void {
+		/**
+		 * Fires for every request a freeze blocks, including ones the log leaves out.
+		 *
+		 * For sending blocked attempts to an outside log or an alert channel.
+		 *
+		 * @param string $where   What was blocked, e.g. "REST POST /wp/v2/posts/12".
+		 * @param string $source  admin, ajax, rest or front-end.
+		 * @param int    $user_id User, or 0 for a visitor.
+		 */
+		do_action( 'deploy_freeze_blocked', $where, $source, get_current_user_id() );
+
 		$this->log->add( $where, $source );
 	}
 

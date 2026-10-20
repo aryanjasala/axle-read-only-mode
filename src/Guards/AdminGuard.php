@@ -104,10 +104,24 @@ final class AdminGuard implements Service {
 			return;
 		}
 
-		if ( 'POST' === Blocker::method() || isset( $_GET['_wpnonce'] ) || isset( $_GET['_ajax_nonce'] ) || in_array( $pagenow, self::WRITING_SCREENS, true ) ) {
+		if ( 'POST' === Blocker::method() || isset( $_GET['_wpnonce'] ) || isset( $_GET['_ajax_nonce'] ) || in_array( $pagenow, $this->writing_screens(), true ) ) {
 			$this->blocker->stop( Blocker::method() . ' ' . Blocker::uri(), 'admin' );
 		}
 		// phpcs:enable WordPress.Security.NonceVerification
+	}
+
+	/**
+	 * Admin screens that are blocked even when only opened, because opening them writes.
+	 *
+	 * @return string[]
+	 */
+	private function writing_screens(): array {
+		/**
+		 * Filters the admin screens blocked during a freeze even when only opened.
+		 *
+		 * @param string[] $screens File names. Default post-new.php (it saves an auto-draft) and upgrade.php.
+		 */
+		return array_map( 'strval', (array) apply_filters( 'deploy_freeze_writing_screens', self::WRITING_SCREENS ) );
 	}
 
 	/**

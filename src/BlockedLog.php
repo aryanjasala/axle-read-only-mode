@@ -82,7 +82,13 @@ final class BlockedLog implements Service {
 			)
 		);
 
-		update_option( self::OPTION, array_slice( $log, 0, self::LIMIT ), false );
+		/**
+		 * Filters how many blocked attempts the log keeps.
+		 *
+		 * @param int $size Default 100.
+		 */
+		$size = max( 1, (int) apply_filters( 'deploy_freeze_log_size', self::LIMIT ) );
+		update_option( self::OPTION, array_slice( $log, 0, $size ), false );
 	}
 
 	/**

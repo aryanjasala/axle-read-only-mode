@@ -240,6 +240,55 @@ final class FreezeTest extends TestCase {
 		$this->assertSame( '(removed)', BlockedLog::who( array( 'user' => BlockedLog::ERASED ) ) );
 	}
 
+	public function test_lengths_follow_the_filters_and_always_offer_the_default(): void {
+		Filters\expectApplied( 'deploy_freeze_default_duration' )->andReturn( 90 );
+		Filters\expectApplied( 'deploy_freeze_durations' )->andReturn( array( 0, 240, 15 ) );
+
+		$this->assertSame( 90, Freezer::default_duration() );
+		$this->assertSame( array( 15, 90, 240, 0 ), Freezer::durations(), 'Shortest first, "until I unfreeze it" last, with the default added.' );
+	}
+
+	public function test_extend_steps_never_end_up_empty(): void {
+		Filters\expectApplied( 'deploy_freeze_extend_minutes' )->andReturn( array( 0, 'x' ) );
+
+		$this->assertSame( array( 30 ), Freezer::extend_steps() );
+	}
+
+	public function test_a_freeze_without_a_length_uses_the_filtered_default(): void {
+		Filters\expectApplied( 'deploy_freeze_default_duration' )->andReturn( 45 );
+
+		$this->freezer()->freeze( array( 'reason' => 'Swap' ) );
+
+		$state = $this->options[ State::OPTION ];
+		$this->assertSame( 45 * 60, $state['end'] - $state['start'] );
+	}
+
+	public function test_lengths_read_as_hours_and_minutes(): void {
+		$this->assertSame( '45 minutes', \AryanX\DeployFreeze\Admin\ToolsPage::duration_label( 45 ) );
+		$this->assertSame( '2 hours', \AryanX\DeployFreeze\Admin\ToolsPage::duration_label( 120 ) );
+		$this->assertSame( '1 hour 30 minutes', \AryanX\DeployFreeze\Admin\ToolsPage::duration_label( 90 ) );
+	}
+
+	public function test_a_filter_can_freeze_the_site_from_outside(): void {
+		Filters\expectApplied( 'deploy_freeze_is_frozen' )->andReturn( true );
+
+		$this->assertTrue( ( new State() )->is_frozen() );
+	}
+
+	public function test_the_messages_go_through_filters(): void {
+		$this->store(
+			array(
+				'start' => time() - 60,
+				'end'   => 0,
+			)
+		);
+		Filters\expectApplied( 'deploy_freeze_visitor_message' )->andReturn( 'Back at 3 pm.' );
+		Filters\expectApplied( 'deploy_freeze_message' )->andReturn( 'Ask Sam before editing.' );
+
+		$this->assertSame( 'Back at 3 pm.', ( new State() )->visitor_message() );
+		$this->assertSame( 'Ask Sam before editing.', ( new State() )->message() );
+	}
+
 	public function test_cancelling_a_scheduled_freeze_leaves_no_history(): void {
 		$this->store(
 			array(

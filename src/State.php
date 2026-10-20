@@ -83,7 +83,19 @@ final class State {
 		$state = $this->all();
 		$now   = time();
 
-		return $state['active'] && $now >= $state['start'] && ( ! $state['end'] || $now < $state['end'] );
+		$frozen = $state['active'] && $now >= $state['start'] && ( ! $state['end'] || $now < $state['end'] );
+
+		/**
+		 * Filters whether the site is frozen right now.
+		 *
+		 * Lets a deploy system freeze every site from one switch (an environment
+		 * variable, a cache key). Runs on plugins_loaded, so add it from a
+		 * must-use plugin. The DEPLOY_FREEZE constant always wins.
+		 *
+		 * @param bool  $frozen Whether the freeze is on.
+		 * @param array $state  The saved freeze.
+		 */
+		return (bool) apply_filters( 'deploy_freeze_is_frozen', $frozen, $state );
 	}
 
 	/**
@@ -169,7 +181,13 @@ final class State {
 			$message .= ' ' . sprintf( __( 'Reason: %s', 'deploy-freeze' ), $reason );
 		}
 
-		return $message;
+		/**
+		 * Filters the message logged-in users see during a freeze.
+		 *
+		 * @param string $message Message.
+		 * @param array  $state   The freeze.
+		 */
+		return (string) apply_filters( 'deploy_freeze_message', $message, $this->all() );
 	}
 
 	/**
@@ -178,16 +196,21 @@ final class State {
 	 * @return string
 	 */
 	public function visitor_message(): string {
-		$custom = (string) $this->get( 'visitor_message' );
-		if ( '' !== $custom ) {
-			return $custom;
+		$message = (string) $this->get( 'visitor_message' );
+		if ( '' === $message ) {
+			$until   = $this->end_time();
+			$message = $until
+				/* translators: %s: time the site is back. */
+				? sprintf( __( 'We are doing some maintenance and cannot accept submissions right now. Please try again after %s.', 'deploy-freeze' ), $until )
+				: __( 'We are doing some maintenance and cannot accept submissions right now. Please try again shortly.', 'deploy-freeze' );
 		}
 
-		$until = $this->end_time();
-
-		return $until
-			/* translators: %s: time the site is back. */
-			? sprintf( __( 'We are doing some maintenance and cannot accept submissions right now. Please try again after %s.', 'deploy-freeze' ), $until )
-			: __( 'We are doing some maintenance and cannot accept submissions right now. Please try again shortly.', 'deploy-freeze' );
+		/**
+		 * Filters the message visitors get when they send a form during a freeze.
+		 *
+		 * @param string $message Message, the one set for this freeze or the default.
+		 * @param array  $state   The freeze.
+		 */
+		return (string) apply_filters( 'deploy_freeze_visitor_message', $message, $this->all() );
 	}
 }
