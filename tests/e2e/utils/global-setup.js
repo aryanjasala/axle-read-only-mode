@@ -30,7 +30,8 @@ module.exports = async function globalSetup() {
 	}
 
 	wp( 'site', 'empty', '--yes' );
-	wp( 'theme', 'activate', 'twentytwentyfive' );
+	// WP_THEME lets the oldest supported WordPress run the suite with a theme it has.
+	wp( 'theme', 'activate', process.env.WP_THEME || 'twentytwentyfive' );
 	wp( 'plugin', 'activate', SLUG );
 	wp( 'rewrite', 'structure', '/%postname%/', '--hard' );
 	for ( const option of OPTIONS ) {

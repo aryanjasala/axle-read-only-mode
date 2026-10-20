@@ -22,8 +22,9 @@ defined( 'ABSPATH' ) || exit;
  * During a freeze, every ability that is not read-only is refused, from any
  * plugin, wherever it is called from, WP-CLI included, because agents call
  * abilities over WP-CLI too. Site Read-Only Mode's own abilities keep working, or
- * an agent could freeze the site and never unfreeze it. That needs
- * WordPress 7.1, which added the `wp_pre_execute_ability` filter.
+ * an agent could freeze the site and never unfreeze it. WordPress 7.1 and later
+ * check through the `wp_pre_execute_ability` filter; 6.9 and 7.0 through a
+ * wrapper around each ability's callback.
  */
 final class Abilities implements Service {
 
@@ -74,6 +75,7 @@ final class Abilities implements Service {
 		add_action( 'wp_abilities_api_categories_init', array( $this, 'register_category' ) );
 		add_action( 'wp_abilities_api_init', array( $this, 'register_abilities' ) );
 		add_filter( 'wp_pre_execute_ability', array( $this, 'gate' ), 10, 3 );
+		add_filter( 'wp_register_ability_args', array( $this, 'gate_on_register' ), 10, 2 );
 	}
 
 	/**
@@ -391,6 +393,36 @@ final class Abilities implements Service {
 		$this->log->add( 'ability ' . $name, 'ability' );
 
 		return new \WP_Error( 'site_read_only_mode', $this->state->message(), array( 'status' => 423 ) );
+	}
+
+	/**
+	 * Runs the freeze check inside each ability on WordPress 6.9 and 7.0.
+	 *
+	 * Those versions have no `wp_pre_execute_ability` filter, so the ability's
+	 * own callback asks gate() first. On 7.1 and later the filter does it and
+	 * this leaves abilities alone. `WP_Filter_Sentinel` arrived with the filter.
+	 *
+	 * @param mixed  $args Ability arguments.
+	 * @param string $name Ability name.
+	 * @return mixed
+	 */
+	public function gate_on_register( $args, $name ) {
+		if ( class_exists( 'WP_Filter_Sentinel' ) || ! is_array( $args ) || ! isset( $args['execute_callback'] ) || ! is_callable( $args['execute_callback'] ) ) {
+			return $args;
+		}
+
+		$execute                  = $args['execute_callback'];
+		$args['execute_callback'] = function ( $input = null ) use ( $execute, $name ) {
+			$refused = $this->gate( null, $name, $input );
+			if ( is_wp_error( $refused ) ) {
+				return $refused;
+			}
+
+			// Core passes no argument when there is no input, so neither does this.
+			return null === $input ? $execute() : $execute( $input );
+		};
+
+		return $args;
 	}
 
 	/**
