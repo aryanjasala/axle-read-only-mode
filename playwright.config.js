@@ -5,6 +5,8 @@ const { BASE_URL, STORAGE_STATE } = require( './tests/e2e/utils/config' );
 module.exports = defineConfig( {
 	testDir: 'tests/e2e',
 	testMatch: '**/*.spec.js',
+	// Screenshot specs only run on demand: npm run screenshots
+	testIgnore: process.env.SCREENSHOTS ? [] : [ '**/screenshots.spec.js' ],
 	// One WordPress site: tests change global state, so they run one at a time.
 	workers: 1,
 	fullyParallel: false,

@@ -1,69 +1,89 @@
 name: Release
 
-# Push a tag like v1.2.0 to publish a GitHub release with the plugin zip.
-# Deploying to WordPress.org as well needs the repository variable WPORG_DEPLOY=true
-# and the secrets SVN_USERNAME and SVN_PASSWORD.
+# Publishes a release whenever main carries a version that has no tag yet,
+# normally right after the release pull request (prepare-release.yml) is
+# merged: tags vX.Y.Z, builds the zip and creates the GitHub release with the
+# readme.txt changelog entry as notes.
+#
+# Deploying to WordPress.org as well needs the repository variable
+# WPORG_DEPLOY=true and the secrets SVN_USERNAME and SVN_PASSWORD.
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     name: GitHub release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      released: ${{ steps.version.outputs.release }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Check the tag matches the plugin version
+      - name: Is this version released yet?
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          header="$(sed -nE 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*([^[:space:]]+).*/\1/p' deploy-freeze.php | head -1)"
-          constant="$(sed -nE "s/^const VERSION[[:space:]]*=[[:space:]]*'([^']+)';/\1/p" deploy-freeze.php | head -1)"
-          stable="$(sed -nE 's/^Stable tag:[[:space:]]*([^[:space:]]+).*/\1/p' readme.txt | head -1)"
-          echo "tag $tag, header $header, VERSION $constant, stable tag $stable"
-          if [ "$tag" != "$header" ] || [ "$tag" != "$constant" ] || [ "$tag" != "$stable" ]; then
-            echo "::error::Tag v$tag does not match the plugin header ($header), VERSION ($constant) and readme Stable tag ($stable)."
-            exit 1
+          version="$(bin/release.sh check)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already released, nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing v$version."
+            echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: shivammathur/setup-php@v2
+        if: steps.version.outputs.release == 'true'
         with:
           php-version: '8.3'
           coverage: none
 
       - uses: ramsey/composer-install@v4
+        if: steps.version.outputs.release == 'true'
 
       - name: Lint and unit test before releasing
+        if: steps.version.outputs.release == 'true'
         run: |
           vendor/bin/phpcs -q
           vendor/bin/phpunit
 
-      - name: Build the zip
-        run: bin/build-zip.sh
-
-      - name: Release notes from the readme changelog
+      - name: Build the zip and release notes
+        if: steps.version.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v heading="= $version =" '$0 == heading { found = 1; next } /^= / { found = 0 } found' readme.txt > release-notes.md
-          if [ ! -s release-notes.md ]; then
-            echo "::error::readme.txt has no changelog entry for $version."
-            exit 1
-          fi
-          cat release-notes.md
+          bin/build-zip.sh
+          awk -v heading="= $VERSION =" '$0 == heading { found = 1; next } /^= / { found = 0 } found' readme.txt > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
 
       - name: Publish the release
-        run: gh release create "$GITHUB_REF_NAME" "dist/deploy-freeze.zip" --title "Deploy Freeze ${GITHUB_REF_NAME#v}" --notes-file release-notes.md --verify-tag
+        if: steps.version.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" "dist/deploy-freeze.zip" \
+            --target "$GITHUB_SHA" \
+            --title "Deploy Freeze $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md"
 
   wordpress-org:
     name: Deploy to WordPress.org
     needs: release
-    if: vars.WPORG_DEPLOY == 'true'
+    if: needs.release.outputs.released == 'true' && vars.WPORG_DEPLOY == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -73,3 +93,4 @@ jobs:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
           SLUG: deploy-freeze
+          VERSION: ${{ needs.release.outputs.version }}
