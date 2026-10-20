@@ -1,9 +1,9 @@
-.df-intro {
+.sro-intro {
 	max-width: 60em;
 }
 
-.df-panel,
-.df-status {
+.sro-panel,
+.sro-status {
 	background: #fff;
 	border: 1px solid #dcdcde;
 	border-radius: 4px;
@@ -11,45 +11,45 @@
 	margin: 16px 0;
 }
 
-.df-panel h2 {
+.sro-panel h2 {
 	margin-top: 0;
 	font-size: 14px;
 }
 
-.df-form .form-table th {
+.sro-form .form-table th {
 	width: 180px;
 }
 
-.df-status {
+.sro-status {
 	border-left: 4px solid #135e96;
 	background: #f0f6fc;
 }
 
-.df-status.is-scheduled {
+.sro-status.is-scheduled {
 	border-left-color: #dba617;
 	background: #fcf9e8;
 }
 
-.df-status__head {
+.sro-status__head {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 8px 12px;
 }
 
-.df-status__head h2 {
+.sro-status__head h2 {
 	margin: 0;
 	font-size: 18px;
 }
 
-.df-status__head .dashicons {
+.sro-status__head .dashicons {
 	font-size: 24px;
 	width: 24px;
 	height: 24px;
 	color: #135e96;
 }
 
-.df-countdown {
+.sro-countdown {
 	margin-left: auto;
 	padding: 4px 12px;
 	border-radius: 14px;
@@ -59,12 +59,12 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.df-reason {
+.sro-reason {
 	font-size: 14px;
 	margin: 10px 0 0;
 }
 
-.df-facts {
+.sro-facts {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px 20px;
@@ -72,37 +72,37 @@
 	color: #3c434a;
 }
 
-.df-facts li {
+.sro-facts li {
 	margin: 0;
 }
 
-.df-actions {
+.sro-actions {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 }
 
-.df-columns {
+.sro-columns {
 	display: grid;
 	grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
 	gap: 16px;
 	align-items: start;
 }
 
-.df-columns .df-panel {
+.sro-columns .sro-panel {
 	margin: 0;
 }
 
-.df-history .num,
-.df-blocked .num {
+.sro-history .num,
+.sro-blocked .num {
 	text-align: right;
 }
 
-.df-muted {
+.sro-muted {
 	color: #646970;
 }
 
-.df-code {
+.sro-code {
 	background: #1d2327;
 	color: #f0f0f1;
 	padding: 12px 14px;
@@ -112,11 +112,11 @@
 }
 
 @media screen and (max-width: 960px) {
-	.df-columns {
+	.sro-columns {
 		grid-template-columns: 1fr;
 	}
 
-	.df-countdown {
+	.sro-countdown {
 		margin-left: 0;
 	}
 }

@@ -2,13 +2,13 @@
 /**
  * The freeze notice on every admin screen.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Admin;
+namespace AryanX\SiteReadOnlyMode\Admin;
 
-use AryanX\DeployFreeze\Service;
-use AryanX\DeployFreeze\State;
+use AryanX\SiteReadOnlyMode\Service;
+use AryanX\SiteReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -51,14 +51,14 @@ final class Notice implements Service {
 
 		$exempt = $this->state->can_bypass();
 		?>
-		<div class="notice <?php echo $exempt ? 'notice-info' : 'notice-warning'; ?> deploy-freeze-notice">
+		<div class="notice <?php echo $exempt ? 'notice-info' : 'notice-warning'; ?> site-read-only-mode-notice">
 			<p>
 				<strong><?php echo esc_html( $this->state->message() ); ?></strong>
 				<?php if ( $exempt ) : ?>
-					<?php esc_html_e( 'You are exempt and can keep working.', 'deploy-freeze' ); ?>
+					<?php esc_html_e( 'You are exempt and can keep working.', 'site-read-only-mode' ); ?>
 				<?php endif; ?>
 				<?php if ( current_user_can( ToolsPage::capability() ) && ! $this->state->forced_by_constant() ) : ?>
-					<a class="button button-small" href="<?php echo esc_url( ToolsPage::action_url( 'unfreeze' ) ); ?>"><?php esc_html_e( 'Unfreeze now', 'deploy-freeze' ); ?></a>
+					<a class="button button-small" href="<?php echo esc_url( ToolsPage::action_url( 'unfreeze' ) ); ?>"><?php esc_html_e( 'Unfreeze now', 'site-read-only-mode' ); ?></a>
 				<?php endif; ?>
 			</p>
 		</div>

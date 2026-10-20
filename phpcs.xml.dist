@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset name="Deploy Freeze">
-	<description>WordPress coding standards for Deploy Freeze.</description>
+<ruleset name="Site Read-Only Mode">
+	<description>WordPress coding standards for Site Read-Only Mode.</description>
 
 	<file>.</file>
 	<exclude-pattern>/vendor/*</exclude-pattern>
@@ -24,7 +24,7 @@
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
-				<element value="deploy-freeze"/>
+				<element value="site-read-only-mode"/>
 			</property>
 		</properties>
 	</rule>
@@ -32,8 +32,8 @@
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">
-				<element value="AryanX\DeployFreeze"/>
-				<element value="deploy_freeze"/>
+				<element value="AryanX\SiteReadOnlyMode"/>
+				<element value="site_read_only_mode"/>
 			</property>
 		</properties>
 	</rule>

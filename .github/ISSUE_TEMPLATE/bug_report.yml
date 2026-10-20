@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Deploy Freeze does not work the way the docs say.
+description: Something in Site Read-Only Mode does not work the way the docs say.
 labels: [bug]
 body:
   - type: textarea
@@ -22,7 +22,7 @@ body:
   - type: input
     id: plugin
     attributes:
-      label: Deploy Freeze version
+      label: Site Read-Only Mode version
       placeholder: "1.1.0"
     validations:
       required: true

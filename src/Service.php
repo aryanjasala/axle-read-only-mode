@@ -2,10 +2,10 @@
 /**
  * Contract for classes that hook into WordPress.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze;
+namespace AryanX\SiteReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 

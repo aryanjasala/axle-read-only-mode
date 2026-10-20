@@ -2,10 +2,10 @@
 /**
  * Base class for unit tests.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Tests\Unit;
+namespace AryanX\SiteReadOnlyMode\Tests\Unit;
 
 use Brain\Monkey;
 use Brain\Monkey\Functions;

@@ -2,17 +2,17 @@
 /**
  * Abilities: freeze controls for AI agents and other Abilities API clients.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze;
+namespace AryanX\SiteReadOnlyMode;
 
-use AryanX\DeployFreeze\Admin\ToolsPage;
+use AryanX\SiteReadOnlyMode\Admin\ToolsPage;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Registers Deploy Freeze's abilities, and keeps other abilities from writing during a freeze.
+ * Registers Site Read-Only Mode's abilities, and keeps other abilities from writing during a freeze.
  *
  * Abilities are the WordPress 6.9+ way to describe what a site can do, with
  * input and output schemas and a permission check, so AI agents (through the
@@ -21,13 +21,13 @@ defined( 'ABSPATH' ) || exit;
  *
  * During a freeze, every ability that is not read-only is refused, from any
  * plugin, wherever it is called from, WP-CLI included, because agents call
- * abilities over WP-CLI too. Deploy Freeze's own abilities keep working, or
+ * abilities over WP-CLI too. Site Read-Only Mode's own abilities keep working, or
  * an agent could freeze the site and never unfreeze it. That needs
  * WordPress 7.1, which added the `wp_pre_execute_ability` filter.
  */
 final class Abilities implements Service {
 
-	public const CATEGORY = 'deploy-freeze';
+	public const CATEGORY = 'site-read-only-mode';
 
 	/**
 	 * The freeze state.
@@ -77,7 +77,7 @@ final class Abilities implements Service {
 	}
 
 	/**
-	 * Registers the Deploy Freeze category.
+	 * Registers the Site Read-Only Mode category.
 	 */
 	public function register_category(): void {
 		if ( ! function_exists( 'wp_register_ability_category' ) ) {
@@ -87,8 +87,8 @@ final class Abilities implements Service {
 		wp_register_ability_category(
 			self::CATEGORY,
 			array(
-				'label'       => __( 'Deploy Freeze', 'deploy-freeze' ),
-				'description' => __( 'Freeze the site read-only during migrations and deploys, and see what the freeze blocked.', 'deploy-freeze' ),
+				'label'       => __( 'Site Read-Only Mode', 'site-read-only-mode' ),
+				'description' => __( 'Freeze the site read-only during migrations and deploys, and see what the freeze blocked.', 'site-read-only-mode' ),
 			)
 		);
 	}
@@ -104,8 +104,8 @@ final class Abilities implements Service {
 
 		$this->ability(
 			'get-status',
-			__( 'Get freeze status', 'deploy-freeze' ),
-			__( 'Whether the site is frozen right now, until when and why. Check this before changing content during a migration or deploy.', 'deploy-freeze' ),
+			__( 'Get freeze status', 'site-read-only-mode' ),
+			__( 'Whether the site is frozen right now, until when and why. Check this before changing content during a migration or deploy.', 'site-read-only-mode' ),
 			array(),
 			$status,
 			array( $this, 'get_status' ),
@@ -120,36 +120,36 @@ final class Abilities implements Service {
 
 		$this->ability(
 			'freeze',
-			__( 'Freeze the site', 'deploy-freeze' ),
-			__( 'Makes the site read-only: nothing can be saved in wp-admin, the REST API or forms, while visitors can still read it. Ends on its own after the given minutes.', 'deploy-freeze' ),
+			__( 'Freeze the site', 'site-read-only-mode' ),
+			__( 'Makes the site read-only: nothing can be saved in wp-admin, the REST API or forms, while visitors can still read it. Ends on its own after the given minutes.', 'site-read-only-mode' ),
 			array(
 				'type'                 => 'object',
 				'properties'           => array(
 					'minutes'         => array(
 						'type'        => 'integer',
 						'minimum'     => 0,
-						'description' => __( 'Minutes until the freeze ends on its own. 0 means until someone unfreezes it.', 'deploy-freeze' ),
+						'description' => __( 'Minutes until the freeze ends on its own. 0 means until someone unfreezes it.', 'site-read-only-mode' ),
 						'default'     => Freezer::default_duration(),
 					),
 					'reason'          => array(
 						'type'        => 'string',
 						'maxLength'   => 200,
-						'description' => __( 'Shown to people who try to save something.', 'deploy-freeze' ),
+						'description' => __( 'Shown to people who try to save something.', 'site-read-only-mode' ),
 					),
 					'visitor_message' => array(
 						'type'        => 'string',
 						'maxLength'   => 500,
-						'description' => __( 'Shown to visitors who send a form. Empty for the default message.', 'deploy-freeze' ),
+						'description' => __( 'Shown to visitors who send a form. Empty for the default message.', 'site-read-only-mode' ),
 					),
 					'visitors'        => array(
 						'type'        => 'boolean',
 						'default'     => true,
-						'description' => __( 'Pause comments, forms, checkouts and sign-ups.', 'deploy-freeze' ),
+						'description' => __( 'Pause comments, forms, checkouts and sign-ups.', 'site-read-only-mode' ),
 					),
 					'cron'            => array(
 						'type'        => 'boolean',
 						'default'     => true,
-						'description' => __( 'Pause scheduled tasks until the freeze ends.', 'deploy-freeze' ),
+						'description' => __( 'Pause scheduled tasks until the freeze ends.', 'site-read-only-mode' ),
 					),
 				),
 				'additionalProperties' => false,
@@ -167,15 +167,15 @@ final class Abilities implements Service {
 
 		$this->ability(
 			'extend',
-			__( 'Extend the freeze', 'deploy-freeze' ),
-			__( 'Adds minutes to the current freeze. Fails when the site is not frozen or the freeze has no end time.', 'deploy-freeze' ),
+			__( 'Extend the freeze', 'site-read-only-mode' ),
+			__( 'Adds minutes to the current freeze. Fails when the site is not frozen or the freeze has no end time.', 'site-read-only-mode' ),
 			array(
 				'type'                 => 'object',
 				'properties'           => array(
 					'minutes' => array(
 						'type'        => 'integer',
 						'minimum'     => 1,
-						'description' => __( 'Minutes to add.', 'deploy-freeze' ),
+						'description' => __( 'Minutes to add.', 'site-read-only-mode' ),
 					),
 				),
 				'required'             => array( 'minutes' ),
@@ -193,8 +193,8 @@ final class Abilities implements Service {
 
 		$this->ability(
 			'unfreeze',
-			__( 'Unfreeze the site', 'deploy-freeze' ),
-			__( 'Ends the freeze now, so saving works again. Does nothing when the site is not frozen.', 'deploy-freeze' ),
+			__( 'Unfreeze the site', 'site-read-only-mode' ),
+			__( 'Ends the freeze now, so saving works again. Does nothing when the site is not frozen.', 'site-read-only-mode' ),
 			array(),
 			$status,
 			array( $this, 'unfreeze' ),
@@ -208,8 +208,8 @@ final class Abilities implements Service {
 
 		$this->ability(
 			'get-blocked',
-			__( 'List blocked changes', 'deploy-freeze' ),
-			__( 'What the current or last freeze blocked: when, who and what. Useful after a migration to see which edits to redo on the new server.', 'deploy-freeze' ),
+			__( 'List blocked changes', 'site-read-only-mode' ),
+			__( 'What the current or last freeze blocked: when, who and what. Useful after a migration to see which edits to redo on the new server.', 'site-read-only-mode' ),
 			array(
 				'type'                 => 'object',
 				'properties'           => array(
@@ -275,7 +275,7 @@ final class Abilities implements Service {
 	 */
 	public function freeze( $input = null ) {
 		if ( $this->state->forced_by_constant() ) {
-			return new \WP_Error( 'deploy_freeze_constant', __( 'DEPLOY_FREEZE in wp-config.php controls the freeze on this site.', 'deploy-freeze' ) );
+			return new \WP_Error( 'site_read_only_mode_constant', __( 'SITE_READ_ONLY_MODE in wp-config.php controls the freeze on this site.', 'site-read-only-mode' ) );
 		}
 
 		$input = (array) $input;
@@ -300,7 +300,7 @@ final class Abilities implements Service {
 	 */
 	public function extend( $input = null ) {
 		if ( ! $this->freezer->extend( (int) ( ( (array) $input )['minutes'] ?? 0 ) ) ) {
-			return new \WP_Error( 'deploy_freeze_not_extended', __( 'Only a running freeze with an end time can be extended.', 'deploy-freeze' ) );
+			return new \WP_Error( 'site_read_only_mode_not_extended', __( 'Only a running freeze with an end time can be extended.', 'site-read-only-mode' ) );
 		}
 
 		return $this->get_status();
@@ -313,7 +313,7 @@ final class Abilities implements Service {
 	 */
 	public function unfreeze() {
 		if ( $this->state->forced_by_constant() ) {
-			return new \WP_Error( 'deploy_freeze_constant', __( 'DEPLOY_FREEZE in wp-config.php controls the freeze on this site. Remove it to unfreeze.', 'deploy-freeze' ) );
+			return new \WP_Error( 'site_read_only_mode_constant', __( 'SITE_READ_ONLY_MODE in wp-config.php controls the freeze on this site. Remove it to unfreeze.', 'site-read-only-mode' ) );
 		}
 
 		$this->freezer->unfreeze( 'ability' );
@@ -365,7 +365,7 @@ final class Abilities implements Service {
 		 *
 		 * @param string[] $abilities Ability names. Default mcp-adapter/execute-ability.
 		 */
-		if ( in_array( $name, (array) apply_filters( 'deploy_freeze_dispatch_abilities', array( 'mcp-adapter/execute-ability' ) ), true ) ) {
+		if ( in_array( $name, (array) apply_filters( 'site_read_only_mode_dispatch_abilities', array( 'mcp-adapter/execute-ability' ) ), true ) ) {
 			return $pre;
 		}
 
@@ -382,19 +382,19 @@ final class Abilities implements Service {
 		 * @param string $ability_name Ability being run.
 		 * @param mixed  $input        Its input.
 		 */
-		if ( apply_filters( 'deploy_freeze_allow_ability', false, $name, $input ) ) {
+		if ( apply_filters( 'site_read_only_mode_allow_ability', false, $name, $input ) ) {
 			return $pre;
 		}
 
 		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Our own hook, documented in Guards/Blocker.php.
-		do_action( 'deploy_freeze_blocked', 'ability ' . $name, 'ability', get_current_user_id() );
+		do_action( 'site_read_only_mode_blocked', 'ability ' . $name, 'ability', get_current_user_id() );
 		$this->log->add( 'ability ' . $name, 'ability' );
 
-		return new \WP_Error( 'deploy_freeze', $this->state->message(), array( 'status' => 423 ) );
+		return new \WP_Error( 'site_read_only_mode', $this->state->message(), array( 'status' => 423 ) );
 	}
 
 	/**
-	 * Registers one ability in the Deploy Freeze category.
+	 * Registers one ability in the Site Read-Only Mode category.
 	 *
 	 * @param string   $name        Name without the namespace.
 	 * @param string   $label       Label.

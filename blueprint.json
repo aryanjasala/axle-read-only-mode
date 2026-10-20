@@ -1,10 +1,10 @@
 {
 	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
 	"meta": {
-		"title": "Deploy Freeze demo",
+		"title": "Site Read-Only Mode demo",
 		"author": "aryanjasala"
 	},
-	"landingPage": "/wp-admin/tools.php?page=deploy-freeze",
+	"landingPage": "/wp-admin/tools.php?page=site-read-only-mode",
 	"preferredVersions": {
 		"php": "8.3",
 		"wp": "latest"
@@ -18,12 +18,12 @@
 			"step": "installPlugin",
 			"pluginData": {
 				"resource": "git:directory",
-				"url": "https://github.com/aryanjasala/deploy-freeze",
+				"url": "https://github.com/aryanjasala/site-read-only-mode",
 				"ref": "main"
 			},
 			"options": {
 				"activate": true,
-				"targetFolderName": "deploy-freeze"
+				"targetFolderName": "site-read-only-mode"
 			}
 		},
 		{

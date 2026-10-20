@@ -4,7 +4,7 @@
  * classes the plugin touches. WordPress functions are mocked per test with
  * Brain Monkey, so WordPress itself is not loaded.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
 require dirname( __DIR__ ) . '/vendor/autoload.php';

@@ -23,7 +23,7 @@ There is no build step: the PHP runs as written, and the scripts in `assets/` us
 | `npm run test:e2e` | Playwright end-to-end tests against the Docker site, in headless Chrome |
 | `npm run screenshots` | Regenerates the screenshots in `.wordpress-org/` |
 | `npm run demo` | Records the README demo GIF in `.github/media/` (needs ffmpeg) |
-| `bin/build-zip.sh` | Builds `dist/deploy-freeze.zip`, leaving out everything in `.distignore` |
+| `bin/build-zip.sh` | Builds `dist/site-read-only-mode.zip`, leaving out everything in `.distignore` |
 | `bin/release.sh next` | Shows the version the next release would get |
 
 ## Tests
@@ -37,4 +37,4 @@ There is no build step: the PHP runs as written, and the scripts in `assets/` us
 
 ## Code layout
 
-Classes live in `src/` under the `AryanX\DeployFreeze\` namespace and follow PSR-4: `AryanX\DeployFreeze\Admin\Foo` is `src/Admin/Foo.php`. The main plugin file registers a small PSR-4 autoloader, so no `vendor/` folder ships with the plugin. Every class that adds hooks implements `Service` and is wired up in `Plugin`.
+Classes live in `src/` under the `AryanX\SiteReadOnlyMode\` namespace and follow PSR-4: `AryanX\SiteReadOnlyMode\Admin\Foo` is `src/Admin/Foo.php`. The main plugin file registers a small PSR-4 autoloader, so no `vendor/` folder ships with the plugin. Every class that adds hooks implements `Service` and is wired up in `Plugin`.

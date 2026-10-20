@@ -1,5 +1,5 @@
 /**
- * Deploy Freeze: live "Ends in 1:23:45" countdown on the freeze screen.
+ * Site Read-Only Mode: live "Ends in 1:23:45" countdown on the freeze screen.
  * Reloads the page when the freeze ends so the screen shows the new state.
  */
 ( function () {
@@ -16,9 +16,9 @@
 		return ( hours ? hours + ':' + pad( minutes ) : String( minutes ) ) + ':' + pad( rest );
 	}
 
-	document.querySelectorAll( '[data-df-end]' ).forEach( function ( element ) {
-		var end = Number( element.getAttribute( 'data-df-end' ) ) * 1000;
-		var label = element.getAttribute( 'data-df-label' );
+	document.querySelectorAll( '[data-sro-end]' ).forEach( function ( element ) {
+		var end = Number( element.getAttribute( 'data-sro-end' ) ) * 1000;
+		var label = element.getAttribute( 'data-sro-label' );
 		var timer;
 
 		function tick() {

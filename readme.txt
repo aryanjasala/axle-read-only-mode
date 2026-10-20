@@ -1,4 +1,4 @@
-=== Deploy Freeze ===
+=== Site Read-Only Mode ===
 Contributors: aryanjasala
 Tags: maintenance, migration, read only, deploy, freeze
 Requires at least: 6.6
@@ -14,7 +14,7 @@ Read-only mode for migrations and deploys. Visitors still see the site; nothing 
 
 When you move a site to a new server, or replace the live database with one from staging, anything saved on the old copy during the move is lost: a post an editor was finishing, a comment, a form entry, a WooCommerce order.
 
-Maintenance mode hides the whole site from visitors. Deploy Freeze keeps the site online but makes it **read-only**:
+Maintenance mode hides the whole site from visitors. Site Read-Only Mode keeps the site online but makes it **read-only**:
 
 * **Editors** can open and read everything in wp-admin, but cannot save. The block editor disables Save and Publish and shows why. People who already have the editor open are locked within a minute, through the WordPress heartbeat, and unlocked again when the freeze ends.
 * **Admin actions** that change data are refused: saving settings, uploading media, installing or updating plugins, trashing posts. Automatic updates are paused.
@@ -41,24 +41,24 @@ Every blocked attempt is listed: who tried, when, and what (a post save, an uplo
 
 = From a deploy script =
 
-`wp deploy-freeze on --minutes=30 --reason="Moving servers"`
-`wp deploy-freeze off`
-`wp deploy-freeze status`
-`wp deploy-freeze extend 30`
-`wp deploy-freeze log`
+`wp site-read-only-mode on --minutes=30 --reason="Moving servers"`
+`wp site-read-only-mode off`
+`wp site-read-only-mode status`
+`wp site-read-only-mode extend 30`
+`wp site-read-only-mode log`
 
 WP-CLI itself is never blocked, so your scripts can keep importing and replacing data. Use `--no-visitors` or `--no-cron` to leave those running.
 
 Or freeze from wp-config.php while files are being swapped:
 
-`define( 'DEPLOY_FREEZE', true );`
-`define( 'DEPLOY_FREEZE_REASON', 'Moving servers' );`
+`define( 'SITE_READ_ONLY_MODE', true );`
+`define( 'SITE_READ_ONLY_MODE_REASON', 'Moving servers' );`
 
 == Frequently Asked Questions ==
 
 = How is this different from a maintenance mode plugin? =
 
-Maintenance mode shows visitors a placeholder page instead of the site. Deploy Freeze keeps the site fully visible and only stops changes. Use it when the site has to stay online during the move.
+Maintenance mode shows visitors a placeholder page instead of the site. Site Read-Only Mode keeps the site fully visible and only stops changes. Use it when the site has to stay online during the move.
 
 = Does it stop every plugin's forms? =
 
@@ -66,16 +66,16 @@ It stops every form that posts to the site from the front end, every REST API wr
 
 = A read-only screen of my plugin stopped working during the freeze. =
 
-Admin-ajax requests are blocked unless they are known to be read-only. Add the action name with the `deploy_freeze_allowed_ajax_actions` filter.
+Admin-ajax requests are blocked unless they are known to be read-only. Add the action name with the `site_read_only_mode_allowed_ajax_actions` filter.
 
 = Can someone keep working while the site is frozen? =
 
-Yes. Tick "Let me keep editing" when you freeze, or use the `deploy_freeze_user_can_bypass` filter.
+Yes. Tick "Let me keep editing" when you freeze, or use the `site_read_only_mode_user_can_bypass` filter.
 
 == Screenshots ==
 
 1. The block editor during a freeze.
-2. Tools > Deploy Freeze during a freeze, with countdown and blocked attempts.
+2. Tools > Site Read-Only Mode during a freeze, with countdown and blocked attempts.
 3. What visitors see when they send a form during a freeze.
 
 == Changelog ==
@@ -95,7 +95,7 @@ Yes. Tick "Let me keep editing" when you freeze, or use the `deploy_freeze_user_
 * New: extend a freeze by 30 minutes or an hour, with a live countdown.
 * New: freeze and unfreeze from the admin bar.
 * New: custom message for visitors.
-* New: `wp deploy-freeze extend` and `wp deploy-freeze log`.
+* New: `wp site-read-only-mode extend` and `wp site-read-only-mode log`.
 * Rewritten as PSR-4 classes.
 
 = 1.0.0 =

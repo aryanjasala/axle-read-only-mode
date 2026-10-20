@@ -2,15 +2,15 @@
 /**
  * Locks saving in the block editor during a freeze.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Editor;
+namespace AryanX\SiteReadOnlyMode\Editor;
 
-use AryanX\DeployFreeze\Service;
-use AryanX\DeployFreeze\State;
-use const AryanX\DeployFreeze\PLUGIN_FILE;
-use const AryanX\DeployFreeze\VERSION;
+use AryanX\SiteReadOnlyMode\Service;
+use AryanX\SiteReadOnlyMode\State;
+use const AryanX\SiteReadOnlyMode\PLUGIN_FILE;
+use const AryanX\SiteReadOnlyMode\VERSION;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -67,7 +67,7 @@ final class EditorLock implements Service {
 		}
 
 		wp_enqueue_script(
-			'deploy-freeze-editor',
+			'site-read-only-mode-editor',
 			plugins_url( 'assets/editor.js', PLUGIN_FILE ),
 			array( 'wp-data', 'wp-editor', 'wp-notices', 'wp-dom-ready', 'heartbeat', 'jquery' ),
 			VERSION,
@@ -75,8 +75,8 @@ final class EditorLock implements Service {
 		);
 
 		wp_add_inline_script(
-			'deploy-freeze-editor',
-			'window.deployFreezeEditor = ' . wp_json_encode( array( 'message' => $this->lock_message() ) ) . ';',
+			'site-read-only-mode-editor',
+			'window.siteReadOnlyModeEditor = ' . wp_json_encode( array( 'message' => $this->lock_message() ) ) . ';',
 			'before'
 		);
 	}
@@ -88,7 +88,7 @@ final class EditorLock implements Service {
 	 * @return array
 	 */
 	public function heartbeat( array $response ): array {
-		$response['deploy_freeze'] = $this->lock_message();
+		$response['site_read_only_mode'] = $this->lock_message();
 
 		return $response;
 	}

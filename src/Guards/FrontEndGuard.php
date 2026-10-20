@@ -2,12 +2,12 @@
 /**
  * Rejects front-end form posts.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Guards;
+namespace AryanX\SiteReadOnlyMode\Guards;
 
-use AryanX\DeployFreeze\Service;
+use AryanX\SiteReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
 

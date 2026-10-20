@@ -2,10 +2,10 @@
 /**
  * What the freeze stopped.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze;
+namespace AryanX\SiteReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class BlockedLog implements Service {
 
-	public const OPTION = 'deploy_freeze_log';
+	public const OPTION = 'site_read_only_mode_log';
 
 	private const LIMIT = 100;
 
@@ -87,7 +87,7 @@ final class BlockedLog implements Service {
 		 *
 		 * @param int $size Default 100.
 		 */
-		$size = max( 1, (int) apply_filters( 'deploy_freeze_log_size', self::LIMIT ) );
+		$size = max( 1, (int) apply_filters( 'site_read_only_mode_log_size', self::LIMIT ) );
 		update_option( self::OPTION, array_slice( $log, 0, $size ), false );
 	}
 
@@ -105,7 +105,7 @@ final class BlockedLog implements Service {
 		 *
 		 * @param int $limit Default 10.
 		 */
-		return max( 0, (int) apply_filters( 'deploy_freeze_logged_visitors', 10 ) );
+		return max( 0, (int) apply_filters( 'site_read_only_mode_logged_visitors', 10 ) );
 	}
 
 	/**
@@ -127,7 +127,7 @@ final class BlockedLog implements Service {
 	 */
 	public static function who( array $entry ): string {
 		if ( self::ERASED === (int) ( $entry['user'] ?? 0 ) ) {
-			return __( '(removed)', 'deploy-freeze' );
+			return __( '(removed)', 'site-read-only-mode' );
 		}
 		if ( ! empty( $entry['user'] ) ) {
 			$user = get_userdata( (int) $entry['user'] );
@@ -161,8 +161,8 @@ final class BlockedLog implements Service {
 	 * @return array
 	 */
 	public function add_exporter( array $exporters ): array {
-		$exporters['deploy-freeze'] = array(
-			'exporter_friendly_name' => __( 'Deploy Freeze', 'deploy-freeze' ),
+		$exporters['site-read-only-mode'] = array(
+			'exporter_friendly_name' => __( 'Site Read-Only Mode', 'site-read-only-mode' ),
 			'callback'               => array( $this, 'export' ),
 		);
 
@@ -176,8 +176,8 @@ final class BlockedLog implements Service {
 	 * @return array
 	 */
 	public function add_eraser( array $erasers ): array {
-		$erasers['deploy-freeze'] = array(
-			'eraser_friendly_name' => __( 'Deploy Freeze', 'deploy-freeze' ),
+		$erasers['site-read-only-mode'] = array(
+			'eraser_friendly_name' => __( 'Site Read-Only Mode', 'site-read-only-mode' ),
 			'callback'             => array( $this, 'erase' ),
 		);
 
@@ -198,16 +198,16 @@ final class BlockedLog implements Service {
 			foreach ( $this->all() as $index => $entry ) {
 				if ( (int) ( $entry['user'] ?? 0 ) === $user->ID || ( $entry['who'] ?? '' ) === $user->user_login ) {
 					$data[] = array(
-						'group_id'    => 'deploy-freeze-blocked',
-						'group_label' => __( 'Changes blocked during a freeze', 'deploy-freeze' ),
-						'item_id'     => 'deploy-freeze-blocked-' . $index,
+						'group_id'    => 'site-read-only-mode-blocked',
+						'group_label' => __( 'Changes blocked during a freeze', 'site-read-only-mode' ),
+						'item_id'     => 'site-read-only-mode-blocked-' . $index,
 						'data'        => array(
 							array(
-								'name'  => __( 'Date', 'deploy-freeze' ),
+								'name'  => __( 'Date', 'site-read-only-mode' ),
 								'value' => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ),
 							),
 							array(
-								'name'  => __( 'What was blocked', 'deploy-freeze' ),
+								'name'  => __( 'What was blocked', 'site-read-only-mode' ),
 								'value' => (string) $entry['where'],
 							),
 						),
@@ -218,16 +218,16 @@ final class BlockedLog implements Service {
 			foreach ( $this->history->all() as $index => $freeze ) {
 				if ( (int) ( $freeze['by'] ?? 0 ) === $user->ID ) {
 					$data[] = array(
-						'group_id'    => 'deploy-freeze-history',
-						'group_label' => __( 'Freezes you started', 'deploy-freeze' ),
-						'item_id'     => 'deploy-freeze-history-' . $index,
+						'group_id'    => 'site-read-only-mode-history',
+						'group_label' => __( 'Freezes you started', 'site-read-only-mode' ),
+						'item_id'     => 'site-read-only-mode-history-' . $index,
 						'data'        => array(
 							array(
-								'name'  => __( 'Started', 'deploy-freeze' ),
+								'name'  => __( 'Started', 'site-read-only-mode' ),
 								'value' => gmdate( 'Y-m-d H:i:s', (int) $freeze['start'] ),
 							),
 							array(
-								'name'  => __( 'Reason', 'deploy-freeze' ),
+								'name'  => __( 'Reason', 'site-read-only-mode' ),
 								'value' => (string) $freeze['reason'],
 							),
 						),
@@ -287,8 +287,8 @@ final class BlockedLog implements Service {
 		}
 
 		wp_add_privacy_policy_content(
-			__( 'Deploy Freeze', 'deploy-freeze' ),
-			'<p>' . esc_html__( 'While the site is frozen for maintenance, Deploy Freeze keeps a list of the changes it blocked: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes.', 'deploy-freeze' ) . '</p>'
+			__( 'Site Read-Only Mode', 'site-read-only-mode' ),
+			'<p>' . esc_html__( 'While the site is frozen for maintenance, Site Read-Only Mode keeps a list of the changes it blocked: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes.', 'site-read-only-mode' ) . '</p>'
 		);
 	}
 

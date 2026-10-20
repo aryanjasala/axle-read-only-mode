@@ -2,12 +2,12 @@
 parameters:
 	level: 6
 	paths:
-		- deploy-freeze.php
+		- site-read-only-mode.php
 		- uninstall.php
 		- src
 	dynamicConstantNames:
-		- DEPLOY_FREEZE
-		- DEPLOY_FREEZE_REASON
+		- SITE_READ_ONLY_MODE
+		- SITE_READ_ONLY_MODE_REASON
 	scanFiles:
 		- vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
 	bootstrapFiles:

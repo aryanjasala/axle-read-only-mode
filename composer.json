@@ -1,5 +1,5 @@
 {
-  "name": "aryanx/deploy-freeze",
+  "name": "aryanx/site-read-only-mode",
   "description": "Read-only mode for WordPress during migrations and deploys.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
@@ -25,12 +25,12 @@
   },
   "autoload": {
     "psr-4": {
-      "AryanX\\DeployFreeze\\": "src/"
+      "AryanX\\SiteReadOnlyMode\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "AryanX\\DeployFreeze\\Tests\\": "tests/"
+      "AryanX\\SiteReadOnlyMode\\Tests\\": "tests/"
     }
   },
   "config": {

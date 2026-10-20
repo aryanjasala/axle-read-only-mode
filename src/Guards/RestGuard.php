@@ -2,13 +2,13 @@
 /**
  * Rejects REST API writes.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Guards;
+namespace AryanX\SiteReadOnlyMode\Guards;
 
-use AryanX\DeployFreeze\Abilities;
-use AryanX\DeployFreeze\Service;
+use AryanX\SiteReadOnlyMode\Abilities;
+use AryanX\SiteReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -69,7 +69,7 @@ final class RestGuard implements Service {
 		 *
 		 * @param string[] $routes Route prefixes. Default /wp/v2/block-renderer/.
 		 */
-		foreach ( (array) apply_filters( 'deploy_freeze_read_only_routes', self::READ_ONLY_ROUTES ) as $route ) {
+		foreach ( (array) apply_filters( 'site_read_only_mode_read_only_routes', self::READ_ONLY_ROUTES ) as $route ) {
 			if ( 0 === strpos( $request->get_route(), $route ) ) {
 				return $result;
 			}
@@ -89,19 +89,19 @@ final class RestGuard implements Service {
 		 * @param bool             $allow   Whether to let the request through. Default false.
 		 * @param \WP_REST_Request $request The request.
 		 */
-		if ( apply_filters( 'deploy_freeze_allow_rest_request', false, $request ) ) {
+		if ( apply_filters( 'site_read_only_mode_allow_rest_request', false, $request ) ) {
 			return $result;
 		}
 
 		$this->blocker->record( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest' );
 
-		return new \WP_Error( 'deploy_freeze', is_user_logged_in() ? $state->message() : $state->visitor_message(), array( 'status' => 423 ) );
+		return new \WP_Error( 'site_read_only_mode', is_user_logged_in() ? $state->message() : $state->visitor_message(), array( 'status' => 423 ) );
 	}
 
 	/**
 	 * Whether a request runs abilities, which are checked one by one instead.
 	 *
-	 * Deploy Freeze's own abilities always get through, or an agent could
+	 * Site Read-Only Mode's own abilities always get through, or an agent could
 	 * freeze the site and never unfreeze it. On WordPress 7.1 and later every
 	 * ability run gets through here, because Abilities refuses each one that
 	 * writes, wherever it is called from. Older versions have no way to tell,
@@ -124,7 +124,7 @@ final class RestGuard implements Service {
 		 *
 		 * @param string[] $routes Route prefixes. Default the Abilities API and the MCP adapter.
 		 */
-		foreach ( (array) apply_filters( 'deploy_freeze_ability_routes', array( '/wp-abilities/v1/', '/mcp/' ) ) as $prefix ) {
+		foreach ( (array) apply_filters( 'site_read_only_mode_ability_routes', array( '/wp-abilities/v1/', '/mcp/' ) ) as $prefix ) {
 			if ( 0 === strpos( $route, (string) $prefix ) ) {
 				return true;
 			}

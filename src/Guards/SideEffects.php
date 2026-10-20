@@ -2,13 +2,13 @@
 /**
  * Pauses everything else that writes on its own.
  *
- * @package AryanX\DeployFreeze
+ * @package AryanX\SiteReadOnlyMode
  */
 
-namespace AryanX\DeployFreeze\Guards;
+namespace AryanX\SiteReadOnlyMode\Guards;
 
-use AryanX\DeployFreeze\Service;
-use AryanX\DeployFreeze\State;
+use AryanX\SiteReadOnlyMode\Service;
+use AryanX\SiteReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 
