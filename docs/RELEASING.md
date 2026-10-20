@@ -7,7 +7,9 @@ Releases are automatic. Nobody bumps a version or pushes a tag by hand.
    - adds a `= x.y.z =` entry to the `readme.txt` changelog, one line per commit
 2. **The release pull request is merged.** The **Release** workflow sees a version on `main` that has no tag yet. It runs PHPCS and PHPUnit, builds the zip with `bin/build-zip.sh`, tags `vx.y.z` and publishes the GitHub release with the changelog entry as notes.
 
-The release pull request stays open and keeps updating as more pull requests land, so several fixes can ship in one release. Pull requests opened by GitHub Actions do not trigger workflows, so Prepare release starts the required checks on it itself.
+The release pull request stays open and keeps updating as more pull requests land, so several fixes can ship in one release. Its checks wait for approval, because GitHub Actions opened it, so Prepare release approves them itself.
+
+The release notes carry the changelog entry, an install command, the SHA-256 of the zip and a link to the full diff since the last release.
 
 ## Locally
 

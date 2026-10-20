@@ -25,7 +25,7 @@ jobs:
     name: Open or update the release pull request
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -73,13 +73,34 @@ jobs:
             gh pr create --head release/next --base main --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
 
-      - name: Run the checks on the release branch
+      - name: Start the checks on the release pull request
         if: steps.next.outputs.version != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        # Pushes and pull requests made with GITHUB_TOKEN do not start workflows,
-        # but workflow_dispatch does, so the required checks are started by hand.
+        # On a public repository, a pull request opened or updated with GITHUB_TOKEN
+        # gets its workflow runs, but they wait for a maintainer to approve them.
+        # Approving them here lets the required checks report on the pull request.
+        # If no runs show up at all, start the checks through workflow_dispatch.
         run: |
-          for workflow in phpcs.yml phpstan.yml unit-tests.yml e2e-tests.yml plugin-check.yml pr-title.yml; do
+          workflows=(phpcs.yml phpstan.yml unit-tests.yml e2e-tests.yml plugin-check.yml pr-title.yml)
+          sha="$(git rev-parse HEAD)"
+          for attempt in $(seq 1 24); do
+            sleep 5
+            runs="$(gh run list --branch release/next --commit "$sha" --event pull_request --limit 50 --json databaseId,conclusion)"
+            waiting="$(jq -r '.[] | select(.conclusion == "action_required") | .databaseId' <<< "$runs")"
+            for id in $waiting; do
+              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" > /dev/null && echo "Approved run $id"
+            done
+            if [ -z "$waiting" ] && [ "$(jq length <<< "$runs")" -ge "${#workflows[@]}" ]; then
+              echo "All ${#workflows[@]} checks are running on the pull request."
+              exit 0
+            fi
+          done
+          if [ "$(jq length <<< "$runs")" -gt 0 ]; then
+            echo "::error::Some pull request checks are still waiting for approval. Approve them on the Actions tab."
+            exit 1
+          fi
+          echo "::warning::No pull request runs showed up, so the checks are started through workflow_dispatch."
+          for workflow in "${workflows[@]}"; do
             gh workflow run "$workflow" --ref release/next
           done

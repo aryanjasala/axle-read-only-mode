@@ -19,11 +19,11 @@ jobs:
     name: WordPress.org Plugin Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build the release folder
         run: bin/build-zip.sh
 
-      - uses: wordpress/plugin-check-action@v1
+      - uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
         with:
           build-dir: dist/deploy-freeze
