@@ -4,7 +4,7 @@ Tags: maintenance, migration, read only, deploy, freeze
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -79,6 +79,11 @@ Yes. Tick "Let me keep editing" when you freeze, or use the `deploy_freeze_user_
 3. What visitors see when they send a form during a freeze.
 
 == Changelog ==
+
+= 1.2.0 =
+* New: add filters for the freeze lengths, messages and limits, and actions for each blocked request
+* Fix: stop bots from flooding the freeze log, and keep personal data out of it
+* Fix: keep editor housekeeping working during a freeze
 
 = 1.1.0 =
 * New: list of blocked attempts, so you know which edits to redo after a migration.
