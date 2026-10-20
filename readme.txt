@@ -24,6 +24,8 @@ Maintenance mode hides the whole site from visitors. Deploy Freeze keeps the sit
 
 Logging in always works, so an admin can always unfreeze.
 
+Free and open source under the GPL. No pro version, no upsells, no ads in wp-admin, no tracking. And it stays that way.
+
 = See what was blocked =
 
 Every blocked attempt is listed: who tried, when, and what (a post save, an upload, a REST request, a contact form). After the move you know exactly which edits to redo on the new server. The last ten freezes are kept too, with how many attempts each one blocked.
