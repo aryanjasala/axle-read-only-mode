@@ -4,7 +4,7 @@ Tags: maintenance, migration, read only, deploy, freeze
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -79,6 +79,10 @@ Yes. Tick "Let me keep editing" when you freeze, or use the `deploy_freeze_user_
 3. What visitors see when they send a form during a freeze.
 
 == Changelog ==
+
+= 1.3.0 =
+* Fix: make the abilities visible to MCP agents, and let the MCP adapter run them during a freeze
+* New: add abilities so AI agents can check and control a freeze, and refuse other abilities that write during one
 
 = 1.2.0 =
 * New: add filters for the freeze lengths, messages and limits, and actions for each blocked request
