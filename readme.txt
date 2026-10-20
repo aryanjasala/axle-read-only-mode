@@ -4,7 +4,7 @@ Tags: maintenance, migration, read only, deploy, freeze
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -79,6 +79,9 @@ Yes. Tick "Let me keep editing" when you freeze, or use the `site_read_only_mode
 3. What visitors see when they send a form during a freeze.
 
 == Changelog ==
+
+= 2.0.0 =
+* Changed (breaking change): rename to Site Read-Only Mode for WordPress.org
 
 = 1.3.0 =
 * Fix: make the abilities visible to MCP agents, and let the MCP adapter run them during a freeze
