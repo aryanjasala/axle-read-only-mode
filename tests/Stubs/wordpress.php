@@ -48,3 +48,51 @@ if ( ! class_exists( 'WP_Error' ) ) {
 		}
 	}
 }
+
+if ( ! class_exists( 'WP_Query' ) ) {
+	/**
+	 * Minimal WP_Query for unit tests. Each new query takes the next queued result.
+	 */
+	class WP_Query {
+
+		/**
+		 * Results for the next queries: each array( 'posts' => array(), 'found_posts' => int ).
+		 *
+		 * @var array[]
+		 */
+		public static $queue = array();
+
+		/**
+		 * Arguments of every query made, oldest first.
+		 *
+		 * @var array[]
+		 */
+		public static $made = array();
+
+		/**
+		 * Posts or IDs found.
+		 *
+		 * @var array
+		 */
+		public $posts = array();
+
+		/**
+		 * Total matches.
+		 *
+		 * @var int
+		 */
+		public $found_posts = 0;
+
+		/**
+		 * Runs the "query".
+		 *
+		 * @param array $args Query arguments.
+		 */
+		public function __construct( array $args = array() ) {
+			self::$made[]      = $args;
+			$next              = array_shift( self::$queue );
+			$this->posts       = $next['posts'] ?? array();
+			$this->found_posts = $next['found_posts'] ?? count( $this->posts );
+		}
+	}
+}

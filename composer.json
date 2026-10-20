@@ -13,6 +13,7 @@
     "php": ">=7.4"
   },
   "require-dev": {
+    "automattic/vipwpcs": "^3.0",
     "brain/monkey": "^2.7",
     "php-stubs/wp-cli-stubs": "^2.12",
     "phpcompatibility/phpcompatibility-wp": "^2.1",
