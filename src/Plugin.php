@@ -87,8 +87,8 @@ final class Plugin {
 	 */
 	private function __construct() {
 		$this->state   = new State();
-		$this->log     = new BlockedLog();
 		$this->history = new History();
+		$this->log     = new BlockedLog( $this->history );
 		$this->freezer = new Freezer( $this->state, $this->log, $this->history );
 	}
 
@@ -117,6 +117,7 @@ final class Plugin {
 		$this->freezer->expire_if_needed();
 
 		$services = array(
+			$this->log,
 			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history ),
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state ),

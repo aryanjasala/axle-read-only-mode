@@ -102,13 +102,27 @@ final class ToolsPage implements Service {
 	}
 
 	/**
+	 * Capability needed to freeze and unfreeze.
+	 *
+	 * @return string
+	 */
+	public static function capability(): string {
+		/**
+		 * Filters the capability needed to freeze and unfreeze the site.
+		 *
+		 * @param string $capability Default manage_options.
+		 */
+		return (string) apply_filters( 'deploy_freeze_capability', 'manage_options' );
+	}
+
+	/**
 	 * Registers Tools > Deploy Freeze.
 	 */
 	public function add_page(): void {
 		$hook = add_management_page(
 			__( 'Deploy Freeze', 'deploy-freeze' ),
 			__( 'Deploy Freeze', 'deploy-freeze' ),
-			'manage_options',
+			self::capability(),
 			self::SLUG,
 			array( $this, 'render' )
 		);
@@ -174,12 +188,12 @@ wp deploy-freeze off</pre>
 		$format = get_option( 'time_format' );
 		$exempt = array_filter( array_map( 'get_userdata', array_map( 'intval', $state['exempt'] ) ) );
 		?>
-		<section class="df-status" aria-live="polite">
+		<section class="df-status">
 			<div class="df-status__head">
 				<span class="dashicons dashicons-lock" aria-hidden="true"></span>
 				<h2><?php esc_html_e( 'The site is frozen', 'deploy-freeze' ); ?></h2>
 				<?php if ( $state['end'] ) : ?>
-					<span class="df-countdown" data-df-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-df-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'deploy-freeze' ); ?>">
+					<span class="df-countdown" role="timer" data-df-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-df-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'deploy-freeze' ); ?>">
 						<?php
 						/* translators: %s: time the freeze ends. */
 						echo esc_html( sprintf( __( 'Ends at %s', 'deploy-freeze' ), $this->state->end_time() ) );
@@ -369,7 +383,7 @@ wp deploy-freeze off</pre>
 						<?php foreach ( $entries as $entry ) : ?>
 							<tr>
 								<td><?php echo esc_html( wp_date( get_option( 'time_format' ), (int) $entry['time'] ) ); ?></td>
-								<td><?php echo esc_html( '' !== $entry['who'] ? $entry['who'] : __( 'Visitor', 'deploy-freeze' ) ); ?></td>
+								<td><?php echo esc_html( '' !== BlockedLog::who( $entry ) ? BlockedLog::who( $entry ) : __( 'Visitor', 'deploy-freeze' ) ); ?></td>
 								<td><?php echo esc_html( $sources[ $entry['source'] ] ?? $entry['source'] ); ?></td>
 								<td><code><?php echo esc_html( $entry['where'] ); ?></code></td>
 							</tr>
@@ -414,7 +428,7 @@ wp deploy-freeze off</pre>
 							<tr>
 								<td>
 									<?php echo esc_html( wp_date( $format, (int) $entry['start'] ) ); ?><br>
-									<span class="df-muted"><?php echo esc_html( $by ? $by->display_name : __( 'WP-CLI', 'deploy-freeze' ) ); ?></span>
+									<span class="df-muted"><?php echo esc_html( $by ? $by->display_name : ( BlockedLog::ERASED === (int) $entry['by'] ? __( '(removed)', 'deploy-freeze' ) : __( 'WP-CLI', 'deploy-freeze' ) ) ); ?></span>
 								</td>
 								<td><?php echo esc_html( human_time_diff( (int) $entry['start'], (int) $entry['end'] ) ); ?></td>
 								<td><?php echo esc_html( '' !== $entry['reason'] ? $entry['reason'] : '—' ); ?></td>
@@ -491,7 +505,7 @@ wp deploy-freeze off</pre>
 	 * Handles the freeze form, buttons and admin bar links.
 	 */
 	public function handle_action(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! current_user_can( self::capability() ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to freeze this site.', 'deploy-freeze' ), 403 );
 		}
 

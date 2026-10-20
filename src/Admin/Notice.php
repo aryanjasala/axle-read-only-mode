@@ -57,7 +57,7 @@ final class Notice implements Service {
 				<?php if ( $exempt ) : ?>
 					<?php esc_html_e( 'You are exempt and can keep working.', 'deploy-freeze' ); ?>
 				<?php endif; ?>
-				<?php if ( current_user_can( 'manage_options' ) && ! $this->state->forced_by_constant() ) : ?>
+				<?php if ( current_user_can( ToolsPage::capability() ) && ! $this->state->forced_by_constant() ) : ?>
 					<a class="button button-small" href="<?php echo esc_url( ToolsPage::action_url( 'unfreeze' ) ); ?>"><?php esc_html_e( 'Unfreeze now', 'deploy-freeze' ); ?></a>
 				<?php endif; ?>
 			</p>

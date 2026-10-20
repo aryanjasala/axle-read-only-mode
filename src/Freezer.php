@@ -67,6 +67,8 @@ final class Freezer {
 		$start   = ! empty( $args['start'] ) ? (int) $args['start'] : time();
 		$minutes = isset( $args['minutes'] ) ? max( 0, (int) $args['minutes'] ) : 60;
 
+		// The previous freeze's one-time expiry marker is no longer needed.
+		delete_option( self::expiry_key( (int) $this->state->get( 'start' ) ) );
 		$this->log->clear();
 		$this->state->update(
 			array(
@@ -81,6 +83,13 @@ final class Freezer {
 				'by'              => get_current_user_id(),
 			)
 		);
+
+		/**
+		 * Fires when a freeze starts, or is scheduled to start.
+		 *
+		 * @param array $state The freeze: start, end, reason, visitors, cron, exempt and by.
+		 */
+		do_action( 'deploy_freeze_started', $this->state->all() );
 	}
 
 	/**
@@ -125,14 +134,38 @@ final class Freezer {
 		}
 
 		$this->state->update( array( 'active' => false ) );
+
+		/**
+		 * Fires when a freeze ends.
+		 *
+		 * @param array  $state    The freeze that ended.
+		 * @param string $ended_by user, wp-cli or expired.
+		 */
+		do_action( 'deploy_freeze_ended', $state, $ended_by );
 	}
 
 	/**
 	 * Records a freeze that ran out on its own. Runs on every request.
 	 */
 	public function expire_if_needed(): void {
-		if ( $this->state->has_expired() ) {
+		if ( ! $this->state->has_expired() ) {
+			return;
+		}
+
+		// Many requests can notice the end at once. add_option() succeeds for
+		// one of them only, so the history gets one entry per freeze.
+		if ( add_option( self::expiry_key( (int) $this->state->get( 'start' ) ), time(), '', false ) ) {
 			$this->unfreeze( 'expired' );
 		}
+	}
+
+	/**
+	 * Option that marks a freeze as already expired.
+	 *
+	 * @param int $start Start time of the freeze.
+	 * @return string
+	 */
+	private static function expiry_key( int $start ): string {
+		return 'deploy_freeze_expired_' . $start;
 	}
 }

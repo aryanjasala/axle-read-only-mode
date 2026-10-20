@@ -100,6 +100,35 @@ test.describe( 'Deploy Freeze', () => {
 		await expect( page.locator( '.df-blocked h2' ) ).toHaveText( 'Blocked during the last freeze (1)' );
 	} );
 
+	test( 'bots cannot flood the log, and the log takes part in the privacy tools', async ( { browser, rest } ) => {
+		wp( 'deploy-freeze', 'on', '--minutes=30' );
+		const visitor = await browser.newContext( { storageState: { cookies: [], origins: [] } } );
+		const page = await visitor.newPage();
+		for ( let i = 0; i < 14; i++ ) {
+			const post = await page.request.post( `/wp-comments-post.php?email=sam${ i }@example.com`, { form: { comment: 'Hi', comment_post_ID: String( postId ), author: 'Sam', email: `sam${ i }@example.com` } } );
+			expect( post.status() ).toBe( 503 );
+		}
+		await visitor.close();
+		await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Blocked edit' } );
+
+		const log = JSON.parse( wpEval( 'echo wp_json_encode( get_option( "deploy_freeze_log" ) );' ) );
+		expect( log.filter( ( entry ) => ! entry.user ) ).toHaveLength( 10 );
+		expect( log.map( ( entry ) => entry.where ).join( ' ' ) ).not.toContain( '?email=' );
+		expect( log[ 0 ] ).toMatchObject( { user: 1, source: 'rest' } );
+
+		const privacy = ( tool ) =>
+			JSON.parse(
+				wpEval( `
+					$tools = apply_filters( 'wp_privacy_personal_data_${ tool }s', array() );
+					echo wp_json_encode( call_user_func( $tools['deploy-freeze']['callback'], 'admin@example.com', 1 ) );
+				` )
+			);
+		const exported = privacy( 'exporter' );
+		expect( exported.data.filter( ( item ) => item.group_id === 'deploy-freeze-blocked' ) ).toHaveLength( 1 );
+		expect( privacy( 'eraser' ) ).toMatchObject( { items_removed: true, done: true } );
+		expect( wp( 'deploy-freeze', 'log', '--format=json' ) ).toContain( '(removed)' );
+	} );
+
 	test( 'editor housekeeping keeps working, profile changes stay blocked', async ( { page, rest } ) => {
 		wp( 'deploy-freeze', 'on', '--minutes=10' );
 

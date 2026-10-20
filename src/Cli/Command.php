@@ -161,7 +161,10 @@ final class Command {
 	public function log( array $args, array $assoc_args ): void {
 		$rows = array_map(
 			static function ( array $entry ): array {
-				return array( 'time' => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ) ) + $entry;
+				return array(
+					'time' => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ),
+					'who'  => BlockedLog::who( $entry ),
+				) + $entry;
 			},
 			$this->log->all()
 		);
