@@ -33,6 +33,11 @@ jobs:
             image: php7.4-apache
             core: '6.6.2'
             theme: twentytwentyfour
+          # The first release with the Abilities API, before the hooks 7.1 added to it.
+          - label: '6.9'
+            image: php8.3-apache
+            core: '6.9.10'
+            theme: twentytwentyfive
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,7 +55,7 @@ jobs:
         env:
           WP_IMAGE_TAG: ${{ matrix.image }}
 
-      - name: Switch to the oldest supported WordPress
+      - name: Switch to WordPress ${{ matrix.core }}
         if: matrix.core != ''
         env:
           WP_IMAGE_TAG: ${{ matrix.image }}
