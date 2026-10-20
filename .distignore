@@ -19,6 +19,8 @@
 /phpunit.xml.dist
 /playwright.config.js
 /README.md
+/docs
+/blueprint.json
 /.phpunit.result.cache
 /.DS_Store
 /.wordpress-org

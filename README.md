@@ -1,30 +1,41 @@
-# Deploy Freeze
+<h1 align="center">Deploy Freeze</h1>
 
-[![PHPCS](https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpcs.yml/badge.svg)](https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpcs.yml) [![PHPStan](https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpstan.yml/badge.svg)](https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpstan.yml) [![Unit tests](https://github.com/aryanjasala/deploy-freeze/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/aryanjasala/deploy-freeze/actions/workflows/unit-tests.yml) [![E2E tests](https://github.com/aryanjasala/deploy-freeze/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/aryanjasala/deploy-freeze/actions/workflows/e2e-tests.yml) [![Plugin Check](https://github.com/aryanjasala/deploy-freeze/actions/workflows/plugin-check.yml/badge.svg)](https://github.com/aryanjasala/deploy-freeze/actions/workflows/plugin-check.yml)
+<p align="center">
+  <a href="https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/aryanjasala/deploy-freeze/main/blueprint.json"><img src="https://img.shields.io/badge/Try%20in-WordPress%20Playground-3858e9?logo=wordpress&logoColor=white" alt="Try in WordPress Playground"></a>
+  <a href="https://github.com/aryanjasala/deploy-freeze/releases/latest"><img src="https://img.shields.io/github/v/release/aryanjasala/deploy-freeze?label=release&color=2271b1" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/WordPress-6.6%2B-3858e9?logo=wordpress&logoColor=white" alt="WordPress 6.6+">
+  <img src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?logo=php&logoColor=white" alt="PHP 7.4+">
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-GPL--2.0--or--later-blue" alt="License: GPL-2.0-or-later"></a>
+  <br>
+  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpcs.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpcs.yml/badge.svg" alt="PHPCS"></a>
+  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpstan.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/phpstan.yml/badge.svg" alt="PHPStan"></a>
+  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/unit-tests.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/unit-tests.yml/badge.svg" alt="Unit tests"></a>
+  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/e2e-tests.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/e2e-tests.yml/badge.svg" alt="E2E tests"></a>
+  <a href="https://github.com/aryanjasala/deploy-freeze/actions/workflows/plugin-check.yml"><img src="https://github.com/aryanjasala/deploy-freeze/actions/workflows/plugin-check.yml/badge.svg" alt="Plugin Check"></a>
+</p>
 
-Read-only mode for WordPress during a migration or deploy. Visitors still see the site, but nothing can be saved until the freeze ends, so nothing written on the old copy gets lost in the switch.
+<p align="center">Read-only mode for migrations and deploys. Visitors still see the site, but nothing can be saved, so no edit, order or comment gets lost in the switch.</p>
 
-![Tools > Deploy Freeze during a freeze](.wordpress-org/screenshot-2.png)
+<p align="center">
+  <img src=".wordpress-org/screenshot-2.png" alt="Tools > Deploy Freeze during a freeze, with countdown and blocked attempts" width="880">
+</p>
+
+---
+
+When you move a site to a new server, or replace the live database with one from staging, anything saved on the old copy during the move is lost. Maintenance mode hides the whole site. Deploy Freeze keeps it online and makes it read-only until you unfreeze, or until the freeze ends on its own.
 
 ## Features
 
-While the site is frozen:
-
-- wp-admin screens still open, but anything that changes data is refused: saves, uploads, settings, plugin installs and updates
-- The block editor disables **Save** and **Publish** and says why. People who already have it open are locked within one heartbeat, and get their buttons back the same way
-- REST and XML-RPC writes get `423 Locked`. Reads still work
-- Visitor comments, forms, checkouts and sign-ups get a `503` with `Retry-After` and your own message (optional, on by default)
-- WP-Cron is held back and runs when the freeze ends (optional, on by default)
+- **wp-admin** still opens, but saves, uploads, settings and plugin changes are refused
+- **Block editor** disables Save and Publish and says why, including for people who already have it open
+- **REST and XML-RPC** writes get `423 Locked`. Reads still work
+- **Visitors** posting comments, forms, checkouts or sign-ups get a `503` with `Retry-After` and your own message
+- **WP-Cron** is held back and runs when the freeze ends
+- **End time**, schedule, +30 minutes and +1 hour, and quick freeze from the admin bar
+- **Blocked attempts** listed (who, when, what), and the last ten freezes kept
 - Logging in always works, so an admin can always unfreeze
 
-And around it:
-
-- A freeze can **end on its own**, so a deploy script that dies halfway cannot leave the site frozen
-- Schedule a freeze for later, extend a running one by 30 minutes or an hour, or freeze for an hour straight from the admin bar
-- Every **blocked attempt** is listed (who, when, what), so you know which edits to redo on the new server
-- The last ten freezes are kept with how they ended and what they blocked
-
-## Installation
+## Install
 
 1. Download `deploy-freeze.zip` from the [latest release](https://github.com/aryanjasala/deploy-freeze/releases/latest).
 2. In WordPress, go to **Plugins > Add New Plugin > Upload Plugin**, choose the zip and activate it.
@@ -35,21 +46,11 @@ Or with WP-CLI:
 wp plugin install https://github.com/aryanjasala/deploy-freeze/releases/latest/download/deploy-freeze.zip --activate
 ```
 
-Needs WordPress 6.6+ and PHP 7.4+.
+Needs WordPress 6.6+ and PHP 7.4+. To try it first, the **Try in WordPress Playground** badge opens a throwaway WordPress in your browser with the plugin and some demo content.
 
-## Usage
+## Quick look
 
-Freeze from **Tools > Deploy Freeze**, the admin bar, or WP-CLI. Editors see this while it lasts:
-
-![The block editor during a freeze](.wordpress-org/screenshot-1.png)
-
-And a visitor who sends a comment or form gets your message:
-
-![What visitors see when they send a form during a freeze](.wordpress-org/screenshot-3.png)
-
-### From a deploy script
-
-WP-CLI is never blocked, so a script can freeze, import and unfreeze:
+WP-CLI is never blocked, so a deploy script can wrap the migration:
 
 ```sh
 wp deploy-freeze on --minutes=30 --reason="Moving servers"
@@ -57,78 +58,50 @@ wp deploy-freeze on --minutes=30 --reason="Moving servers"
 wp deploy-freeze off
 ```
 
-Other commands: `wp deploy-freeze status`, `wp deploy-freeze extend <minutes>`, `wp deploy-freeze log`. Use `--no-visitors` or `--no-cron` to leave those running.
+If the script dies halfway, the freeze still ends after 30 minutes.
 
-To freeze while files are being swapped, before the database is reachable, set it in wp-config.php:
+## Screenshots
 
-```php
-define( 'DEPLOY_FREEZE', true );
-define( 'DEPLOY_FREEZE_REASON', 'Moving servers' );
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-1.png" alt="The block editor during a freeze"><br><sub>The block editor during a freeze</sub></td>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-3.png" alt="What visitors see when they send a form during a freeze"><br><sub>What visitors see when they send a form during a freeze</sub></td>
+  </tr>
+</table>
+
+## Documentation
+
+| Doc | What it covers |
+| --- | --- |
+| [Reference](docs/REFERENCE.md) | Constants, hooks, WP-CLI, what is blocked and what is stored |
+| [Development](docs/DEVELOPMENT.md) | Local setup, commands and tests |
+| [Contributing](docs/CONTRIBUTING.md) | Pull requests, required checks and PR titles |
+| [Releasing](docs/RELEASING.md) | How merged pull requests become releases |
+| [Security](docs/SECURITY.md) | Reporting a vulnerability |
+| [readme.txt](readme.txt) | What WordPress.org shows, with the FAQ and changelog |
+
+## Project structure
+
 ```
-
-### For developers
-
-| Hook | Use |
-| --- | --- |
-| `deploy_freeze_user_can_bypass` (filter) | Let a user keep working during a freeze. Receives the current answer and the user ID |
-| `deploy_freeze_allowed_ajax_actions` (filter) | Admin-ajax actions that only read data and should keep working during a freeze |
-
-`AryanX\DeployFreeze\Plugin::instance()->freezer()` starts, extends and ends freezes from code.
-
-## Development
-
-```sh
-composer install
-npm ci
+deploy-freeze.php        plugin header and PSR-4 autoloader
+src/
+├── Plugin.php           creates the services, guards load only while frozen
+├── State.php            the saved freeze, its timing and messages
+├── Freezer.php          starts, extends and ends freezes
+├── BlockedLog.php       what the freeze stopped
+├── History.php          the last ten freezes
+├── Guards/              wp-admin, REST, front-end and cron guards
+├── Admin/               freeze screen, notice, admin bar
+├── Editor/EditorLock.php  locks the block editor through the heartbeat
+└── Cli/Command.php      wp deploy-freeze
+assets/                  editor lock and countdown scripts
+tests/
+├── Unit/                PHPUnit
+└── e2e/                 Playwright specs and the Docker site
+.wordpress-org/          screenshots
+docs/                    reference, development, contributing, releasing
 ```
-
-| Command | What it runs |
-| --- | --- |
-| `composer lint` | PHPCS with the WordPress standard and PHPCompatibility from PHP 7.4 |
-| `composer analyse` | PHPStan level 6 with WordPress and WP-CLI stubs |
-| `composer test` | PHPUnit unit tests. WordPress functions are mocked with Brain Monkey, so no database is needed |
-| `npm run env:start` | WordPress and MariaDB in Docker on http://localhost:8895 |
-| `npm run test:e2e` | Playwright end-to-end tests against that site, in headless Chrome |
-| `npm run screenshots` | Regenerates the screenshots in `.wordpress-org/` |
-| `npm run env:stop` | Removes the site and its database |
-
-The plugin is mounted read-only into the Docker site, so nothing in WordPress can change or delete the source. The end-to-end run empties the site's content before it starts, so point it only at this throwaway site.
-
-## Tests
-
-- **12 unit tests**: running, expired, scheduled and open-ended freezes, the messages, who can bypass, freezing, extending, unfreezing into history, and expiry
-- **7 end-to-end tests**: freezing from the screen (editor, REST and Settings all refused, nothing saved), a logged-out visitor posting a comment, the blocked list with extend and unfreeze, exempt users, the admin bar, the heartbeat lock on an open editor, and scheduled and expired freezes with WP-CLI
-
-## Contributing
-
-`main` is protected: every change goes through a pull request, and it can only be merged once these pass:
-
-- PHPCS and PHPStan
-- PHPUnit on PHP 7.4, 8.0, 8.1, 8.2, 8.3 and 8.4
-- the end-to-end suite against the latest WordPress
-- the WordPress.org Plugin Check on the built zip
-- the PR title check
-
-Pull requests are squash-merged, so the **PR title becomes the commit on `main`** and decides the next release. Use a [Conventional Commit](https://www.conventionalcommits.org/) title:
-
-| Title | Release |
-| --- | --- |
-| `feat: add bulk restore` | minor (1.1.0 to 1.2.0) |
-| `fix: keep the notice on narrow screens`, `perf: ...` | patch (1.1.0 to 1.1.1) |
-| `feat!: drop PHP 7.4`, or a `BREAKING CHANGE:` footer | major (1.1.0 to 2.0.0) |
-| `docs:`, `ci:`, `chore:`, `test:`, `refactor:`, `build:` | none |
-
-## Releases
-
-Releases are automatic:
-
-1. After each merge to `main`, the **Prepare release** workflow checks for `feat`, `fix`, `perf` or breaking commits since the last tag. If there are any, it opens (or updates) a `chore(release): x.y.z` pull request that bumps the version in the plugin header, the `VERSION` constant and the readme `Stable tag`, and adds the changelog entry to `readme.txt`.
-2. Merging that pull request runs the **Release** workflow: it tags `vx.y.z`, builds the zip with `bin/build-zip.sh` (leaving out everything in `.distignore`) and publishes the GitHub release with the changelog entry as notes.
-
-`bin/release.sh next` and `bin/release.sh notes` show locally what the next release would contain.
-
-Deploying to WordPress.org is off until the repository variable `WPORG_DEPLOY` is `true` and the secrets `SVN_USERNAME` and `SVN_PASSWORD` are set. The deploy uses `.wordpress-org/` for the screenshots.
 
 ## License
 
-GPL-2.0-or-later
+[GPL-2.0-or-later](LICENSE.md) © Aryan Jasala
