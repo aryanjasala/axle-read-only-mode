@@ -72,6 +72,25 @@ add_filter( 'deploy_freeze_allow_request', function ( $allow, $where ) {
 
 Payment providers such as Stripe and PayPal retry webhooks that get a 503, so orders paid during a freeze arrive once it ends. Let a webhook through only if its provider does not retry.
 
+## Abilities
+
+On WordPress 6.9 and later, Deploy Freeze registers [abilities](https://developer.wordpress.org/apis/abilities/): named actions with input and output schemas and a permission check. AI agents find and run them through the [MCP adapter](https://github.com/WordPress/mcp-adapter), and anything else can use the REST API under `/wp-abilities/v1/`.
+
+| Ability | Does | Needs |
+| --- | --- | --- |
+| `deploy-freeze/get-status` | Read-only. Whether the site is frozen, until when and why | `edit_posts` |
+| `deploy-freeze/freeze` | Freezes the site. Input: `minutes`, `reason`, `visitor_message`, `visitors`, `cron` | the freeze capability |
+| `deploy-freeze/extend` | Adds `minutes` to the running freeze | the freeze capability |
+| `deploy-freeze/unfreeze` | Ends the freeze now | the freeze capability |
+| `deploy-freeze/get-blocked` | Read-only. What the freeze blocked, newest first. Input: `limit` | the freeze capability |
+
+During a freeze, **every ability that is not read-only is refused**, from any plugin and from anywhere, WP-CLI included, because agents also call abilities over WP-CLI. Deploy Freeze's own abilities keep working. The refusal shows up in the blocked list as `ability <name>`. This needs WordPress 7.1, which added the `wp_pre_execute_ability` filter. On 6.9 and 7.0 the REST guard still blocks other abilities that run over HTTP.
+
+| Hook | Type | Use |
+| --- | --- | --- |
+| `deploy_freeze_allow_ability` | filter | `( bool $allow, string $ability_name, mixed $input )`. Let one ability that writes run during a freeze |
+| `deploy_freeze_ability_routes` | filter | `( string[] $routes )`. REST routes that run abilities, checked per ability on 7.1 and later. Default `/wp-abilities/v1/` and `/mcp/` |
+
 ## WP-CLI
 
 ```sh

@@ -121,6 +121,7 @@ final class Plugin {
 			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history ),
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state ),
+			new Abilities( $this->state, $this->freezer, $this->log ),
 		);
 
 		if ( $this->state->is_frozen() ) {

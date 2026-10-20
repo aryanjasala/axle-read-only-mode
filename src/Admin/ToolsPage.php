@@ -405,6 +405,7 @@ wp deploy-freeze off</pre>
 			'user'    => __( 'Unfrozen', 'deploy-freeze' ),
 			'cli'     => __( 'Unfrozen by WP-CLI', 'deploy-freeze' ),
 			'expired' => __( 'Ended on time', 'deploy-freeze' ),
+			'ability' => __( 'Unfrozen by an AI agent or app', 'deploy-freeze' ),
 		);
 		$format  = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
