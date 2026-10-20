@@ -74,7 +74,7 @@ Payment providers such as Stripe and PayPal retry webhooks that get a 503, so or
 
 ## Abilities
 
-On WordPress 6.9 and later, Deploy Freeze registers [abilities](https://developer.wordpress.org/apis/abilities/): named actions with input and output schemas and a permission check. AI agents find and run them through the [MCP adapter](https://github.com/WordPress/mcp-adapter), and anything else can use the REST API under `/wp-abilities/v1/`.
+On WordPress 6.9 and later, Deploy Freeze registers [abilities](https://developer.wordpress.org/apis/abilities/): named actions with input and output schemas and a permission check. AI agents find and run them through the [MCP adapter](https://github.com/WordPress/mcp-adapter), and anything else can use the REST API under `/wp-abilities/v1/`. Each one is marked public, which the MCP adapter needs before it lists an ability.
 
 | Ability | Does | Needs |
 | --- | --- | --- |
@@ -90,6 +90,7 @@ During a freeze, **every ability that is not read-only is refused**, from any pl
 | --- | --- | --- |
 | `deploy_freeze_allow_ability` | filter | `( bool $allow, string $ability_name, mixed $input )`. Let one ability that writes run during a freeze |
 | `deploy_freeze_ability_routes` | filter | `( string[] $routes )`. REST routes that run abilities, checked per ability on 7.1 and later. Default `/wp-abilities/v1/` and `/mcp/` |
+| `deploy_freeze_dispatch_abilities` | filter | `( string[] $abilities )`. Abilities that only run other abilities, such as the MCP adapter's `mcp-adapter/execute-ability`. They get through a freeze, and the ability they run is checked instead |
 
 ## WP-CLI
 

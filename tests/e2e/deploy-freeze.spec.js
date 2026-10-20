@@ -142,6 +142,8 @@ test.describe( 'Deploy Freeze', () => {
 		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=deploy-freeze' );
 		expect( listed.status ).toBe( 200 );
 		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'deploy-freeze/extend', 'deploy-freeze/freeze', 'deploy-freeze/get-blocked', 'deploy-freeze/get-status', 'deploy-freeze/unfreeze' ] );
+		// MCP clients only list abilities marked public.
+		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'deploy-freeze/' ); } ) ) );` ) ) ).toEqual( [] );
 
 		expect( ( await run( 'get-status', 'GET' ) ).body ).toMatchObject( { frozen: false } );
 
@@ -172,14 +174,39 @@ test.describe( 'Deploy Freeze', () => {
 						) );
 					}
 				} );
+				// A stand-in for the MCP adapter's execute tool, which runs other abilities.
+				add_action( 'wp_abilities_api_categories_init', function () {
+					wp_register_ability_category( 'mcp-adapter', array( 'label' => 'MCP', 'description' => 'Stand-in.' ) );
+				} );
+				add_action( 'wp_abilities_api_init', function () {
+					wp_register_ability( 'mcp-adapter/execute-ability', array(
+						'label'               => 'Execute',
+						'description'         => 'Runs another ability.',
+						'category'            => 'mcp-adapter',
+						'input_schema'        => array( 'type' => 'object', 'properties' => array( 'ability_name' => array( 'type' => 'string' ) ) ),
+						'execute_callback'    => function ( $input ) {
+							$result = wp_get_ability( $input['ability_name'] )->execute();
+							return is_wp_error( $result ) ? $result->get_error_code() : $result;
+						},
+						'permission_callback' => '__return_true',
+						'meta'                => array( 'annotations' => array( 'readonly' => false ) ),
+					) );
+				} );
 				$write = wp_get_ability( 'e2e/write' )->execute();
+				$dispatch = function ( $name ) {
+					$result = wp_get_ability( 'mcp-adapter/execute-ability' )->execute( array( 'ability_name' => $name ) );
+					return is_wp_error( $result ) ? 'wrapper refused' : $result;
+				};
 				echo wp_json_encode( array(
-					'read'  => wp_get_ability( 'e2e/read' )->execute(),
-					'write' => is_wp_error( $write ) ? $write->get_error_code() : $write,
+					'read'            => wp_get_ability( 'e2e/read' )->execute(),
+					'write'           => is_wp_error( $write ) ? $write->get_error_code() : $write,
+					'dispatched_read' => $dispatch( 'e2e/read' ),
+					'dispatched_write' => $dispatch( 'e2e/write' ),
 				) );
 			` )
 		);
-		expect( other ).toEqual( { read: 'read ran', write: 'deploy_freeze' } );
+		// Through a dispatcher such as the MCP adapter, the ability inside is what gets checked.
+		expect( other ).toEqual( { read: 'read ran', write: 'deploy_freeze', dispatched_read: 'read ran', dispatched_write: 'deploy_freeze' } );
 
 		const blocked = await run( 'get-blocked', 'GET', { limit: 5 } );
 		expect( blocked.body.map( ( entry ) => entry.where ) ).toContain( 'ability e2e/write' );

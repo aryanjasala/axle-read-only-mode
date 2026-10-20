@@ -358,6 +358,17 @@ final class Abilities implements Service {
 			return $pre;
 		}
 
+		/**
+		 * Filters the abilities that only run other abilities, such as the MCP
+		 * adapter's execute tool. They are let through, because the ability they
+		 * run comes through this check itself.
+		 *
+		 * @param string[] $abilities Ability names. Default mcp-adapter/execute-ability.
+		 */
+		if ( in_array( $name, (array) apply_filters( 'deploy_freeze_dispatch_abilities', array( 'mcp-adapter/execute-ability' ) ), true ) ) {
+			return $pre;
+		}
+
 		$ability     = function_exists( 'wp_get_ability' ) ? wp_get_ability( $name ) : null;
 		$annotations = $ability ? (array) ( $ability->get_meta()['annotations'] ?? array() ) : array();
 		if ( ! empty( $annotations['readonly'] ) ) {
@@ -405,6 +416,10 @@ final class Abilities implements Service {
 			'meta'                => array(
 				'annotations'  => $annotations,
 				'show_in_rest' => true,
+				// Clients such as the MCP adapter only list abilities marked public:
+				// `public` from WordPress 7.1, `mcp.public` for the adapter on 6.9 and 7.0.
+				'public'       => true,
+				'mcp'          => array( 'public' => true ),
 			),
 		);
 		if ( $input ) {
