@@ -80,6 +80,10 @@ final class Abilities implements Service {
 	 * Registers the Deploy Freeze category.
 	 */
 	public function register_category(): void {
+		if ( ! function_exists( 'wp_register_ability_category' ) ) {
+			return;
+		}
+
 		wp_register_ability_category(
 			self::CATEGORY,
 			array(
