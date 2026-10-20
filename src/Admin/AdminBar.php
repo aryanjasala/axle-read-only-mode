@@ -49,7 +49,7 @@ final class AdminBar implements Service {
 	 * @param \WP_Admin_Bar $admin_bar Admin bar.
 	 */
 	public function add_nodes( \WP_Admin_Bar $admin_bar ): void {
-		$can_manage = current_user_can( 'manage_options' );
+		$can_manage = current_user_can( ToolsPage::capability() );
 
 		if ( ! $this->state->is_frozen() ) {
 			if ( $can_manage ) {

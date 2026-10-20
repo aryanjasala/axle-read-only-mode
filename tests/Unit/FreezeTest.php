@@ -26,7 +26,9 @@ final class FreezeTest extends TestCase {
 	}
 
 	private function freezer(): Freezer {
-		return new Freezer( new State(), new BlockedLog(), new History() );
+		$history = new History();
+
+		return new Freezer( new State(), new BlockedLog( $history ), $history );
 	}
 
 	private function store( array $state ): void {
@@ -192,6 +194,50 @@ final class FreezeTest extends TestCase {
 
 		$this->assertSame( 'expired', $this->options[ History::OPTION ][0]['ended_by'] );
 		$this->assertSame( $end, $this->options[ History::OPTION ][0]['end'] );
+	}
+
+	public function test_requests_that_notice_the_end_together_record_it_once(): void {
+		$this->store(
+			array(
+				'start' => time() - 7200,
+				'end'   => time() - 60,
+			)
+		);
+
+		$this->freezer()->expire_if_needed();
+		// A second request read the state before the first one saved it.
+		$this->options[ State::OPTION ]['active'] = true;
+		$this->freezer()->expire_if_needed();
+
+		$this->assertCount( 1, $this->options[ History::OPTION ] );
+	}
+
+	public function test_blocked_attempts_keep_the_user_id_and_drop_the_query_string(): void {
+		$log = new BlockedLog( new History() );
+		$log->add( 'POST /checkout/?email=sam@example.com&token=abc', 'front-end' );
+
+		$entry = $this->options[ BlockedLog::OPTION ][0];
+		$this->assertSame( 5, $entry['user'] );
+		$this->assertSame( 'POST /checkout/', $entry['where'] );
+		$this->assertArrayNotHasKey( 'who', $entry );
+	}
+
+	public function test_only_the_first_visitor_attempts_are_written(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+		Filters\expectApplied( 'deploy_freeze_logged_visitors' )->andReturn( 3 );
+		$log = new BlockedLog( new History() );
+
+		for ( $i = 0; $i < 8; $i++ ) {
+			$log->add( 'POST /wp-comments-post.php', 'front-end' );
+		}
+
+		$this->assertCount( 3, $this->options[ BlockedLog::OPTION ] );
+	}
+
+	public function test_who_reads_old_entries_and_erased_users(): void {
+		$this->assertSame( 'editor', BlockedLog::who( array( 'who' => 'editor' ) ) );
+		$this->assertSame( '', BlockedLog::who( array( 'user' => 0 ) ) );
+		$this->assertSame( '(removed)', BlockedLog::who( array( 'user' => BlockedLog::ERASED ) ) );
 	}
 
 	public function test_cancelling_a_scheduled_freeze_leaves_no_history(): void {

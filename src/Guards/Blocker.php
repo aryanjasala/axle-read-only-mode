@@ -73,6 +73,20 @@ final class Blocker {
 	 * @param string $source admin, ajax, rest or front-end.
 	 */
 	public function stop( string $where, string $source ): void {
+		/**
+		 * Filters whether a request gets through a freeze anyway.
+		 *
+		 * For callbacks that must not wait, such as single sign-on. Payment
+		 * providers retry webhooks that get a 503, so those can usually wait.
+		 *
+		 * @param bool   $allow  Whether to let the request through. Default false.
+		 * @param string $where  What would be blocked, e.g. "POST /checkout/".
+		 * @param string $source admin, ajax or front-end.
+		 */
+		if ( apply_filters( 'deploy_freeze_allow_request', false, $where, $source ) ) {
+			return;
+		}
+
 		$this->record( $where, $source );
 
 		$visitor   = ! is_user_logged_in();

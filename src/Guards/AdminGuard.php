@@ -94,6 +94,11 @@ final class AdminGuard implements Service {
 
 		global $pagenow;
 
+		// Visitors posting forms through admin-post.php follow the "visitor submissions" setting.
+		if ( ! is_user_logged_in() && ! $this->blocker->state()->get( 'visitors' ) ) {
+			return;
+		}
+
 		// The freeze's own controls must keep working, or nobody could unfreeze.
 		if ( 'admin-post.php' === $pagenow && ToolsPage::ACTION === $action ) {
 			return;

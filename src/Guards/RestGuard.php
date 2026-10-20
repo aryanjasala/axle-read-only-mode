@@ -73,6 +73,16 @@ final class RestGuard implements Service {
 			return $result;
 		}
 
+		/**
+		 * Filters whether a REST request gets through a freeze anyway.
+		 *
+		 * @param bool             $allow   Whether to let the request through. Default false.
+		 * @param \WP_REST_Request $request The request.
+		 */
+		if ( apply_filters( 'deploy_freeze_allow_rest_request', false, $request ) ) {
+			return $result;
+		}
+
 		$this->blocker->record( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest' );
 
 		return new \WP_Error( 'deploy_freeze', is_user_logged_in() ? $state->message() : $state->visitor_message(), array( 'status' => 423 ) );

@@ -49,4 +49,27 @@ final class History {
 
 		return is_array( $history ) ? $history : array();
 	}
+	/**
+	 * Removes a user from the history, for the personal data eraser.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool Whether any entry changed.
+	 */
+	public function forget_user( int $user_id ): bool {
+		$history = $this->all();
+		$changed = false;
+
+		foreach ( $history as $index => $freeze ) {
+			if ( (int) ( $freeze['by'] ?? 0 ) === $user_id ) {
+				$history[ $index ]['by'] = BlockedLog::ERASED;
+				$changed                 = true;
+			}
+		}
+
+		if ( $changed ) {
+			update_option( self::OPTION, $history, false );
+		}
+
+		return $changed;
+	}
 }

@@ -60,6 +60,12 @@ final class EditorLock implements Service {
 	 * Loads the editor script with the current freeze message.
 	 */
 	public function enqueue(): void {
+		// Only the post editor. The widgets editor and the Customizer must not load wp-editor.
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'post' !== $screen->base ) {
+			return;
+		}
+
 		wp_enqueue_script(
 			'deploy-freeze-editor',
 			plugins_url( 'assets/editor.js', PLUGIN_FILE ),

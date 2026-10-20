@@ -50,6 +50,15 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase {
 				return true;
 			}
 		);
+		Functions\when( 'add_option' )->alias(
+			function ( $name, $value = '' ) {
+				if ( array_key_exists( $name, $this->options ) ) {
+					return false;
+				}
+				$this->options[ $name ] = $value;
+				return true;
+			}
+		);
 	}
 
 	protected function tearDown(): void {
