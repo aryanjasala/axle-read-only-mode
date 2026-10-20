@@ -26,20 +26,43 @@ Users marked exempt when the freeze starts, and anyone the filter lets through, 
 
 | Hook | Type | Use |
 | --- | --- | --- |
+| `deploy_freeze_default_duration` | filter | `( int $minutes )`. Length when none is given: the admin bar quick freeze, `wp deploy-freeze on` and the PHP API. Also preselected on the screen. Default 60, `0` for no end |
+| `deploy_freeze_durations` | filter | `( int[] $minutes )`. Lengths offered on Tools > Deploy Freeze. Default 30, 60, 120, 240, 480 and 0 |
+| `deploy_freeze_extend_minutes` | filter | `( int[] $minutes )`. The extend buttons. The first one is also the admin bar's "Add 30 minutes". Default 30 and 60 |
+| `deploy_freeze_is_frozen` | filter | `( bool $frozen, array $state )`. Freeze or unfreeze from outside, such as one switch for every site. Add it from a must-use plugin. `DEPLOY_FREEZE` always wins |
+| `deploy_freeze_message` | filter | `( string $message, array $state )`. What logged-in users see |
+| `deploy_freeze_visitor_message` | filter | `( string $message, array $state )`. What visitors get when they send a form |
 | `deploy_freeze_user_can_bypass` | filter | `( bool $exempt, int $user_id )`. Let a user keep working during a freeze |
 | `deploy_freeze_allowed_ajax_actions` | filter | `( string[] $actions )`. Admin-ajax actions that only read and should keep working |
 | `deploy_freeze_allow_request` | filter | `( bool $allow, string $where, string $source )`. Let one wp-admin or front-end request through, such as a single sign-on callback |
 | `deploy_freeze_allow_rest_request` | filter | `( bool $allow, WP_REST_Request $request )`. Let one REST request through |
+| `deploy_freeze_read_only_routes` | filter | `( string[] $routes )`. REST route prefixes that only read even when called with POST. Default `/wp/v2/block-renderer/` |
+| `deploy_freeze_writing_screens` | filter | `( string[] $screens )`. Admin screens blocked even when only opened. Default `post-new.php` and `upgrade.php` |
 | `deploy_freeze_logged_visitors` | filter | `( int $limit )`. Anonymous blocked attempts logged per freeze. Default 10, `0` for none |
+| `deploy_freeze_log_size` | filter | `( int $size )`. Blocked attempts the log keeps. Default 100 |
+| `deploy_freeze_history_size` | filter | `( int $size )`. Past freezes the history keeps. Default 10 |
 | `deploy_freeze_capability` | filter | `( string $capability )`. Who may freeze and unfreeze. Default `manage_options` |
 | `deploy_freeze_started` | action | `( array $state )`. A freeze started or was scheduled |
 | `deploy_freeze_ended` | action | `( array $state, string $ended_by )`. A freeze ended: `user`, `wp-cli` or `expired` |
+| `deploy_freeze_extended` | action | `( array $state, int $minutes )`. A freeze got longer |
+| `deploy_freeze_blocked` | action | `( string $where, string $source, int $user_id )`. Every blocked request, including the ones the log leaves out. For an outside log or an alert channel |
 
 ```php
 // Let the person running the migration keep working.
 add_filter( 'deploy_freeze_user_can_bypass', function ( $exempt, $user_id ) {
 	return $exempt || user_can( $user_id, 'manage_network' );
 }, 10, 2 );
+
+// Deploys here take longer: default to two hours, and offer 15 minutes too.
+add_filter( 'deploy_freeze_default_duration', fn() => 120 );
+add_filter( 'deploy_freeze_durations', fn( $minutes ) => array_merge( array( 15 ), $minutes ) );
+
+// Tell the team channel about every blocked save.
+add_action( 'deploy_freeze_blocked', function ( $where, $source, $user_id ) {
+	if ( $user_id ) {
+		my_team_alert( sprintf( 'Freeze blocked %s for user %d', $where, $user_id ) );
+	}
+}, 10, 3 );
 
 // Single sign-on callbacks cannot wait for the freeze to end.
 add_filter( 'deploy_freeze_allow_request', function ( $allow, $where ) {

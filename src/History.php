@@ -36,7 +36,13 @@ final class History {
 		$history = $this->all();
 		array_unshift( $history, $entry );
 
-		update_option( self::OPTION, array_slice( $history, 0, self::LIMIT ), false );
+		/**
+		 * Filters how many past freezes the history keeps.
+		 *
+		 * @param int $size Default 10.
+		 */
+		$size = max( 1, (int) apply_filters( 'deploy_freeze_history_size', self::LIMIT ) );
+		update_option( self::OPTION, array_slice( $history, 0, $size ), false );
 	}
 
 	/**

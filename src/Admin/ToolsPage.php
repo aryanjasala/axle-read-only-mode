@@ -25,7 +25,6 @@ final class ToolsPage implements Service {
 	public const SLUG   = 'deploy-freeze';
 	public const ACTION = 'deploy_freeze';
 
-	private const DURATIONS = array( 30, 60, 120, 240, 480, 0 );
 
 	/**
 	 * Saved freeze.
@@ -236,8 +235,10 @@ wp deploy-freeze off</pre>
 				<?php
 				$this->render_button( 'unfreeze', __( 'Unfreeze now', 'deploy-freeze' ), 'primary' );
 				if ( $state['end'] ) {
-					$this->render_button( 'extend', __( '+30 minutes', 'deploy-freeze' ), 'secondary', array( 'minutes' => 30 ) );
-					$this->render_button( 'extend', __( '+1 hour', 'deploy-freeze' ), 'secondary', array( 'minutes' => 60 ) );
+					foreach ( Freezer::extend_steps() as $step ) {
+						/* translators: %s: length, e.g. "30 minutes". */
+						$this->render_button( 'extend', sprintf( __( '+%s', 'deploy-freeze' ), self::duration_label( $step ) ), 'secondary', array( 'minutes' => $step ) );
+					}
 				}
 				?>
 			</div>
@@ -316,8 +317,8 @@ wp deploy-freeze off</pre>
 					<th scope="row"><label for="df-minutes"><?php esc_html_e( 'End after', 'deploy-freeze' ); ?></label></th>
 					<td>
 						<select id="df-minutes" name="minutes">
-							<?php foreach ( self::DURATIONS as $minutes ) : ?>
-								<option value="<?php echo esc_attr( (string) $minutes ); ?>" <?php selected( 120, $minutes ); ?>><?php echo esc_html( self::duration_label( $minutes ) ); ?></option>
+							<?php foreach ( Freezer::durations() as $minutes ) : ?>
+								<option value="<?php echo esc_attr( (string) $minutes ); ?>" <?php selected( Freezer::default_duration(), $minutes ); ?>><?php echo esc_html( self::duration_label( $minutes ) ); ?></option>
 							<?php endforeach; ?>
 						</select>
 						<p class="description"><?php esc_html_e( 'With an end time, a failed deploy cannot leave the site frozen.', 'deploy-freeze' ); ?></p>
@@ -494,11 +495,20 @@ wp deploy-freeze off</pre>
 			return __( 'Until I unfreeze it', 'deploy-freeze' );
 		}
 
-		return $minutes < 60
-			/* translators: %d: minutes. */
-			? sprintf( _n( '%d minute', '%d minutes', $minutes, 'deploy-freeze' ), $minutes )
-			/* translators: %d: hours. */
-			: sprintf( _n( '%d hour', '%d hours', intdiv( $minutes, 60 ), 'deploy-freeze' ), intdiv( $minutes, 60 ) );
+		$hours = intdiv( $minutes, 60 );
+		$rest  = $minutes % 60;
+		/* translators: %d: minutes. */
+		$minutes_label = sprintf( _n( '%d minute', '%d minutes', $rest, 'deploy-freeze' ), $rest );
+
+		if ( ! $hours ) {
+			return $minutes_label;
+		}
+
+		/* translators: %d: hours. */
+		$hours_label = sprintf( _n( '%d hour', '%d hours', $hours, 'deploy-freeze' ), $hours );
+
+		/* translators: 1: hours, e.g. "1 hour", 2: minutes, e.g. "30 minutes". */
+		return $rest ? sprintf( __( '%1$s %2$s', 'deploy-freeze' ), $hours_label, $minutes_label ) : $hours_label;
 	}
 
 	/**
@@ -522,11 +532,11 @@ wp deploy-freeze off</pre>
 				break;
 
 			case 'extend':
-				$done = $this->freezer->extend( $minutes ? $minutes : 30 ) ? 'extended' : '';
+				$done = $this->freezer->extend( $minutes ? $minutes : Freezer::extend_steps()[0] ) ? 'extended' : '';
 				break;
 
 			case 'quick_freeze':
-				$this->freezer->freeze( array( 'minutes' => $minutes ? $minutes : 60 ) );
+				$this->freezer->freeze( array( 'minutes' => $minutes ? $minutes : Freezer::default_duration() ) );
 				$done = 'frozen';
 				break;
 
@@ -543,7 +553,7 @@ wp deploy-freeze off</pre>
 				$this->freezer->freeze(
 					array(
 						'start'           => $start,
-						'minutes'         => isset( $_POST['minutes'] ) ? absint( $_POST['minutes'] ) : 120,
+						'minutes'         => isset( $_POST['minutes'] ) ? absint( $_POST['minutes'] ) : Freezer::default_duration(),
 						'reason'          => isset( $_POST['reason'] ) ? sanitize_text_field( wp_unslash( $_POST['reason'] ) ) : '',
 						'visitor_message' => isset( $_POST['visitor_message'] ) ? sanitize_text_field( wp_unslash( $_POST['visitor_message'] ) ) : '',
 						'visitors'        => ! empty( $_POST['visitors'] ),

@@ -63,7 +63,12 @@ final class RestGuard implements Service {
 			return $result;
 		}
 
-		foreach ( self::READ_ONLY_ROUTES as $route ) {
+		/**
+		 * Filters the REST routes that only read, even when called with POST.
+		 *
+		 * @param string[] $routes Route prefixes. Default /wp/v2/block-renderer/.
+		 */
+		foreach ( (array) apply_filters( 'deploy_freeze_read_only_routes', self::READ_ONLY_ROUTES ) as $route ) {
 			if ( 0 === strpos( $request->get_route(), $route ) ) {
 				return $result;
 			}
