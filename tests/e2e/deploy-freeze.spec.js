@@ -100,6 +100,25 @@ test.describe( 'Deploy Freeze', () => {
 		await expect( page.locator( '.df-blocked h2' ) ).toHaveText( 'Blocked during the last freeze (1)' );
 	} );
 
+	test( 'editor housekeeping keeps working, profile changes stay blocked', async ( { page, rest } ) => {
+		wp( 'deploy-freeze', 'on', '--minutes=10' );
+
+		const nonce = await page.request.get( '/wp-admin/admin-ajax.php?action=rest-nonce' );
+		expect( nonce.status() ).toBe( 200 );
+		expect( await nonce.text() ).toMatch( /^[0-9a-f]+$/ );
+
+		const preferences = await rest( 'PUT', '/wp/v2/users/me', { meta: { persisted_preferences: { 'core/edit-post': { welcomeGuide: false } } } } );
+		expect( preferences.status ).toBe( 200 );
+
+		const email = await rest( 'PUT', '/wp/v2/users/me', { email: 'changed@example.com' } );
+		expect( email.status ).toBe( 423 );
+		const mixed = await rest( 'PUT', '/wp/v2/users/me', { email: 'changed@example.com', meta: { persisted_preferences: {} } } );
+		expect( mixed.status ).toBe( 423 );
+
+		expect( wp( 'user', 'get', 'admin', '--field=user_email' ) ).toBe( 'admin@example.com' );
+		expect( wp( 'deploy-freeze', 'log', '--format=count' ) ).toBe( '2' );
+	} );
+
 	test( 'exempt users keep editing', async ( { page, rest } ) => {
 		await page.goto( PAGE );
 		await page.getByLabel( 'Let me keep editing' ).check();

@@ -25,6 +25,7 @@ final class AdminGuard implements Service {
 	 */
 	public const READ_ONLY_AJAX = array(
 		'heartbeat',
+		'rest-nonce',
 		'query-attachments',
 		'get-attachment',
 		'wp-link-ajax',

@@ -69,8 +69,38 @@ final class RestGuard implements Service {
 			}
 		}
 
+		if ( $this->only_saves_preferences( $request ) ) {
+			return $result;
+		}
+
 		$this->blocker->record( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest' );
 
 		return new \WP_Error( 'deploy_freeze', is_user_logged_in() ? $state->message() : $state->visitor_message(), array( 'status' => 423 ) );
+	}
+
+	/**
+	 * Whether the request only saves the user's editor preferences.
+	 *
+	 * The block editor stores its UI preferences (panels, welcome guide, view
+	 * options) in the persisted_preferences user meta through /wp/v2/users/me.
+	 * That is personal screen state, like closed meta boxes, so it is allowed.
+	 * Any other field on that endpoint, such as the email or password, is not.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return bool
+	 */
+	private function only_saves_preferences( $request ): bool {
+		if ( '/wp/v2/users/me' !== $request->get_route() ) {
+			return false;
+		}
+
+		$params = $request->get_json_params();
+		if ( ! $params ) {
+			$params = $request->get_body_params();
+		}
+
+		return array( 'meta' ) === array_keys( $params )
+			&& is_array( $params['meta'] )
+			&& array( 'persisted_preferences' ) === array_keys( $params['meta'] );
 	}
 }
