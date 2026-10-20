@@ -129,6 +129,68 @@ test.describe( 'Deploy Freeze', () => {
 		expect( wp( 'deploy-freeze', 'log', '--format=json' ) ).toContain( '(removed)' );
 	} );
 
+	test( 'abilities: an agent can check, freeze and unfreeze, and other abilities that write are refused', async ( { rest } ) => {
+		const run = ( name, method, input ) => {
+			const path = `/wp-abilities/v1/abilities/deploy-freeze/${ name }/run`;
+			if ( 'GET' === method ) {
+				const query = input ? Object.entries( input ).map( ( [ key, value ] ) => `input[${ key }]=${ encodeURIComponent( value ) }` ).join( '&' ) : '';
+				return rest( 'GET', query ? `${ path }?${ query }` : path );
+			}
+			return rest( method, path, input ? { input } : {} );
+		};
+
+		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=deploy-freeze' );
+		expect( listed.status ).toBe( 200 );
+		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'deploy-freeze/extend', 'deploy-freeze/freeze', 'deploy-freeze/get-blocked', 'deploy-freeze/get-status', 'deploy-freeze/unfreeze' ] );
+
+		expect( ( await run( 'get-status', 'GET' ) ).body ).toMatchObject( { frozen: false } );
+
+		const frozen = await run( 'freeze', 'POST', { minutes: 30, reason: 'Agent deploy' } );
+		expect( frozen.status ).toBe( 200 );
+		expect( frozen.body ).toMatchObject( { frozen: true, reason: 'Agent deploy', visitors_paused: true } );
+		expect( frozen.body.seconds_left ).toBeGreaterThan( 1700 );
+
+		const extended = await run( 'extend', 'POST', { minutes: 15 } );
+		expect( extended.body.seconds_left ).toBeGreaterThan( 2600 );
+
+		// Another plugin's abilities over WP-CLI, the way the MCP adapter runs them: reading works, writing does not.
+		const other = JSON.parse(
+			wpEval( `
+				add_action( 'wp_abilities_api_categories_init', function () {
+					wp_register_ability_category( 'e2e', array( 'label' => 'E2E', 'description' => 'Test abilities.' ) );
+				} );
+				add_action( 'wp_abilities_api_init', function () {
+					foreach ( array( 'read' => true, 'write' => false ) as $name => $readonly ) {
+						wp_register_ability( 'e2e/' . $name, array(
+							'label'               => $name,
+							'description'         => 'Test ability.',
+							'category'            => 'e2e',
+							'output_schema'       => array( 'type' => 'string' ),
+							'execute_callback'    => function () use ( $name ) { return $name . ' ran'; },
+							'permission_callback' => '__return_true',
+							'meta'                => array( 'annotations' => array( 'readonly' => $readonly ) ),
+						) );
+					}
+				} );
+				$write = wp_get_ability( 'e2e/write' )->execute();
+				echo wp_json_encode( array(
+					'read'  => wp_get_ability( 'e2e/read' )->execute(),
+					'write' => is_wp_error( $write ) ? $write->get_error_code() : $write,
+				) );
+			` )
+		);
+		expect( other ).toEqual( { read: 'read ran', write: 'deploy_freeze' } );
+
+		const blocked = await run( 'get-blocked', 'GET', { limit: 5 } );
+		expect( blocked.body.map( ( entry ) => entry.where ) ).toContain( 'ability e2e/write' );
+
+		// Unfreezing gets through the freeze's own REST guard.
+		const unfrozen = await run( 'unfreeze', 'POST' );
+		expect( unfrozen.status ).toBe( 200 );
+		expect( unfrozen.body ).toMatchObject( { frozen: false } );
+		expect( JSON.parse( wpEval( 'echo wp_json_encode( get_option( "deploy_freeze_history" )[0] );' ) ) ).toMatchObject( { ended_by: 'ability', reason: 'Agent deploy' } );
+	} );
+
 	test( 'editor housekeeping keeps working, profile changes stay blocked', async ( { page, rest } ) => {
 		wp( 'deploy-freeze', 'on', '--minutes=10' );
 
