@@ -26,6 +26,9 @@
 
 When you move a site to a new server, or replace the live database with one from staging, anything saved on the old copy during the move is lost. Maintenance mode hides the whole site. Deploy Freeze keeps it online and makes it read-only until you unfreeze, or until the freeze ends on its own.
 
+> [!NOTE]
+> Free and open source under the GPL. No pro version, no upsells, no ads in wp-admin, no tracking. And it stays that way.
+
 ## Features
 
 - **wp-admin** still opens, but saves, uploads, settings and plugin changes are refused
@@ -106,6 +109,17 @@ tests/
 .wordpress-org/          screenshots
 docs/                    reference, development, contributing, releasing
 ```
+
+## More free plugins
+
+Small plugins that each fill one gap in WordPress, all free with no pro version:
+
+| | Plugin | What it does |
+| --- | --- | --- |
+| <img src="https://raw.githubusercontent.com/aryanjasala/template-usage-column/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Template Usage Column](https://github.com/aryanjasala/template-usage-column) | See which template every page uses, and fix the pages on a missing template |
+| <img src="https://raw.githubusercontent.com/aryanjasala/staging-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Staging Guard](https://github.com/aryanjasala/staging-guard) | Stops staging copies from emailing real people or getting indexed |
+| <img src="https://raw.githubusercontent.com/aryanjasala/term-trash/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Term Trash](https://github.com/aryanjasala/term-trash) | A trash for categories, tags and custom terms, with undo and full restore |
+| <img src="https://raw.githubusercontent.com/aryanjasala/restore-one-block/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Restore One Block](https://github.com/aryanjasala/restore-one-block) | Restore a single block from an old revision, not the whole post |
 
 ## License
 
