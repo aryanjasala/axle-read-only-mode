@@ -1,6 +1,8 @@
 const { test, expect, wp, wpEval, openEditor } = require( './utils' );
 
 const PAGE = '/wp-admin/tools.php?page=site-read-only-mode';
+// Must-use plugin with throwaway abilities for the abilities test.
+const FIXTURE = 'sro-e2e-abilities.php';
 
 const reset = () => {
 	for ( const option of [ 'site_read_only_mode_state', 'site_read_only_mode_log', 'site_read_only_mode_history' ] ) {
@@ -24,6 +26,7 @@ test.describe( 'Site Read-Only Mode', () => {
 	test.afterAll( () => {
 		reset();
 		wp( 'post', 'delete', String( postId ), '--force' );
+		wpEval( `@unlink( WPMU_PLUGIN_DIR . '/${ FIXTURE }' );` );
 	} );
 
 	test( 'freezing from the screen locks editing, the REST API and settings', async ( { page, rest } ) => {
@@ -157,57 +160,35 @@ test.describe( 'Site Read-Only Mode', () => {
 		expect( extended.body.seconds_left ).toBeGreaterThan( 2600 );
 
 		// Another plugin's abilities over WP-CLI, the way the MCP adapter runs them: reading works, writing does not.
+		// The fixture registers them on the Abilities API hooks, because an active MCP adapter builds the
+		// registry during bootstrap and never sees abilities registered later from `wp eval`. It also adds a
+		// stand-in for the adapter's execute tool when the adapter is not active.
+		wpEval( `wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/site-read-only-mode/tests/e2e/fixtures/${ FIXTURE }', WPMU_PLUGIN_DIR . '/${ FIXTURE }' );` );
 		const other = JSON.parse(
 			wpEval( `
-				add_action( 'wp_abilities_api_categories_init', function () {
-					wp_register_ability_category( 'e2e', array( 'label' => 'E2E', 'description' => 'Test abilities.' ) );
-				} );
-				add_action( 'wp_abilities_api_init', function () {
-					foreach ( array( 'read' => true, 'write' => false ) as $name => $readonly ) {
-						wp_register_ability( 'e2e/' . $name, array(
-							'label'               => $name,
-							'description'         => 'Test ability.',
-							'category'            => 'e2e',
-							'output_schema'       => array( 'type' => 'string' ),
-							'execute_callback'    => function () use ( $name ) { return $name . ' ran'; },
-							'permission_callback' => '__return_true',
-							'meta'                => array( 'annotations' => array( 'readonly' => $readonly ) ),
-						) );
-					}
-				} );
-				// A stand-in for the MCP adapter's execute tool, which runs other abilities.
-				add_action( 'wp_abilities_api_categories_init', function () {
-					wp_register_ability_category( 'mcp-adapter', array( 'label' => 'MCP', 'description' => 'Stand-in.' ) );
-				} );
-				add_action( 'wp_abilities_api_init', function () {
-					wp_register_ability( 'mcp-adapter/execute-ability', array(
-						'label'               => 'Execute',
-						'description'         => 'Runs another ability.',
-						'category'            => 'mcp-adapter',
-						'input_schema'        => array( 'type' => 'object', 'properties' => array( 'ability_name' => array( 'type' => 'string' ) ) ),
-						'execute_callback'    => function ( $input ) {
-							$result = wp_get_ability( $input['ability_name'] )->execute();
-							return is_wp_error( $result ) ? $result->get_error_code() : $result;
-						},
-						'permission_callback' => '__return_true',
-						'meta'                => array( 'annotations' => array( 'readonly' => false ) ),
-					) );
-				} );
+				// The MCP adapter only runs abilities for a logged-in user.
+				wp_set_current_user( 1 );
 				$write = wp_get_ability( 'e2e/write' )->execute();
 				$dispatch = function ( $name ) {
-					$result = wp_get_ability( 'mcp-adapter/execute-ability' )->execute( array( 'ability_name' => $name ) );
-					return is_wp_error( $result ) ? 'wrapper refused' : $result;
+					$result = wp_get_ability( 'mcp-adapter/execute-ability' )->execute( array( 'ability_name' => $name, 'parameters' => array() ) );
+					if ( is_wp_error( $result ) ) {
+						return 'wrapper refused';
+					}
+					return empty( $result['success'] ) ? array( 'error' => $result['error'] ) : $result['data'];
 				};
 				echo wp_json_encode( array(
-					'read'            => wp_get_ability( 'e2e/read' )->execute(),
-					'write'           => is_wp_error( $write ) ? $write->get_error_code() : $write,
-					'dispatched_read' => $dispatch( 'e2e/read' ),
+					'read'             => wp_get_ability( 'e2e/read' )->execute(),
+					'write'            => is_wp_error( $write ) ? $write->get_error_code() : $write,
+					'write_message'    => is_wp_error( $write ) ? $write->get_error_message() : '',
+					'dispatched_read'  => $dispatch( 'e2e/read' ),
 					'dispatched_write' => $dispatch( 'e2e/write' ),
 				) );
 			` )
 		);
 		// Through a dispatcher such as the MCP adapter, the ability inside is what gets checked.
-		expect( other ).toEqual( { read: 'read ran', write: 'site_read_only_mode', dispatched_read: 'read ran', dispatched_write: 'site_read_only_mode' } );
+		expect( other ).toMatchObject( { read: 'read ran', write: 'site_read_only_mode', dispatched_read: 'read ran' } );
+		expect( other.write_message ).not.toBe( '' );
+		expect( other.dispatched_write ).toEqual( { error: other.write_message } );
 
 		const blocked = await run( 'get-blocked', 'GET', { limit: 5 } );
 		expect( blocked.body.map( ( entry ) => entry.where ) ).toContain( 'ability e2e/write' );
