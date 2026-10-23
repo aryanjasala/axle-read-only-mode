@@ -5,6 +5,9 @@ name: Release
 # merged: tags vX.Y.Z, builds the zip and creates the GitHub release with the
 # readme.txt changelog entry as notes.
 #
+# Private repositories never release: a plugin is built in private and only
+# starts releasing once the repository is made public.
+#
 # Deploying to WordPress.org as well needs the repository variable
 # WPORG_DEPLOY=true and the secrets SVN_USERNAME and SVN_PASSWORD.
 
@@ -23,6 +26,7 @@ concurrency:
 jobs:
   release:
     name: GitHub release
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
