@@ -2,13 +2,13 @@
 /**
  * Rejects REST API writes.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Guards;
+namespace AryanX\Axle\ReadOnlyMode\Guards;
 
-use AryanX\AxleReadOnlyMode\Abilities;
-use AryanX\AxleReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\Abilities;
+use AryanX\Axle\ReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
 

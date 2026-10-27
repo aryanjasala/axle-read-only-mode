@@ -2,14 +2,14 @@
 /**
  * `wp axle-read-only-mode` commands.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Cli;
+namespace AryanX\Axle\ReadOnlyMode\Cli;
 
-use AryanX\AxleReadOnlyMode\BlockedLog;
-use AryanX\AxleReadOnlyMode\Freezer;
-use AryanX\AxleReadOnlyMode\State;
+use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 

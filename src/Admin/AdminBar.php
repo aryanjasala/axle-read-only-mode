@@ -2,14 +2,14 @@
 /**
  * Freeze status and quick actions in the admin bar.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Admin;
+namespace AryanX\Axle\ReadOnlyMode\Admin;
 
-use AryanX\AxleReadOnlyMode\Freezer;
-use AryanX\AxleReadOnlyMode\Service;
-use AryanX\AxleReadOnlyMode\State;
+use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 

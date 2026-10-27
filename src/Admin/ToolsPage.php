@@ -2,18 +2,18 @@
 /**
  * Tools > Axle Read-Only Mode.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Admin;
+namespace AryanX\Axle\ReadOnlyMode\Admin;
 
-use AryanX\AxleReadOnlyMode\BlockedLog;
-use AryanX\AxleReadOnlyMode\Freezer;
-use AryanX\AxleReadOnlyMode\History;
-use AryanX\AxleReadOnlyMode\Service;
-use AryanX\AxleReadOnlyMode\State;
-use const AryanX\AxleReadOnlyMode\PLUGIN_FILE;
-use const AryanX\AxleReadOnlyMode\VERSION;
+use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\History;
+use AryanX\Axle\ReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\State;
+use const AryanX\Axle\ReadOnlyMode\PLUGIN_FILE;
+use const AryanX\Axle\ReadOnlyMode\VERSION;
 
 defined( 'ABSPATH' ) || exit;
 

@@ -2,21 +2,21 @@
 /**
  * Plugin bootstrap.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode;
+namespace AryanX\Axle\ReadOnlyMode;
 
-use AryanX\AxleReadOnlyMode\Admin\AdminBar;
-use AryanX\AxleReadOnlyMode\Admin\Notice;
-use AryanX\AxleReadOnlyMode\Admin\ToolsPage;
-use AryanX\AxleReadOnlyMode\Cli\Command;
-use AryanX\AxleReadOnlyMode\Editor\EditorLock;
-use AryanX\AxleReadOnlyMode\Guards\AdminGuard;
-use AryanX\AxleReadOnlyMode\Guards\Blocker;
-use AryanX\AxleReadOnlyMode\Guards\FrontEndGuard;
-use AryanX\AxleReadOnlyMode\Guards\RestGuard;
-use AryanX\AxleReadOnlyMode\Guards\SideEffects;
+use AryanX\Axle\ReadOnlyMode\Admin\AdminBar;
+use AryanX\Axle\ReadOnlyMode\Admin\Notice;
+use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
+use AryanX\Axle\ReadOnlyMode\Cli\Command;
+use AryanX\Axle\ReadOnlyMode\Editor\EditorLock;
+use AryanX\Axle\ReadOnlyMode\Guards\AdminGuard;
+use AryanX\Axle\ReadOnlyMode\Guards\Blocker;
+use AryanX\Axle\ReadOnlyMode\Guards\FrontEndGuard;
+use AryanX\Axle\ReadOnlyMode\Guards\RestGuard;
+use AryanX\Axle\ReadOnlyMode\Guards\SideEffects;
 
 defined( 'ABSPATH' ) || exit;
 

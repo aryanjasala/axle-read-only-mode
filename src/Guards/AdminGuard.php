@@ -2,13 +2,13 @@
 /**
  * Blocks changes made through wp-admin and admin-ajax.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Guards;
+namespace AryanX\Axle\ReadOnlyMode\Guards;
 
-use AryanX\AxleReadOnlyMode\Admin\ToolsPage;
-use AryanX\AxleReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
+use AryanX\Axle\ReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
 

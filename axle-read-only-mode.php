@@ -12,17 +12,17 @@
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       axle-read-only-mode
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode;
+namespace AryanX\Axle\ReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
 const VERSION     = '3.0.0';
 const PLUGIN_FILE = __FILE__;
 
-// PSR-4: AryanX\AxleReadOnlyMode\Foo\Bar lives in src/Foo/Bar.php.
+// PSR-4: AryanX\Axle\ReadOnlyMode\Foo\Bar lives in src/Foo/Bar.php.
 spl_autoload_register(
 	static function ( $class_name ) {
 		$prefix = __NAMESPACE__ . '\\';

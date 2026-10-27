@@ -266,14 +266,14 @@ test.describe( 'Axle Read-Only Mode', () => {
 
 	test( 'scheduled freezes start later, expired freezes end on their own, WP-CLI works', async ( { page } ) => {
 		const later = Math.floor( Date.now() / 1000 ) + 3600;
-		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => ${ later }, 'minutes' => 30, 'reason' => 'Night deploy' ) );` );
+		wpEval( `AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => ${ later }, 'minutes' => 30, 'reason' => 'Night deploy' ) );` );
 		await page.goto( PAGE );
 		await expect( page.locator( '.aro-status.is-scheduled h2' ) ).toContainText( 'Freeze scheduled for' );
 		expect( wp( 'axle-read-only-mode', 'status' ) ).toContain( 'Scheduled to freeze at' );
 		await page.getByRole( 'button', { name: 'Cancel scheduled freeze' } ).click();
 		await expect( page.locator( '.aro-form' ) ).toBeVisible();
 
-		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 7200, 'minutes' => 60, 'reason' => 'Old deploy' ) );` );
+		wpEval( `AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 7200, 'minutes' => 60, 'reason' => 'Old deploy' ) );` );
 		expect( wp( 'axle-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
 		await page.goto( PAGE );
 		await expect( page.locator( '.aro-history tbody tr' ).first() ).toContainText( 'Ended on time' );

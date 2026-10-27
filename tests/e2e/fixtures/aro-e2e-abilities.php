@@ -7,7 +7,7 @@
  * because a plugin such as the MCP adapter can build the registry during
  * bootstrap. Anything registered after that is never seen.
  *
- * @package AxleReadOnlyMode
+ * @package ReadOnlyMode
  */
 
 // phpcs:ignoreFile

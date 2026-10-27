@@ -10,7 +10,7 @@
     {
       "name": "Tools > Axle Read-Only Mode, frozen with blocked attempts and history",
       "setup": [
-        ["eval", "AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP upgrade' ) ); AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();"],
+        ["eval", "AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP upgrade' ) ); AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();"],
         ["axle-read-only-mode", "on", "--minutes=90", "--reason=Moving to the new server"],
         ["eval", "update_option( 'axle_read_only_mode_log', array( array( 'time' => time() - 60, 'user' => 1, 'where' => 'POST /wp/v2/posts/1', 'source' => 'rest' ), array( 'time' => time() - 30, 'user' => 0, 'where' => '/wp-comments-post.php', 'source' => 'front' ) ), false );"]
       ],
@@ -24,7 +24,7 @@
     },
     {
       "name": "Tools > Axle Read-Only Mode, freeze scheduled",
-      "setup": [["eval", "AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() + 3600, 'minutes' => 30, 'reason' => 'Release night' ) );"]],
+      "setup": [["eval", "AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() + 3600, 'minutes' => 30, 'reason' => 'Release night' ) );"]],
       "url": "/wp-admin/tools.php?page=axle-read-only-mode",
       "steps": [{ "waitFor": ".aro-status.is-scheduled" }],
       "cleanup": [["axle-read-only-mode", "off"]]

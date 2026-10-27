@@ -18,8 +18,8 @@ test.describe.serial( 'Screenshots', () => {
 			'--porcelain'
 		);
 		// One finished freeze for the history table.
-		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP 8.3 upgrade' ) );` );
-		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();` );
+		wpEval( `AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP 8.3 upgrade' ) );` );
+		wpEval( `AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();` );
 		wp( 'axle-read-only-mode', 'on', '--minutes=90', '--reason=Moving to the new server', '--visitor-message=We are moving to a new server and will be back within the hour. Please try again soon.' );
 	} );
 

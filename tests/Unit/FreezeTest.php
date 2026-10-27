@@ -2,15 +2,15 @@
 /**
  * Tests for freeze timing, messages, extending and history.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Tests\Unit;
+namespace AryanX\Axle\ReadOnlyMode\Tests\Unit;
 
-use AryanX\AxleReadOnlyMode\BlockedLog;
-use AryanX\AxleReadOnlyMode\Freezer;
-use AryanX\AxleReadOnlyMode\History;
-use AryanX\AxleReadOnlyMode\State;
+use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\History;
+use AryanX\Axle\ReadOnlyMode\State;
 use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
 
@@ -264,9 +264,9 @@ final class FreezeTest extends TestCase {
 	}
 
 	public function test_lengths_read_as_hours_and_minutes(): void {
-		$this->assertSame( '45 minutes', \AryanX\AxleReadOnlyMode\Admin\ToolsPage::duration_label( 45 ) );
-		$this->assertSame( '2 hours', \AryanX\AxleReadOnlyMode\Admin\ToolsPage::duration_label( 120 ) );
-		$this->assertSame( '1 hour 30 minutes', \AryanX\AxleReadOnlyMode\Admin\ToolsPage::duration_label( 90 ) );
+		$this->assertSame( '45 minutes', \AryanX\Axle\ReadOnlyMode\Admin\ToolsPage::duration_label( 45 ) );
+		$this->assertSame( '2 hours', \AryanX\Axle\ReadOnlyMode\Admin\ToolsPage::duration_label( 120 ) );
+		$this->assertSame( '1 hour 30 minutes', \AryanX\Axle\ReadOnlyMode\Admin\ToolsPage::duration_label( 90 ) );
 	}
 
 	public function test_a_filter_can_freeze_the_site_from_outside(): void {

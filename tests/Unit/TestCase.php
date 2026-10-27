@@ -2,10 +2,10 @@
 /**
  * Base class for unit tests.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Tests\Unit;
+namespace AryanX\Axle\ReadOnlyMode\Tests\Unit;
 
 use Brain\Monkey;
 use Brain\Monkey\Functions;

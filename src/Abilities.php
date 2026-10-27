@@ -2,12 +2,12 @@
 /**
  * Abilities: freeze controls for AI agents and other Abilities API clients.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode;
+namespace AryanX\Axle\ReadOnlyMode;
 
-use AryanX\AxleReadOnlyMode\Admin\ToolsPage;
+use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
 
 defined( 'ABSPATH' ) || exit;
 
