@@ -2,21 +2,21 @@
 /**
  * Plugin bootstrap.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode;
+namespace AryanX\AxleReadOnlyMode;
 
-use AryanX\SiteReadOnlyMode\Admin\AdminBar;
-use AryanX\SiteReadOnlyMode\Admin\Notice;
-use AryanX\SiteReadOnlyMode\Admin\ToolsPage;
-use AryanX\SiteReadOnlyMode\Cli\Command;
-use AryanX\SiteReadOnlyMode\Editor\EditorLock;
-use AryanX\SiteReadOnlyMode\Guards\AdminGuard;
-use AryanX\SiteReadOnlyMode\Guards\Blocker;
-use AryanX\SiteReadOnlyMode\Guards\FrontEndGuard;
-use AryanX\SiteReadOnlyMode\Guards\RestGuard;
-use AryanX\SiteReadOnlyMode\Guards\SideEffects;
+use AryanX\AxleReadOnlyMode\Admin\AdminBar;
+use AryanX\AxleReadOnlyMode\Admin\Notice;
+use AryanX\AxleReadOnlyMode\Admin\ToolsPage;
+use AryanX\AxleReadOnlyMode\Cli\Command;
+use AryanX\AxleReadOnlyMode\Editor\EditorLock;
+use AryanX\AxleReadOnlyMode\Guards\AdminGuard;
+use AryanX\AxleReadOnlyMode\Guards\Blocker;
+use AryanX\AxleReadOnlyMode\Guards\FrontEndGuard;
+use AryanX\AxleReadOnlyMode\Guards\RestGuard;
+use AryanX\AxleReadOnlyMode\Guards\SideEffects;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -143,7 +143,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'site-read-only-mode', new Command( $this->state, $this->freezer, $this->log ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log ) );
 		}
 	}
 }

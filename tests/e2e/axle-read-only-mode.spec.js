@@ -1,11 +1,11 @@
 const { test, expect, wp, wpEval, openEditor } = require( './utils' );
 
-const PAGE = '/wp-admin/tools.php?page=site-read-only-mode';
+const PAGE = '/wp-admin/tools.php?page=axle-read-only-mode';
 // Must-use plugin with throwaway abilities for the abilities test.
-const FIXTURE = 'sro-e2e-abilities.php';
+const FIXTURE = 'aro-e2e-abilities.php';
 
 const reset = () => {
-	for ( const option of [ 'site_read_only_mode_state', 'site_read_only_mode_log', 'site_read_only_mode_history' ] ) {
+	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history' ] ) {
 		try {
 			wp( 'option', 'delete', option );
 		} catch ( error ) {
@@ -14,7 +14,7 @@ const reset = () => {
 	}
 };
 
-test.describe( 'Site Read-Only Mode', () => {
+test.describe( 'Axle Read-Only Mode', () => {
 	let postId;
 
 	test.beforeAll( () => {
@@ -31,14 +31,14 @@ test.describe( 'Site Read-Only Mode', () => {
 
 	test( 'freezing from the screen locks editing, the REST API and settings', async ( { page, rest } ) => {
 		await page.goto( PAGE );
-		await page.locator( '#sro-reason' ).fill( 'Moving servers' );
-		await page.locator( '#sro-minutes' ).selectOption( '60' );
+		await page.locator( '#aro-reason' ).fill( 'Moving servers' );
+		await page.locator( '#aro-minutes' ).selectOption( '60' );
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();
 
-		await expect( page.locator( '.sro-status h2' ) ).toHaveText( 'The site is frozen' );
-		await expect( page.locator( '.sro-reason' ) ).toHaveText( 'Moving servers' );
-		await expect( page.locator( '.sro-countdown' ) ).toHaveText( /^Ends in (59|60):\d\d$/ );
-		await expect( page.locator( '#wp-admin-bar-site-read-only-mode' ) ).toContainText( 'Frozen until' );
+		await expect( page.locator( '.aro-status h2' ) ).toHaveText( 'The site is frozen' );
+		await expect( page.locator( '.aro-reason' ) ).toHaveText( 'Moving servers' );
+		await expect( page.locator( '.aro-countdown' ) ).toHaveText( /^Ends in (59|60):\d\d$/ );
+		await expect( page.locator( '#wp-admin-bar-axle-read-only-mode' ) ).toContainText( 'Frozen until' );
 
 		await openEditor( page, postId );
 		await expect( page.locator( '.components-notice' ).filter( { hasText: 'This site is frozen for maintenance' } ) ).toBeVisible();
@@ -46,10 +46,10 @@ test.describe( 'Site Read-Only Mode', () => {
 
 		const save = await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Changed during freeze' } );
 		expect( save.status ).toBe( 423 );
-		expect( save.body.code ).toBe( 'site_read_only_mode' );
+		expect( save.body.code ).toBe( 'axle_read_only_mode' );
 
 		await page.goto( '/wp-admin/options-general.php' );
-		await expect( page.locator( '.site-read-only-mode-notice' ) ).toContainText( 'Reason: Moving servers' );
+		await expect( page.locator( '.axle-read-only-mode-notice' ) ).toContainText( 'Reason: Moving servers' );
 		const response = await Promise.all( [ page.waitForResponse( ( r ) => r.url().endsWith( '/wp-admin/options.php' ) ), page.locator( '#submit' ).click() ] );
 		expect( response[ 0 ].status() ).toBe( 423 );
 		await expect( page.locator( 'body' ) ).toContainText( 'This site is frozen for maintenance' );
@@ -58,7 +58,7 @@ test.describe( 'Site Read-Only Mode', () => {
 	} );
 
 	test( 'visitors can read the site but get the visitor message when they post', async ( { browser } ) => {
-		wp( 'site-read-only-mode', 'on', '--minutes=30', '--visitor-message=We are moving servers. Back by 3 pm.' );
+		wp( 'axle-read-only-mode', 'on', '--minutes=30', '--visitor-message=We are moving servers. Back by 3 pm.' );
 
 		const visitor = await browser.newContext( { storageState: { cookies: [], origins: [] } } );
 		const page = await visitor.newPage();
@@ -80,31 +80,31 @@ test.describe( 'Site Read-Only Mode', () => {
 	} );
 
 	test( 'blocked attempts are listed, the freeze can be extended, and unfreezing records history', async ( { page, rest } ) => {
-		wp( 'site-read-only-mode', 'on', '--minutes=30', '--reason=DB swap' );
+		wp( 'axle-read-only-mode', 'on', '--minutes=30', '--reason=DB swap' );
 		await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Blocked edit' } );
 
 		await page.goto( PAGE );
-		const blocked = page.locator( '.sro-blocked' );
+		const blocked = page.locator( '.aro-blocked' );
 		await expect( blocked.locator( 'h2' ) ).toHaveText( 'Blocked during this freeze (1)' );
 		await expect( blocked ).toContainText( `REST POST /wp/v2/posts/${ postId }` );
 		await expect( blocked ).toContainText( 'admin' );
 
-		const before = Number( wpEval( 'echo get_option( "site_read_only_mode_state" )["end"];' ) );
+		const before = Number( wpEval( 'echo get_option( "axle_read_only_mode_state" )["end"];' ) );
 		await page.getByRole( 'button', { name: '+1 hour' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Freeze extended.' );
-		expect( Number( wpEval( 'echo get_option( "site_read_only_mode_state" )["end"];' ) ) ).toBe( before + 3600 );
+		expect( Number( wpEval( 'echo get_option( "axle_read_only_mode_state" )["end"];' ) ) ).toBe( before + 3600 );
 
 		await page.getByRole( 'button', { name: 'Unfreeze now' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'The site is unfrozen.' );
-		const history = page.locator( '.sro-history tbody tr' ).first();
+		const history = page.locator( '.aro-history tbody tr' ).first();
 		await expect( history ).toContainText( 'DB swap' );
 		await expect( history ).toContainText( 'Unfrozen' );
 		await expect( history.locator( '.num' ) ).toHaveText( '1' );
-		await expect( page.locator( '.sro-blocked h2' ) ).toHaveText( 'Blocked during the last freeze (1)' );
+		await expect( page.locator( '.aro-blocked h2' ) ).toHaveText( 'Blocked during the last freeze (1)' );
 	} );
 
 	test( 'bots cannot flood the log, and the log takes part in the privacy tools', async ( { browser, rest } ) => {
-		wp( 'site-read-only-mode', 'on', '--minutes=30' );
+		wp( 'axle-read-only-mode', 'on', '--minutes=30' );
 		const visitor = await browser.newContext( { storageState: { cookies: [], origins: [] } } );
 		const page = await visitor.newPage();
 		for ( let i = 0; i < 14; i++ ) {
@@ -114,7 +114,7 @@ test.describe( 'Site Read-Only Mode', () => {
 		await visitor.close();
 		await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Blocked edit' } );
 
-		const log = JSON.parse( wpEval( 'echo wp_json_encode( get_option( "site_read_only_mode_log" ) );' ) );
+		const log = JSON.parse( wpEval( 'echo wp_json_encode( get_option( "axle_read_only_mode_log" ) );' ) );
 		expect( log.filter( ( entry ) => ! entry.user ) ).toHaveLength( 10 );
 		expect( log.map( ( entry ) => entry.where ).join( ' ' ) ).not.toContain( '?email=' );
 		expect( log[ 0 ] ).toMatchObject( { user: 1, source: 'rest' } );
@@ -123,19 +123,19 @@ test.describe( 'Site Read-Only Mode', () => {
 			JSON.parse(
 				wpEval( `
 					$tools = apply_filters( 'wp_privacy_personal_data_${ tool }s', array() );
-					echo wp_json_encode( call_user_func( $tools['site-read-only-mode']['callback'], 'admin@example.com', 1 ) );
+					echo wp_json_encode( call_user_func( $tools['axle-read-only-mode']['callback'], 'admin@example.com', 1 ) );
 				` )
 			);
 		const exported = privacy( 'exporter' );
-		expect( exported.data.filter( ( item ) => item.group_id === 'site-read-only-mode-blocked' ) ).toHaveLength( 1 );
+		expect( exported.data.filter( ( item ) => item.group_id === 'axle-read-only-mode-blocked' ) ).toHaveLength( 1 );
 		expect( privacy( 'eraser' ) ).toMatchObject( { items_removed: true, done: true } );
-		expect( wp( 'site-read-only-mode', 'log', '--format=json' ) ).toContain( '(removed)' );
+		expect( wp( 'axle-read-only-mode', 'log', '--format=json' ) ).toContain( '(removed)' );
 	} );
 
 	test( 'abilities: an agent can check, freeze and unfreeze, and other abilities that write are refused', async ( { rest } ) => {
 		test.skip( 'yes' !== wpEval( "echo function_exists( 'wp_register_ability' ) ? 'yes' : 'no';" ), 'The Abilities API needs WordPress 6.9.' );
 		const run = ( name, method, input ) => {
-			const path = `/wp-abilities/v1/abilities/site-read-only-mode/${ name }/run`;
+			const path = `/wp-abilities/v1/abilities/axle-read-only-mode/${ name }/run`;
 			if ( 'GET' === method ) {
 				const query = input ? Object.entries( input ).map( ( [ key, value ] ) => `input[${ key }]=${ encodeURIComponent( value ) }` ).join( '&' ) : '';
 				return rest( 'GET', query ? `${ path }?${ query }` : path );
@@ -143,11 +143,11 @@ test.describe( 'Site Read-Only Mode', () => {
 			return rest( method, path, input ? { input } : {} );
 		};
 
-		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=site-read-only-mode' );
+		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=axle-read-only-mode' );
 		expect( listed.status ).toBe( 200 );
-		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'site-read-only-mode/extend', 'site-read-only-mode/freeze', 'site-read-only-mode/get-blocked', 'site-read-only-mode/get-status', 'site-read-only-mode/unfreeze' ] );
+		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/unfreeze' ] );
 		// MCP clients only list abilities marked public.
-		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'site-read-only-mode/' ); } ) ) );` ) ) ).toEqual( [] );
+		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'axle-read-only-mode/' ); } ) ) );` ) ) ).toEqual( [] );
 
 		expect( ( await run( 'get-status', 'GET' ) ).body ).toMatchObject( { frozen: false } );
 
@@ -163,7 +163,7 @@ test.describe( 'Site Read-Only Mode', () => {
 		// The fixture registers them on the Abilities API hooks, because an active MCP adapter builds the
 		// registry during bootstrap and never sees abilities registered later from `wp eval`. It also adds a
 		// stand-in for the adapter's execute tool when the adapter is not active.
-		wpEval( `wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/site-read-only-mode/tests/e2e/fixtures/${ FIXTURE }', WPMU_PLUGIN_DIR . '/${ FIXTURE }' );` );
+		wpEval( `wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/axle-read-only-mode/tests/e2e/fixtures/${ FIXTURE }', WPMU_PLUGIN_DIR . '/${ FIXTURE }' );` );
 		const other = JSON.parse(
 			wpEval( `
 				// The MCP adapter only runs abilities for a logged-in user.
@@ -186,7 +186,7 @@ test.describe( 'Site Read-Only Mode', () => {
 			` )
 		);
 		// Through a dispatcher such as the MCP adapter, the ability inside is what gets checked.
-		expect( other ).toMatchObject( { read: 'read ran', write: 'site_read_only_mode', dispatched_read: 'read ran' } );
+		expect( other ).toMatchObject( { read: 'read ran', write: 'axle_read_only_mode', dispatched_read: 'read ran' } );
 		expect( other.write_message ).not.toBe( '' );
 		expect( other.dispatched_write ).toEqual( { error: other.write_message } );
 
@@ -197,11 +197,11 @@ test.describe( 'Site Read-Only Mode', () => {
 		const unfrozen = await run( 'unfreeze', 'POST' );
 		expect( unfrozen.status ).toBe( 200 );
 		expect( unfrozen.body ).toMatchObject( { frozen: false } );
-		expect( JSON.parse( wpEval( 'echo wp_json_encode( get_option( "site_read_only_mode_history" )[0] );' ) ) ).toMatchObject( { ended_by: 'ability', reason: 'Agent deploy' } );
+		expect( JSON.parse( wpEval( 'echo wp_json_encode( get_option( "axle_read_only_mode_history" )[0] );' ) ) ).toMatchObject( { ended_by: 'ability', reason: 'Agent deploy' } );
 	} );
 
 	test( 'editor housekeeping keeps working, profile changes stay blocked', async ( { page, rest } ) => {
-		wp( 'site-read-only-mode', 'on', '--minutes=10' );
+		wp( 'axle-read-only-mode', 'on', '--minutes=10' );
 
 		const nonce = await page.request.get( '/wp-admin/admin-ajax.php?action=rest-nonce' );
 		expect( nonce.status() ).toBe( 200 );
@@ -216,14 +216,14 @@ test.describe( 'Site Read-Only Mode', () => {
 		expect( mixed.status ).toBe( 423 );
 
 		expect( wp( 'user', 'get', 'admin', '--field=user_email' ) ).toBe( 'admin@example.com' );
-		expect( wp( 'site-read-only-mode', 'log', '--format=count' ) ).toBe( '2' );
+		expect( wp( 'axle-read-only-mode', 'log', '--format=count' ) ).toBe( '2' );
 	} );
 
 	test( 'exempt users keep editing', async ( { page, rest } ) => {
 		await page.goto( PAGE );
 		await page.getByLabel( 'Let me keep editing' ).check();
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();
-		await expect( page.locator( '.sro-facts' ) ).toContainText( 'Can still edit: admin' );
+		await expect( page.locator( '.aro-facts' ) ).toContainText( 'Can still edit: admin' );
 
 		const save = await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Edited by exempt admin' } );
 		expect( save.status ).toBe( 200 );
@@ -236,14 +236,14 @@ test.describe( 'Site Read-Only Mode', () => {
 	test( 'admin bar freezes for an hour and unfreezes', async ( { page } ) => {
 		await page.goto( '/wp-admin/' );
 		await page.locator( '#wp-admin-bar-site-name' ).hover();
-		await page.locator( '#wp-admin-bar-site-read-only-mode-quick a' ).click();
-		await expect( page.locator( '#wp-admin-bar-site-read-only-mode' ) ).toContainText( 'Frozen until' );
-		expect( wp( 'site-read-only-mode', 'status' ) ).toContain( 'frozen for maintenance until' );
+		await page.locator( '#wp-admin-bar-axle-read-only-mode-quick a' ).click();
+		await expect( page.locator( '#wp-admin-bar-axle-read-only-mode' ) ).toContainText( 'Frozen until' );
+		expect( wp( 'axle-read-only-mode', 'status' ) ).toContain( 'frozen for maintenance until' );
 
-		await page.locator( '#wp-admin-bar-site-read-only-mode' ).hover();
-		await page.locator( '#wp-admin-bar-site-read-only-mode-unfreeze a' ).click();
-		await expect( page.locator( '#wp-admin-bar-site-read-only-mode' ) ).toHaveCount( 0 );
-		expect( wp( 'site-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
+		await page.locator( '#wp-admin-bar-axle-read-only-mode' ).hover();
+		await page.locator( '#wp-admin-bar-axle-read-only-mode-unfreeze a' ).click();
+		await expect( page.locator( '#wp-admin-bar-axle-read-only-mode' ) ).toHaveCount( 0 );
+		expect( wp( 'axle-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
 	} );
 
 	test( 'an open editor locks and unlocks through the heartbeat', async ( { page } ) => {
@@ -255,31 +255,31 @@ test.describe( 'Site Read-Only Mode', () => {
 		} ) );
 
 		expect( await locked() ).toBe( false );
-		wp( 'site-read-only-mode', 'on', '--minutes=10' );
+		wp( 'axle-read-only-mode', 'on', '--minutes=10' );
 		await tick();
 		expect( await locked() ).toBe( true );
 
-		wp( 'site-read-only-mode', 'off' );
+		wp( 'axle-read-only-mode', 'off' );
 		await tick();
 		expect( await locked() ).toBe( false );
 	} );
 
 	test( 'scheduled freezes start later, expired freezes end on their own, WP-CLI works', async ( { page } ) => {
 		const later = Math.floor( Date.now() / 1000 ) + 3600;
-		wpEval( `AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => ${ later }, 'minutes' => 30, 'reason' => 'Night deploy' ) );` );
+		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => ${ later }, 'minutes' => 30, 'reason' => 'Night deploy' ) );` );
 		await page.goto( PAGE );
-		await expect( page.locator( '.sro-status.is-scheduled h2' ) ).toContainText( 'Freeze scheduled for' );
-		expect( wp( 'site-read-only-mode', 'status' ) ).toContain( 'Scheduled to freeze at' );
+		await expect( page.locator( '.aro-status.is-scheduled h2' ) ).toContainText( 'Freeze scheduled for' );
+		expect( wp( 'axle-read-only-mode', 'status' ) ).toContain( 'Scheduled to freeze at' );
 		await page.getByRole( 'button', { name: 'Cancel scheduled freeze' } ).click();
-		await expect( page.locator( '.sro-form' ) ).toBeVisible();
+		await expect( page.locator( '.aro-form' ) ).toBeVisible();
 
-		wpEval( `AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 7200, 'minutes' => 60, 'reason' => 'Old deploy' ) );` );
-		expect( wp( 'site-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
+		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 7200, 'minutes' => 60, 'reason' => 'Old deploy' ) );` );
+		expect( wp( 'axle-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
 		await page.goto( PAGE );
-		await expect( page.locator( '.sro-history tbody tr' ).first() ).toContainText( 'Ended on time' );
+		await expect( page.locator( '.aro-history tbody tr' ).first() ).toContainText( 'Ended on time' );
 
-		expect( wp( 'site-read-only-mode', 'on', '--minutes=20', '--reason=CLI' ) ).toContain( 'Reason: CLI' );
-		expect( wp( 'site-read-only-mode', 'extend', '10' ) ).toContain( 'frozen for maintenance until' );
-		expect( wp( 'site-read-only-mode', 'off' ) ).toContain( 'Site unfrozen. 0 attempt(s)' );
+		expect( wp( 'axle-read-only-mode', 'on', '--minutes=20', '--reason=CLI' ) ).toContain( 'Reason: CLI' );
+		expect( wp( 'axle-read-only-mode', 'extend', '10' ) ).toContain( 'frozen for maintenance until' );
+		expect( wp( 'axle-read-only-mode', 'off' ) ).toContain( 'Site unfrozen. 0 attempt(s)' );
 	} );
 } );

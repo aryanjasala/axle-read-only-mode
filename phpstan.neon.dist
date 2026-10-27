@@ -2,12 +2,12 @@
 parameters:
 	level: 6
 	paths:
-		- site-read-only-mode.php
+		- axle-read-only-mode.php
 		- uninstall.php
 		- src
 	dynamicConstantNames:
-		- SITE_READ_ONLY_MODE
-		- SITE_READ_ONLY_MODE_REASON
+		- AXLE_READ_ONLY_MODE
+		- AXLE_READ_ONLY_MODE_REASON
 	scanFiles:
 		- vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
 	bootstrapFiles:

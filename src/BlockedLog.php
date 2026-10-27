@@ -2,10 +2,10 @@
 /**
  * What the freeze stopped.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode;
+namespace AryanX\AxleReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class BlockedLog implements Service {
 
-	public const OPTION = 'site_read_only_mode_log';
+	public const OPTION = 'axle_read_only_mode_log';
 
 	private const LIMIT = 100;
 
@@ -87,7 +87,7 @@ final class BlockedLog implements Service {
 		 *
 		 * @param int $size Default 100.
 		 */
-		$size = max( 1, (int) apply_filters( 'site_read_only_mode_log_size', self::LIMIT ) );
+		$size = max( 1, (int) apply_filters( 'axle_read_only_mode_log_size', self::LIMIT ) );
 		update_option( self::OPTION, array_slice( $log, 0, $size ), false );
 	}
 
@@ -105,7 +105,7 @@ final class BlockedLog implements Service {
 		 *
 		 * @param int $limit Default 10.
 		 */
-		return max( 0, (int) apply_filters( 'site_read_only_mode_logged_visitors', 10 ) );
+		return max( 0, (int) apply_filters( 'axle_read_only_mode_logged_visitors', 10 ) );
 	}
 
 	/**
@@ -127,7 +127,7 @@ final class BlockedLog implements Service {
 	 */
 	public static function who( array $entry ): string {
 		if ( self::ERASED === (int) ( $entry['user'] ?? 0 ) ) {
-			return __( '(removed)', 'site-read-only-mode' );
+			return __( '(removed)', 'axle-read-only-mode' );
 		}
 		if ( ! empty( $entry['user'] ) ) {
 			$user = get_userdata( (int) $entry['user'] );
@@ -161,8 +161,8 @@ final class BlockedLog implements Service {
 	 * @return array
 	 */
 	public function add_exporter( array $exporters ): array {
-		$exporters['site-read-only-mode'] = array(
-			'exporter_friendly_name' => __( 'Site Read-Only Mode', 'site-read-only-mode' ),
+		$exporters['axle-read-only-mode'] = array(
+			'exporter_friendly_name' => __( 'Axle Read-Only Mode', 'axle-read-only-mode' ),
 			'callback'               => array( $this, 'export' ),
 		);
 
@@ -176,8 +176,8 @@ final class BlockedLog implements Service {
 	 * @return array
 	 */
 	public function add_eraser( array $erasers ): array {
-		$erasers['site-read-only-mode'] = array(
-			'eraser_friendly_name' => __( 'Site Read-Only Mode', 'site-read-only-mode' ),
+		$erasers['axle-read-only-mode'] = array(
+			'eraser_friendly_name' => __( 'Axle Read-Only Mode', 'axle-read-only-mode' ),
 			'callback'             => array( $this, 'erase' ),
 		);
 
@@ -198,16 +198,16 @@ final class BlockedLog implements Service {
 			foreach ( $this->all() as $index => $entry ) {
 				if ( (int) ( $entry['user'] ?? 0 ) === $user->ID || ( $entry['who'] ?? '' ) === $user->user_login ) {
 					$data[] = array(
-						'group_id'    => 'site-read-only-mode-blocked',
-						'group_label' => __( 'Changes blocked during a freeze', 'site-read-only-mode' ),
-						'item_id'     => 'site-read-only-mode-blocked-' . $index,
+						'group_id'    => 'axle-read-only-mode-blocked',
+						'group_label' => __( 'Changes blocked during a freeze', 'axle-read-only-mode' ),
+						'item_id'     => 'axle-read-only-mode-blocked-' . $index,
 						'data'        => array(
 							array(
-								'name'  => __( 'Date', 'site-read-only-mode' ),
+								'name'  => __( 'Date', 'axle-read-only-mode' ),
 								'value' => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ),
 							),
 							array(
-								'name'  => __( 'What was blocked', 'site-read-only-mode' ),
+								'name'  => __( 'What was blocked', 'axle-read-only-mode' ),
 								'value' => (string) $entry['where'],
 							),
 						),
@@ -218,16 +218,16 @@ final class BlockedLog implements Service {
 			foreach ( $this->history->all() as $index => $freeze ) {
 				if ( (int) ( $freeze['by'] ?? 0 ) === $user->ID ) {
 					$data[] = array(
-						'group_id'    => 'site-read-only-mode-history',
-						'group_label' => __( 'Freezes you started', 'site-read-only-mode' ),
-						'item_id'     => 'site-read-only-mode-history-' . $index,
+						'group_id'    => 'axle-read-only-mode-history',
+						'group_label' => __( 'Freezes you started', 'axle-read-only-mode' ),
+						'item_id'     => 'axle-read-only-mode-history-' . $index,
 						'data'        => array(
 							array(
-								'name'  => __( 'Started', 'site-read-only-mode' ),
+								'name'  => __( 'Started', 'axle-read-only-mode' ),
 								'value' => gmdate( 'Y-m-d H:i:s', (int) $freeze['start'] ),
 							),
 							array(
-								'name'  => __( 'Reason', 'site-read-only-mode' ),
+								'name'  => __( 'Reason', 'axle-read-only-mode' ),
 								'value' => (string) $freeze['reason'],
 							),
 						),
@@ -287,8 +287,8 @@ final class BlockedLog implements Service {
 		}
 
 		wp_add_privacy_policy_content(
-			__( 'Site Read-Only Mode', 'site-read-only-mode' ),
-			'<p>' . esc_html__( 'While the site is frozen for maintenance, Site Read-Only Mode keeps a list of the changes it blocked: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes.', 'site-read-only-mode' ) . '</p>'
+			__( 'Axle Read-Only Mode', 'axle-read-only-mode' ),
+			'<p>' . esc_html__( 'While the site is frozen for maintenance, Axle Read-Only Mode keeps a list of the changes it blocked: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes.', 'axle-read-only-mode' ) . '</p>'
 		);
 	}
 

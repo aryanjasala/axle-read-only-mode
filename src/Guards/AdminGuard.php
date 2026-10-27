@@ -2,13 +2,13 @@
 /**
  * Blocks changes made through wp-admin and admin-ajax.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode\Guards;
+namespace AryanX\AxleReadOnlyMode\Guards;
 
-use AryanX\SiteReadOnlyMode\Admin\ToolsPage;
-use AryanX\SiteReadOnlyMode\Service;
+use AryanX\AxleReadOnlyMode\Admin\ToolsPage;
+use AryanX\AxleReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -121,7 +121,7 @@ final class AdminGuard implements Service {
 		 *
 		 * @param string[] $screens File names. Default post-new.php (it saves an auto-draft) and upgrade.php.
 		 */
-		return array_map( 'strval', (array) apply_filters( 'site_read_only_mode_writing_screens', self::WRITING_SCREENS ) );
+		return array_map( 'strval', (array) apply_filters( 'axle_read_only_mode_writing_screens', self::WRITING_SCREENS ) );
 	}
 
 	/**
@@ -139,7 +139,7 @@ final class AdminGuard implements Service {
 		 *
 		 * @param string[] $actions Read-only ajax actions.
 		 */
-		$allowed = (array) apply_filters( 'site_read_only_mode_allowed_ajax_actions', self::READ_ONLY_AJAX );
+		$allowed = (array) apply_filters( 'axle_read_only_mode_allowed_ajax_actions', self::READ_ONLY_AJAX );
 
 		if ( in_array( $action, $allowed, true ) ) {
 			if ( 'heartbeat' === $action ) {

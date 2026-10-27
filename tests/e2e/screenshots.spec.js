@@ -18,14 +18,14 @@ test.describe.serial( 'Screenshots', () => {
 			'--porcelain'
 		);
 		// One finished freeze for the history table.
-		wpEval( `AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP 8.3 upgrade' ) );` );
-		wpEval( `AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();` );
-		wp( 'site-read-only-mode', 'on', '--minutes=90', '--reason=Moving to the new server', '--visitor-message=We are moving to a new server and will be back within the hour. Please try again soon.' );
+		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP 8.3 upgrade' ) );` );
+		wpEval( `AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();` );
+		wp( 'axle-read-only-mode', 'on', '--minutes=90', '--reason=Moving to the new server', '--visitor-message=We are moving to a new server and will be back within the hour. Please try again soon.' );
 	} );
 
 	test.afterAll( () => {
-		wp( 'site-read-only-mode', 'off' );
-		for ( const option of [ 'site_read_only_mode_state', 'site_read_only_mode_log', 'site_read_only_mode_history' ] ) {
+		wp( 'axle-read-only-mode', 'off' );
+		for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history' ] ) {
 			wp( 'option', 'delete', option );
 		}
 		wp( 'post', 'delete', postId, '--force' );
@@ -47,10 +47,10 @@ test.describe.serial( 'Screenshots', () => {
 		await visitor.close();
 	} );
 
-	test( '2: Tools > Site Read-Only Mode with the countdown and blocked attempts', async ( { page, rest } ) => {
+	test( '2: Tools > Axle Read-Only Mode with the countdown and blocked attempts', async ( { page, rest } ) => {
 		await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Spring menu (updated)' } );
-		await page.goto( '/wp-admin/tools.php?page=site-read-only-mode' );
-		await expect( page.locator( '.sro-blocked tbody tr' ).first() ).toBeVisible();
+		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode' );
+		await expect( page.locator( '.aro-blocked tbody tr' ).first() ).toBeVisible();
 		await page.waitForTimeout( 1200 );
 		await shot( page, 2 );
 	} );

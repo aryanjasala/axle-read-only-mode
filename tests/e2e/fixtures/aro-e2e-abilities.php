@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name: Site Read-Only Mode e2e abilities
+ * Plugin Name: Axle Read-Only Mode e2e abilities
  * Description: Throwaway abilities for the end-to-end tests. Copied into mu-plugins by the abilities test.
  *
  * They are registered on the Abilities API's own hooks, not late from `wp eval`,
  * because a plugin such as the MCP adapter can build the registry during
  * bootstrap. Anything registered after that is never seen.
  *
- * @package SiteReadOnlyMode
+ * @package AxleReadOnlyMode
  */
 
 // phpcs:ignoreFile

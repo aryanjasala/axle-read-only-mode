@@ -1,5 +1,5 @@
 /**
- * Site Read-Only Mode: live "Ends in 1:23:45" countdown on the freeze screen.
+ * Axle Read-Only Mode: live "Ends in 1:23:45" countdown on the freeze screen.
  * Reloads the page when the freeze ends so the screen shows the new state.
  */
 ( function () {
@@ -16,9 +16,9 @@
 		return ( hours ? hours + ':' + pad( minutes ) : String( minutes ) ) + ':' + pad( rest );
 	}
 
-	document.querySelectorAll( '[data-sro-end]' ).forEach( function ( element ) {
-		var end = Number( element.getAttribute( 'data-sro-end' ) ) * 1000;
-		var label = element.getAttribute( 'data-sro-label' );
+	document.querySelectorAll( '[data-aro-end]' ).forEach( function ( element ) {
+		var end = Number( element.getAttribute( 'data-aro-end' ) ) * 1000;
+		var label = element.getAttribute( 'data-aro-label' );
 		var timer;
 
 		function tick() {

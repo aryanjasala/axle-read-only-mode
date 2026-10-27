@@ -2,10 +2,10 @@
 /**
  * Past freezes.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode;
+namespace AryanX\AxleReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class History {
 
-	public const OPTION = 'site_read_only_mode_history';
+	public const OPTION = 'axle_read_only_mode_history';
 
 	private const LIMIT = 10;
 
@@ -41,7 +41,7 @@ final class History {
 		 *
 		 * @param int $size Default 10.
 		 */
-		$size = max( 1, (int) apply_filters( 'site_read_only_mode_history_size', self::LIMIT ) );
+		$size = max( 1, (int) apply_filters( 'axle_read_only_mode_history_size', self::LIMIT ) );
 		update_option( self::OPTION, array_slice( $history, 0, $size ), false );
 	}
 

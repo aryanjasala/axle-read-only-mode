@@ -4,49 +4,49 @@
   "exclude": [],
   "screens": [
     {
-      "name": "Tools > Site Read-Only Mode, not frozen",
-      "url": "/wp-admin/tools.php?page=site-read-only-mode"
+      "name": "Tools > Axle Read-Only Mode, not frozen",
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode"
     },
     {
-      "name": "Tools > Site Read-Only Mode, frozen with blocked attempts and history",
+      "name": "Tools > Axle Read-Only Mode, frozen with blocked attempts and history",
       "setup": [
-        ["eval", "AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP upgrade' ) ); AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();"],
-        ["site-read-only-mode", "on", "--minutes=90", "--reason=Moving to the new server"],
-        ["eval", "update_option( 'site_read_only_mode_log', array( array( 'time' => time() - 60, 'user' => 1, 'where' => 'POST /wp/v2/posts/1', 'source' => 'rest' ), array( 'time' => time() - 30, 'user' => 0, 'where' => '/wp-comments-post.php', 'source' => 'front' ) ), false );"]
+        ["eval", "AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP upgrade' ) ); AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();"],
+        ["axle-read-only-mode", "on", "--minutes=90", "--reason=Moving to the new server"],
+        ["eval", "update_option( 'axle_read_only_mode_log', array( array( 'time' => time() - 60, 'user' => 1, 'where' => 'POST /wp/v2/posts/1', 'source' => 'rest' ), array( 'time' => time() - 30, 'user' => 0, 'where' => '/wp-comments-post.php', 'source' => 'front' ) ), false );"]
       ],
-      "url": "/wp-admin/tools.php?page=site-read-only-mode",
-      "steps": [{ "waitFor": ".sro-countdown" }],
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode",
+      "steps": [{ "waitFor": ".aro-countdown" }],
       "cleanup": [
-        ["site-read-only-mode", "off"],
-        ["option", "delete", "site_read_only_mode_log"],
-        ["option", "delete", "site_read_only_mode_history"]
+        ["axle-read-only-mode", "off"],
+        ["option", "delete", "axle_read_only_mode_log"],
+        ["option", "delete", "axle_read_only_mode_history"]
       ]
     },
     {
-      "name": "Tools > Site Read-Only Mode, freeze scheduled",
-      "setup": [["eval", "AryanX\\SiteReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() + 3600, 'minutes' => 30, 'reason' => 'Release night' ) );"]],
-      "url": "/wp-admin/tools.php?page=site-read-only-mode",
-      "steps": [{ "waitFor": ".sro-status.is-scheduled" }],
-      "cleanup": [["site-read-only-mode", "off"]]
+      "name": "Tools > Axle Read-Only Mode, freeze scheduled",
+      "setup": [["eval", "AryanX\\AxleReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() + 3600, 'minutes' => 30, 'reason' => 'Release night' ) );"]],
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode",
+      "steps": [{ "waitFor": ".aro-status.is-scheduled" }],
+      "cleanup": [["axle-read-only-mode", "off"]]
     },
     {
       "name": "Dashboard notice and toolbar item during a freeze",
-      "setup": [["site-read-only-mode", "on", "--minutes=30"]],
+      "setup": [["axle-read-only-mode", "on", "--minutes=30"]],
       "url": "/wp-admin/index.php",
-      "include": [".site-read-only-mode-notice", "#wp-admin-bar-site-read-only-mode"],
-      "cleanup": [["site-read-only-mode", "off"]]
+      "include": [".axle-read-only-mode-notice", "#wp-admin-bar-axle-read-only-mode"],
+      "cleanup": [["axle-read-only-mode", "off"]]
     },
     {
       "name": "Block editor locked during a freeze",
       "setup": [
         { "wp": ["post", "create", "--post_title=Freeze check", "--post_status=publish", "--porcelain"], "save": "post" },
-        ["site-read-only-mode", "on", "--minutes=30"]
+        ["axle-read-only-mode", "on", "--minutes=30"]
       ],
       "editor": "{post}",
       "steps": [{ "waitFor": ".components-notice:has-text(\"frozen\")" }],
       "include": [".components-notice.is-warning"],
       "cleanup": [
-        ["site-read-only-mode", "off"],
+        ["axle-read-only-mode", "off"],
         ["post", "delete", "{post}", "--force"]
       ]
     }
