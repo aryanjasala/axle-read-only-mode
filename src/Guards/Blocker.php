@@ -2,13 +2,13 @@
 /**
  * Stops a request and records it.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode\Guards;
+namespace AryanX\AxleReadOnlyMode\Guards;
 
-use AryanX\SiteReadOnlyMode\BlockedLog;
-use AryanX\SiteReadOnlyMode\State;
+use AryanX\AxleReadOnlyMode\BlockedLog;
+use AryanX\AxleReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -68,7 +68,7 @@ final class Blocker {
 		 * @param string $source  admin, ajax, rest or front-end.
 		 * @param int    $user_id User, or 0 for a visitor.
 		 */
-		do_action( 'site_read_only_mode_blocked', $where, $source, get_current_user_id() );
+		do_action( 'axle_read_only_mode_blocked', $where, $source, get_current_user_id() );
 
 		$this->log->add( $where, $source );
 	}
@@ -94,7 +94,7 @@ final class Blocker {
 		 * @param string $where  What would be blocked, e.g. "POST /checkout/".
 		 * @param string $source admin, ajax or front-end.
 		 */
-		if ( apply_filters( 'site_read_only_mode_allow_request', false, $where, $source ) ) {
+		if ( apply_filters( 'axle_read_only_mode_allow_request', false, $where, $source ) ) {
 			return;
 		}
 
@@ -108,7 +108,7 @@ final class Blocker {
 
 		wp_die(
 			esc_html( $visitor ? $this->state->visitor_message() : $this->state->message() ),
-			esc_html( $visitor ? __( 'Back soon', 'site-read-only-mode' ) : __( 'Site frozen', 'site-read-only-mode' ) ),
+			esc_html( $visitor ? __( 'Back soon', 'axle-read-only-mode' ) : __( 'Site frozen', 'axle-read-only-mode' ) ),
 			array(
 				'response'  => $visitor ? 503 : 423,
 				'back_link' => true,

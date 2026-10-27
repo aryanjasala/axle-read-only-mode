@@ -1,15 +1,15 @@
 <?php
 /**
- * `wp site-read-only-mode` commands.
+ * `wp axle-read-only-mode` commands.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode\Cli;
+namespace AryanX\AxleReadOnlyMode\Cli;
 
-use AryanX\SiteReadOnlyMode\BlockedLog;
-use AryanX\SiteReadOnlyMode\Freezer;
-use AryanX\SiteReadOnlyMode\State;
+use AryanX\AxleReadOnlyMode\BlockedLog;
+use AryanX\AxleReadOnlyMode\Freezer;
+use AryanX\AxleReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -58,7 +58,7 @@ final class Command {
 	 * ## OPTIONS
 	 *
 	 * [--minutes=<minutes>]
-	 * : Minutes until the freeze ends on its own. 0 means it lasts until `wp site-read-only-mode off`. Default 60, or the site_read_only_mode_default_duration filter.
+	 * : Minutes until the freeze ends on its own. 0 means it lasts until `wp axle-read-only-mode off`. Default 60, or the axle_read_only_mode_default_duration filter.
 	 *
 	 * [--reason=<reason>]
 	 * : Shown to logged-in users who try to save something.
@@ -74,7 +74,7 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp site-read-only-mode on --minutes=30 --reason="Moving servers"
+	 *     wp axle-read-only-mode on --minutes=30 --reason="Moving servers"
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Named arguments.

@@ -1,9 +1,9 @@
-.sro-intro {
+.aro-intro {
 	max-width: 60em;
 }
 
-.sro-panel,
-.sro-status {
+.aro-panel,
+.aro-status {
 	background: #fff;
 	border: 1px solid #dcdcde;
 	border-radius: 4px;
@@ -11,45 +11,45 @@
 	margin: 16px 0;
 }
 
-.sro-panel h2 {
+.aro-panel h2 {
 	margin-top: 0;
 	font-size: 14px;
 }
 
-.sro-form .form-table th {
+.aro-form .form-table th {
 	width: 180px;
 }
 
-.sro-status {
+.aro-status {
 	border-left: 4px solid #135e96;
 	background: #f0f6fc;
 }
 
-.sro-status.is-scheduled {
+.aro-status.is-scheduled {
 	border-left-color: #dba617;
 	background: #fcf9e8;
 }
 
-.sro-status__head {
+.aro-status__head {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 8px 12px;
 }
 
-.sro-status__head h2 {
+.aro-status__head h2 {
 	margin: 0;
 	font-size: 18px;
 }
 
-.sro-status__head .dashicons {
+.aro-status__head .dashicons {
 	font-size: 24px;
 	width: 24px;
 	height: 24px;
 	color: #135e96;
 }
 
-.sro-countdown {
+.aro-countdown {
 	margin-left: auto;
 	padding: 4px 12px;
 	border-radius: 14px;
@@ -59,12 +59,12 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.sro-reason {
+.aro-reason {
 	font-size: 14px;
 	margin: 10px 0 0;
 }
 
-.sro-facts {
+.aro-facts {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px 20px;
@@ -72,37 +72,37 @@
 	color: #3c434a;
 }
 
-.sro-facts li {
+.aro-facts li {
 	margin: 0;
 }
 
-.sro-actions {
+.aro-actions {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 }
 
-.sro-columns {
+.aro-columns {
 	display: grid;
 	grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
 	gap: 16px;
 	align-items: start;
 }
 
-.sro-columns .sro-panel {
+.aro-columns .aro-panel {
 	margin: 0;
 }
 
-.sro-history .num,
-.sro-blocked .num {
+.aro-history .num,
+.aro-blocked .num {
 	text-align: right;
 }
 
-.sro-muted {
+.aro-muted {
 	color: #646970;
 }
 
-.sro-code {
+.aro-code {
 	background: #1d2327;
 	color: #f0f0f1;
 	padding: 12px 14px;
@@ -112,11 +112,11 @@
 }
 
 @media screen and (max-width: 960px) {
-	.sro-columns {
+	.aro-columns {
 		grid-template-columns: 1fr;
 	}
 
-	.sro-countdown {
+	.aro-countdown {
 		margin-left: 0;
 	}
 }

@@ -2,16 +2,16 @@
 /**
  * Tests for the freeze check inside abilities on WordPress 6.9 and 7.0.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode\Tests\Unit;
+namespace AryanX\AxleReadOnlyMode\Tests\Unit;
 
-use AryanX\SiteReadOnlyMode\Abilities;
-use AryanX\SiteReadOnlyMode\BlockedLog;
-use AryanX\SiteReadOnlyMode\Freezer;
-use AryanX\SiteReadOnlyMode\History;
-use AryanX\SiteReadOnlyMode\State;
+use AryanX\AxleReadOnlyMode\Abilities;
+use AryanX\AxleReadOnlyMode\BlockedLog;
+use AryanX\AxleReadOnlyMode\Freezer;
+use AryanX\AxleReadOnlyMode\History;
+use AryanX\AxleReadOnlyMode\State;
 use Brain\Monkey\Functions;
 
 final class AbilitiesTest extends TestCase {
@@ -80,7 +80,7 @@ final class AbilitiesTest extends TestCase {
 		$result = $this->register( 'e2e/write', false )( array( 'id' => 7 ) );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'site_read_only_mode', $result->get_error_code() );
+		$this->assertSame( 'axle_read_only_mode', $result->get_error_code() );
 		$this->assertSame( 'ability e2e/write', $this->options[ BlockedLog::OPTION ][0]['where'] );
 	}
 
@@ -89,7 +89,7 @@ final class AbilitiesTest extends TestCase {
 
 		$this->assertSame( 'ran', $this->register( 'e2e/read', true )() );
 		$this->assertSame( 'ran with 7', $this->register( 'e2e/read', true )( array( 'id' => 7 ) ) );
-		$this->assertSame( 'ran', $this->register( 'site-read-only-mode/unfreeze', false )() );
+		$this->assertSame( 'ran', $this->register( 'axle-read-only-mode/unfreeze', false )() );
 	}
 
 	public function test_abilities_that_write_run_when_the_site_is_not_frozen(): void {

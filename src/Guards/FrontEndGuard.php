@@ -2,12 +2,12 @@
 /**
  * Rejects front-end form posts.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode\Guards;
+namespace AryanX\AxleReadOnlyMode\Guards;
 
-use AryanX\SiteReadOnlyMode\Service;
+use AryanX\AxleReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
 

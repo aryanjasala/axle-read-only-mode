@@ -2,10 +2,10 @@
 /**
  * Starts, extends and ends freezes.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode;
+namespace AryanX\AxleReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -89,7 +89,7 @@ final class Freezer {
 		 *
 		 * @param array $state The freeze: start, end, reason, visitors, cron, exempt and by.
 		 */
-		do_action( 'site_read_only_mode_started', $this->state->all() );
+		do_action( 'axle_read_only_mode_started', $this->state->all() );
 	}
 
 	/**
@@ -112,14 +112,14 @@ final class Freezer {
 		 * @param array $state   The freeze with its new end.
 		 * @param int   $minutes Minutes added.
 		 */
-		do_action( 'site_read_only_mode_extended', $this->state->all(), $minutes );
+		do_action( 'axle_read_only_mode_extended', $this->state->all(), $minutes );
 
 		return true;
 	}
 
 	/**
 	 * Minutes a freeze lasts when nobody says: the quick freeze in the admin bar,
-	 * `wp site-read-only-mode on` without --minutes, and the PHP API.
+	 * `wp axle-read-only-mode on` without --minutes, and the PHP API.
 	 *
 	 * @return int Minutes, 0 for no end.
 	 */
@@ -127,25 +127,25 @@ final class Freezer {
 		/**
 		 * Filters how long a freeze lasts when no length is given.
 		 *
-		 * Also preselects that length on Tools > Site Read-Only Mode.
+		 * Also preselects that length on Tools > Axle Read-Only Mode.
 		 *
 		 * @param int $minutes Default 60. 0 means until someone unfreezes.
 		 */
-		return max( 0, (int) apply_filters( 'site_read_only_mode_default_duration', 60 ) );
+		return max( 0, (int) apply_filters( 'axle_read_only_mode_default_duration', 60 ) );
 	}
 
 	/**
-	 * Lengths offered on Tools > Site Read-Only Mode.
+	 * Lengths offered on Tools > Axle Read-Only Mode.
 	 *
 	 * @return int[] Minutes, 0 for no end. Always includes the default length.
 	 */
 	public static function durations(): array {
 		/**
-		 * Filters the lengths offered on Tools > Site Read-Only Mode.
+		 * Filters the lengths offered on Tools > Axle Read-Only Mode.
 		 *
 		 * @param int[] $minutes Default 30, 60, 120, 240, 480 and 0 (until someone unfreezes).
 		 */
-		$durations = array_map( 'absint', (array) apply_filters( 'site_read_only_mode_durations', array( 30, 60, 120, 240, 480, 0 ) ) );
+		$durations = array_map( 'absint', (array) apply_filters( 'axle_read_only_mode_durations', array( 30, 60, 120, 240, 480, 0 ) ) );
 		$durations = array_values( array_unique( array_merge( $durations, array( self::default_duration() ) ) ) );
 
 		// Lengths first, shortest to longest, then "until I unfreeze it".
@@ -172,7 +172,7 @@ final class Freezer {
 		 *
 		 * @param int[] $minutes Default 30 and 60.
 		 */
-		$steps = array_values( array_filter( array_map( 'absint', (array) apply_filters( 'site_read_only_mode_extend_minutes', array( 30, 60 ) ) ) ) );
+		$steps = array_values( array_filter( array_map( 'absint', (array) apply_filters( 'axle_read_only_mode_extend_minutes', array( 30, 60 ) ) ) ) );
 
 		return $steps ? $steps : array( 30 );
 	}
@@ -209,7 +209,7 @@ final class Freezer {
 		 * @param array  $state    The freeze that ended.
 		 * @param string $ended_by user, wp-cli or expired.
 		 */
-		do_action( 'site_read_only_mode_ended', $state, $ended_by );
+		do_action( 'axle_read_only_mode_ended', $state, $ended_by );
 	}
 
 	/**
@@ -234,6 +234,6 @@ final class Freezer {
 	 * @return string
 	 */
 	private static function expiry_key( int $start ): string {
-		return 'site_read_only_mode_expired_' . $start;
+		return 'axle_read_only_mode_expired_' . $start;
 	}
 }

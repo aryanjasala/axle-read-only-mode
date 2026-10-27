@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset name="Site Read-Only Mode">
-	<description>WordPress coding standards for Site Read-Only Mode.</description>
+<ruleset name="Axle Read-Only Mode">
+	<description>WordPress coding standards for Axle Read-Only Mode.</description>
 
 	<file>.</file>
 	<exclude-pattern>/vendor/*</exclude-pattern>
@@ -24,7 +24,7 @@
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
-				<element value="site-read-only-mode"/>
+				<element value="axle-read-only-mode"/>
 			</property>
 		</properties>
 	</rule>
@@ -32,8 +32,8 @@
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">
-				<element value="AryanX\SiteReadOnlyMode"/>
-				<element value="site_read_only_mode"/>
+				<element value="AryanX\AxleReadOnlyMode"/>
+				<element value="axle_read_only_mode"/>
 			</property>
 		</properties>
 	</rule>

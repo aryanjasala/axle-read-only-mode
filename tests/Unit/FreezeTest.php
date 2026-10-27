@@ -2,15 +2,15 @@
 /**
  * Tests for freeze timing, messages, extending and history.
  *
- * @package AryanX\SiteReadOnlyMode
+ * @package AryanX\AxleReadOnlyMode
  */
 
-namespace AryanX\SiteReadOnlyMode\Tests\Unit;
+namespace AryanX\AxleReadOnlyMode\Tests\Unit;
 
-use AryanX\SiteReadOnlyMode\BlockedLog;
-use AryanX\SiteReadOnlyMode\Freezer;
-use AryanX\SiteReadOnlyMode\History;
-use AryanX\SiteReadOnlyMode\State;
+use AryanX\AxleReadOnlyMode\BlockedLog;
+use AryanX\AxleReadOnlyMode\Freezer;
+use AryanX\AxleReadOnlyMode\History;
+use AryanX\AxleReadOnlyMode\State;
 use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
 
@@ -116,7 +116,7 @@ final class FreezeTest extends TestCase {
 		$this->store( array( 'exempt' => array( 5 ) ) );
 		$this->assertTrue( ( new State() )->can_bypass() );
 
-		Filters\expectApplied( 'site_read_only_mode_user_can_bypass' )->once()->with( true, 5 )->andReturn( false );
+		Filters\expectApplied( 'axle_read_only_mode_user_can_bypass' )->once()->with( true, 5 )->andReturn( false );
 		$this->assertFalse( ( new State() )->can_bypass() );
 	}
 
@@ -224,7 +224,7 @@ final class FreezeTest extends TestCase {
 
 	public function test_only_the_first_visitor_attempts_are_written(): void {
 		Functions\when( 'get_current_user_id' )->justReturn( 0 );
-		Filters\expectApplied( 'site_read_only_mode_logged_visitors' )->andReturn( 3 );
+		Filters\expectApplied( 'axle_read_only_mode_logged_visitors' )->andReturn( 3 );
 		$log = new BlockedLog( new History() );
 
 		for ( $i = 0; $i < 8; $i++ ) {
@@ -241,21 +241,21 @@ final class FreezeTest extends TestCase {
 	}
 
 	public function test_lengths_follow_the_filters_and_always_offer_the_default(): void {
-		Filters\expectApplied( 'site_read_only_mode_default_duration' )->andReturn( 90 );
-		Filters\expectApplied( 'site_read_only_mode_durations' )->andReturn( array( 0, 240, 15 ) );
+		Filters\expectApplied( 'axle_read_only_mode_default_duration' )->andReturn( 90 );
+		Filters\expectApplied( 'axle_read_only_mode_durations' )->andReturn( array( 0, 240, 15 ) );
 
 		$this->assertSame( 90, Freezer::default_duration() );
 		$this->assertSame( array( 15, 90, 240, 0 ), Freezer::durations(), 'Shortest first, "until I unfreeze it" last, with the default added.' );
 	}
 
 	public function test_extend_steps_never_end_up_empty(): void {
-		Filters\expectApplied( 'site_read_only_mode_extend_minutes' )->andReturn( array( 0, 'x' ) );
+		Filters\expectApplied( 'axle_read_only_mode_extend_minutes' )->andReturn( array( 0, 'x' ) );
 
 		$this->assertSame( array( 30 ), Freezer::extend_steps() );
 	}
 
 	public function test_a_freeze_without_a_length_uses_the_filtered_default(): void {
-		Filters\expectApplied( 'site_read_only_mode_default_duration' )->andReturn( 45 );
+		Filters\expectApplied( 'axle_read_only_mode_default_duration' )->andReturn( 45 );
 
 		$this->freezer()->freeze( array( 'reason' => 'Swap' ) );
 
@@ -264,13 +264,13 @@ final class FreezeTest extends TestCase {
 	}
 
 	public function test_lengths_read_as_hours_and_minutes(): void {
-		$this->assertSame( '45 minutes', \AryanX\SiteReadOnlyMode\Admin\ToolsPage::duration_label( 45 ) );
-		$this->assertSame( '2 hours', \AryanX\SiteReadOnlyMode\Admin\ToolsPage::duration_label( 120 ) );
-		$this->assertSame( '1 hour 30 minutes', \AryanX\SiteReadOnlyMode\Admin\ToolsPage::duration_label( 90 ) );
+		$this->assertSame( '45 minutes', \AryanX\AxleReadOnlyMode\Admin\ToolsPage::duration_label( 45 ) );
+		$this->assertSame( '2 hours', \AryanX\AxleReadOnlyMode\Admin\ToolsPage::duration_label( 120 ) );
+		$this->assertSame( '1 hour 30 minutes', \AryanX\AxleReadOnlyMode\Admin\ToolsPage::duration_label( 90 ) );
 	}
 
 	public function test_a_filter_can_freeze_the_site_from_outside(): void {
-		Filters\expectApplied( 'site_read_only_mode_is_frozen' )->andReturn( true );
+		Filters\expectApplied( 'axle_read_only_mode_is_frozen' )->andReturn( true );
 
 		$this->assertTrue( ( new State() )->is_frozen() );
 	}
@@ -282,8 +282,8 @@ final class FreezeTest extends TestCase {
 				'end'   => 0,
 			)
 		);
-		Filters\expectApplied( 'site_read_only_mode_visitor_message' )->andReturn( 'Back at 3 pm.' );
-		Filters\expectApplied( 'site_read_only_mode_message' )->andReturn( 'Ask Sam before editing.' );
+		Filters\expectApplied( 'axle_read_only_mode_visitor_message' )->andReturn( 'Back at 3 pm.' );
+		Filters\expectApplied( 'axle_read_only_mode_message' )->andReturn( 'Ask Sam before editing.' );
 
 		$this->assertSame( 'Back at 3 pm.', ( new State() )->visitor_message() );
 		$this->assertSame( 'Ask Sam before editing.', ( new State() )->message() );

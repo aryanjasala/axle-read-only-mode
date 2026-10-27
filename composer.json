@@ -1,5 +1,5 @@
 {
-  "name": "aryanx/site-read-only-mode",
+  "name": "aryanx/axle-read-only-mode",
   "description": "Read-only mode for WordPress during migrations and deploys.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
@@ -25,12 +25,12 @@
   },
   "autoload": {
     "psr-4": {
-      "AryanX\\SiteReadOnlyMode\\": "src/"
+      "AryanX\\AxleReadOnlyMode\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "AryanX\\SiteReadOnlyMode\\Tests\\": "tests/"
+      "AryanX\\AxleReadOnlyMode\\Tests\\": "tests/"
     }
   },
   "config": {

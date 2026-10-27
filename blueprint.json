@@ -1,10 +1,10 @@
 {
 	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
 	"meta": {
-		"title": "Site Read-Only Mode demo",
+		"title": "Axle Read-Only Mode demo",
 		"author": "aryanjasala"
 	},
-	"landingPage": "/wp-admin/tools.php?page=site-read-only-mode",
+	"landingPage": "/wp-admin/tools.php?page=axle-read-only-mode",
 	"preferredVersions": {
 		"php": "8.3",
 		"wp": "latest"
@@ -18,12 +18,12 @@
 			"step": "installPlugin",
 			"pluginData": {
 				"resource": "git:directory",
-				"url": "https://github.com/aryanjasala/site-read-only-mode",
+				"url": "https://github.com/aryanjasala/axle-read-only-mode",
 				"ref": "main"
 			},
 			"options": {
 				"activate": true,
-				"targetFolderName": "site-read-only-mode"
+				"targetFolderName": "axle-read-only-mode"
 			}
 		},
 		{

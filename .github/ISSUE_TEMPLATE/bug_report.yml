@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Site Read-Only Mode does not work the way the docs say.
+description: Something in Axle Read-Only Mode does not work the way the docs say.
 labels: [bug]
 body:
   - type: textarea
@@ -22,7 +22,7 @@ body:
   - type: input
     id: plugin
     attributes:
-      label: Site Read-Only Mode version
+      label: Axle Read-Only Mode version
       placeholder: "1.1.0"
     validations:
       required: true

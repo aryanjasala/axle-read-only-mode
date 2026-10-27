@@ -1,11 +1,11 @@
 /**
- * Site Read-Only Mode: locks Save and Publish in the block editor while the site is
+ * Axle Read-Only Mode: locks Save and Publish in the block editor while the site is
  * frozen, and unlocks them when the heartbeat reports the freeze has ended.
  */
 ( function ( wp, $, settings ) {
 	'use strict';
 
-	var LOCK = 'site-read-only-mode';
+	var LOCK = 'axle-read-only-mode';
 	var frozen = false;
 
 	function apply( message ) {
@@ -29,9 +29,9 @@
 		apply( settings.message );
 
 		$( document ).on( 'heartbeat-tick', function ( event, data ) {
-			if ( data && 'site_read_only_mode' in data ) {
-				apply( data.site_read_only_mode );
+			if ( data && 'axle_read_only_mode' in data ) {
+				apply( data.axle_read_only_mode );
 			}
 		} );
 	} );
-} )( window.wp, window.jQuery, window.siteReadOnlyModeEditor || { message: '' } );
+} )( window.wp, window.jQuery, window.axleReadOnlyModeEditor || { message: '' } );
