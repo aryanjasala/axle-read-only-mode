@@ -2,13 +2,13 @@
 /**
  * Pauses everything else that writes on its own.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Guards;
+namespace AryanX\Axle\ReadOnlyMode\Guards;
 
-use AryanX\AxleReadOnlyMode\Service;
-use AryanX\AxleReadOnlyMode\State;
+use AryanX\Axle\ReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 

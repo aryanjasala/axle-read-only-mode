@@ -2,16 +2,16 @@
 /**
  * Tests for the freeze check inside abilities on WordPress 6.9 and 7.0.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Tests\Unit;
+namespace AryanX\Axle\ReadOnlyMode\Tests\Unit;
 
-use AryanX\AxleReadOnlyMode\Abilities;
-use AryanX\AxleReadOnlyMode\BlockedLog;
-use AryanX\AxleReadOnlyMode\Freezer;
-use AryanX\AxleReadOnlyMode\History;
-use AryanX\AxleReadOnlyMode\State;
+use AryanX\Axle\ReadOnlyMode\Abilities;
+use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\History;
+use AryanX\Axle\ReadOnlyMode\State;
 use Brain\Monkey\Functions;
 
 final class AbilitiesTest extends TestCase {

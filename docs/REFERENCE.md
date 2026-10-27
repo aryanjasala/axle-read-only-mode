@@ -107,7 +107,7 @@ wp axle-read-only-mode log [--format=table|csv|json|count]
 ## PHP API
 
 ```php
-$freezer = AryanX\AxleReadOnlyMode\Plugin::instance()->freezer();
+$freezer = AryanX\Axle\ReadOnlyMode\Plugin::instance()->freezer();
 
 $freezer->freeze( array( 'minutes' => 30, 'reason' => 'Moving servers' ) );
 $freezer->extend( 15 );

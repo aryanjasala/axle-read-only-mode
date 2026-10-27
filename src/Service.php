@@ -2,10 +2,10 @@
 /**
  * Contract for classes that hook into WordPress.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode;
+namespace AryanX\Axle\ReadOnlyMode;
 
 defined( 'ABSPATH' ) || exit;
 

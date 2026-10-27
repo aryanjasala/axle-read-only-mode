@@ -2,7 +2,7 @@
 /**
  * Removes Axle Read-Only Mode's state, log and history, on every site.
  *
- * @package AxleReadOnlyMode
+ * @package ReadOnlyMode
  */
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;

@@ -2,15 +2,15 @@
 /**
  * Locks saving in the block editor during a freeze.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Editor;
+namespace AryanX\Axle\ReadOnlyMode\Editor;
 
-use AryanX\AxleReadOnlyMode\Service;
-use AryanX\AxleReadOnlyMode\State;
-use const AryanX\AxleReadOnlyMode\PLUGIN_FILE;
-use const AryanX\AxleReadOnlyMode\VERSION;
+use AryanX\Axle\ReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\State;
+use const AryanX\Axle\ReadOnlyMode\PLUGIN_FILE;
+use const AryanX\Axle\ReadOnlyMode\VERSION;
 
 defined( 'ABSPATH' ) || exit;
 

@@ -2,13 +2,13 @@
 /**
  * Stops a request and records it.
  *
- * @package AryanX\AxleReadOnlyMode
+ * @package AryanX\Axle\ReadOnlyMode
  */
 
-namespace AryanX\AxleReadOnlyMode\Guards;
+namespace AryanX\Axle\ReadOnlyMode\Guards;
 
-use AryanX\AxleReadOnlyMode\BlockedLog;
-use AryanX\AxleReadOnlyMode\State;
+use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
 

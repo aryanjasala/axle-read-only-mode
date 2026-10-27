@@ -25,12 +25,12 @@
   },
   "autoload": {
     "psr-4": {
-      "AryanX\\AxleReadOnlyMode\\": "src/"
+      "AryanX\\Axle\\ReadOnlyMode\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "AryanX\\AxleReadOnlyMode\\Tests\\": "tests/"
+      "AryanX\\Axle\\ReadOnlyMode\\Tests\\": "tests/"
     }
   },
   "config": {
