@@ -56,6 +56,10 @@ Or freeze from wp-config.php while files are being swapped:
 `define( 'AXLE_READ_ONLY_MODE', true );`
 `define( 'AXLE_READ_ONLY_MODE_REASON', 'Moving servers' );`
 
+**Try it before you install.** [try.axlewp.com/axle-read-only-mode](https://try.axlewp.com/axle-read-only-mode) opens a private WordPress in your browser with this plugin and some demo content.
+
+Part of [Axle](https://axlewp.com/), a family of free plugins for running WordPress sites safely.
+
 == Frequently Asked Questions ==
 
 = How is this different from a maintenance mode plugin? =
