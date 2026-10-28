@@ -3,7 +3,7 @@
 <h1 align="center">Axle Read-Only Mode</h1>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/aryanjasala/axle-read-only-mode/main/blueprint.json"><img src="https://img.shields.io/badge/Try%20in-WordPress%20Playground-3858e9?logo=wordpress&logoColor=white" alt="Try in WordPress Playground"></a>
+  <a href="https://try.axlewp.com/axle-read-only-mode"><img src="https://img.shields.io/badge/Try%20in-WordPress%20Playground-3858e9?logo=wordpress&logoColor=white" alt="Try in WordPress Playground"></a>
   <a href="https://github.com/aryanjasala/axle-read-only-mode/releases/latest"><img src="https://img.shields.io/github/v/release/aryanjasala/axle-read-only-mode?label=release&color=2271b1" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/WordPress-6.6%2B-3858e9?logo=wordpress&logoColor=white" alt="WordPress 6.6+">
   <img src="https://img.shields.io/badge/PHP-7.4%2B-777bb4?logo=php&logoColor=white" alt="PHP 7.4+">
@@ -53,7 +53,7 @@ Or with WP-CLI:
 wp plugin install https://github.com/aryanjasala/axle-read-only-mode/releases/latest/download/axle-read-only-mode.zip --activate
 ```
 
-Needs WordPress 6.6+ and PHP 7.4+. To try it first, the **Try in WordPress Playground** badge opens a throwaway WordPress in your browser with the plugin and some demo content.
+Needs WordPress 6.6+ and PHP 7.4+. To try it first, [try.axlewp.com/axle-read-only-mode](https://try.axlewp.com/axle-read-only-mode) opens a private WordPress in your browser with the latest release and some demo content. Nothing to install.
 
 ## Quick look
 
@@ -114,7 +114,7 @@ docs/                    reference, development, contributing, releasing
 
 ## More free plugins
 
-Small plugins that each fill one gap in WordPress, all free with no pro version:
+Part of [Axle by AryanX](https://axlewp.com/): small plugins that each fill one gap in WordPress, all free with no pro version. Try them all together at [demo.axlewp.com](https://demo.axlewp.com/).
 
 | | Plugin | What it does |
 | --- | --- | --- |
