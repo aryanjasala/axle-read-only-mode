@@ -1,96 +1,20 @@
-.aro-intro {
-	max-width: 60em;
-}
-
-.aro-panel,
-.aro-status {
-	background: #fff;
-	border: 1px solid #dcdcde;
-	border-radius: 4px;
-	padding: 16px 20px;
-	margin: 16px 0;
-}
-
-.aro-panel h2 {
-	margin-top: 0;
-	font-size: 14px;
-}
+/* Layout that only this plugin's screens need. Everything else is axle-ui.css. */
 
 .aro-form .form-table th {
 	width: 180px;
 }
 
-.aro-status {
-	border-left: 4px solid #135e96;
-	background: #f0f6fc;
-}
-
-.aro-status.is-scheduled {
-	border-left-color: #dba617;
-	background: #fcf9e8;
-}
-
-.aro-status__head {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 8px 12px;
-}
-
-.aro-status__head h2 {
-	margin: 0;
-	font-size: 18px;
-}
-
-.aro-status__head .dashicons {
-	font-size: 24px;
-	width: 24px;
-	height: 24px;
-	color: #135e96;
+.aro-reason {
+	margin: 0 0 16px;
+	font-size: 14px;
 }
 
 .aro-countdown {
-	margin-left: auto;
-	padding: 4px 12px;
-	border-radius: 14px;
-	background: #135e96;
-	color: #fff;
-	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 }
 
-.aro-reason {
-	font-size: 14px;
-	margin: 10px 0 0;
-}
-
-.aro-facts {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px 20px;
-	margin: 12px 0;
-	color: #3c434a;
-}
-
-.aro-facts li {
-	margin: 0;
-}
-
-.aro-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-}
-
 .aro-columns {
-	display: grid;
-	grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-	gap: 16px;
 	align-items: start;
-}
-
-.aro-columns .aro-panel {
-	margin: 0;
 }
 
 .aro-history .num,
@@ -98,25 +22,20 @@
 	text-align: right;
 }
 
-.aro-muted {
-	color: #646970;
+.aro-commands {
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
-.aro-code {
-	background: #1d2327;
-	color: #f0f0f1;
-	padding: 12px 14px;
-	border-radius: 4px;
+.aro-commands li {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin: 0 0 8px;
+}
+
+.aro-commands .axle-code {
 	white-space: pre-wrap;
-	font-size: 12px;
-}
-
-@media screen and (max-width: 960px) {
-	.aro-columns {
-		grid-template-columns: 1fr;
-	}
-
-	.aro-countdown {
-		margin-left: 0;
-	}
 }

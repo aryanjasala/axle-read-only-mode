@@ -33,7 +33,7 @@ test( 'demo: freeze, see what is blocked, unfreeze', async ( { browser } ) => {
 			await demo.type( page.locator( '#aro-reason' ), 'Moving to the new server' );
 			await demo.choose( page.locator( '#aro-minutes' ), '60' );
 			await demo.click( page.getByRole( 'button', { name: 'Freeze the site' } ), 300 );
-			await expect( page.locator( '.aro-status h2' ) ).toHaveText( 'The site is frozen' );
+			await expect( page.locator( '.aro-status .axle-card__title' ) ).toHaveText( 'The site is frozen' );
 			await demo.moveTo( page.locator( '.aro-countdown' ) );
 			await demo.pause( 1500 );
 			await demo.moveTo( page.locator( '#wp-admin-bar-axle-read-only-mode > a' ) );

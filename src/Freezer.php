@@ -127,7 +127,7 @@ final class Freezer {
 		/**
 		 * Filters how long a freeze lasts when no length is given.
 		 *
-		 * Also preselects that length on Tools > Axle Read-Only Mode.
+		 * Also preselects that length on Tools > Read-Only Mode.
 		 *
 		 * @param int $minutes Default 60. 0 means until someone unfreezes.
 		 */
@@ -135,13 +135,13 @@ final class Freezer {
 	}
 
 	/**
-	 * Lengths offered on Tools > Axle Read-Only Mode.
+	 * Lengths offered on Tools > Read-Only Mode.
 	 *
 	 * @return int[] Minutes, 0 for no end. Always includes the default length.
 	 */
 	public static function durations(): array {
 		/**
-		 * Filters the lengths offered on Tools > Axle Read-Only Mode.
+		 * Filters the lengths offered on Tools > Read-Only Mode.
 		 *
 		 * @param int[] $minutes Default 30, 60, 120, 240, 480 and 0 (until someone unfreezes).
 		 */
