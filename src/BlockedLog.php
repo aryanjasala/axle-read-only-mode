@@ -21,7 +21,7 @@ defined( 'ABSPATH' ) || exit;
  * ID and the address without its query string, and take part in the WordPress
  * personal data export and erase tools.
  */
-final class BlockedLog implements Service {
+final class BlockedLog implements Service, LogCounter {
 
 	public const OPTION = 'axle_read_only_mode_log';
 
@@ -40,12 +40,21 @@ final class BlockedLog implements Service {
 	private History $history;
 
 	/**
+	 * The network's freeze history, on multisite.
+	 *
+	 * @var History|null
+	 */
+	private ?History $network_history;
+
+	/**
 	 * Sets up the log.
 	 *
-	 * @param History $history Freeze history.
+	 * @param History      $history         Freeze history.
+	 * @param History|null $network_history The network's freeze history, on multisite.
 	 */
-	public function __construct( History $history ) {
-		$this->history = $history;
+	public function __construct( History $history, ?History $network_history = null ) {
+		$this->history         = $history;
+		$this->network_history = $network_history;
 	}
 
 	/**
@@ -62,12 +71,13 @@ final class BlockedLog implements Service {
 	 *
 	 * @param string $where  What was blocked, e.g. "REST POST /wp/v2/posts/12".
 	 * @param string $source admin, ajax, rest or front-end.
+	 * @param int    $since  Only entries from this time count towards the visitor limit: the start of the freeze, for a network freeze that does not empty the log.
 	 */
-	public function add( string $where, string $source ): void {
+	public function add( string $where, string $source, int $since = 0 ): void {
 		$user_id = get_current_user_id();
 		$log     = $this->all();
 
-		if ( ! $user_id && $this->visitor_entries( $log ) >= $this->visitor_limit() ) {
+		if ( ! $user_id && $this->visitor_entries( $log, $since ) >= $this->visitor_limit() ) {
 			return;
 		}
 
@@ -111,12 +121,25 @@ final class BlockedLog implements Service {
 	/**
 	 * Entries, newest first.
 	 *
+	 * @param int $since Only entries from this time on, 0 for all.
 	 * @return array[]
 	 */
-	public function all(): array {
+	public function all( int $since = 0 ): array {
 		$log = get_option( self::OPTION, array() );
+		$log = is_array( $log ) ? $log : array();
 
-		return is_array( $log ) ? $log : array();
+		if ( $since > 0 ) {
+			$log = array_values(
+				array_filter(
+					$log,
+					static function ( array $entry ) use ( $since ): bool {
+						return (int) ( $entry['time'] ?? 0 ) >= $since;
+					}
+				)
+			);
+		}
+
+		return $log;
 	}
 
 	/**
@@ -141,10 +164,11 @@ final class BlockedLog implements Service {
 	/**
 	 * Number of attempts.
 	 *
+	 * @param int $since Only entries from this time on, 0 for all.
 	 * @return int
 	 */
-	public function count(): int {
-		return count( $this->all() );
+	public function count( int $since = 0 ): int {
+		return count( $this->all( $since ) );
 	}
 
 	/**
@@ -215,12 +239,21 @@ final class BlockedLog implements Service {
 				}
 			}
 
-			foreach ( $this->history->all() as $index => $freeze ) {
-				if ( (int) ( $freeze['by'] ?? 0 ) === $user->ID ) {
+			$histories = array( 'site' => $this->history );
+			if ( $this->network_history ) {
+				$histories['network'] = $this->network_history;
+			}
+
+			foreach ( $histories as $kind => $history ) {
+				foreach ( $history->all() as $index => $freeze ) {
+					if ( (int) ( $freeze['by'] ?? 0 ) !== $user->ID ) {
+						continue;
+					}
+
 					$data[] = array(
 						'group_id'    => 'axle-read-only-mode-history',
 						'group_label' => __( 'Freezes you started', 'axle-read-only-mode' ),
-						'item_id'     => 'axle-read-only-mode-history-' . $index,
+						'item_id'     => 'axle-read-only-mode-history-' . $kind . '-' . $index,
 						'data'        => array(
 							array(
 								'name'  => __( 'Started', 'axle-read-only-mode' ),
@@ -268,6 +301,7 @@ final class BlockedLog implements Service {
 			}
 
 			$removed = $this->history->forget_user( $user->ID ) || $removed;
+			$removed = ( $this->network_history && $this->network_history->forget_user( $user->ID ) ) || $removed;
 		}
 
 		return array(
@@ -288,22 +322,23 @@ final class BlockedLog implements Service {
 
 		wp_add_privacy_policy_content(
 			__( 'Axle Read-Only Mode', 'axle-read-only-mode' ),
-			'<p>' . esc_html__( 'While the site is frozen for maintenance, Axle Read-Only Mode keeps a list of the changes it blocked: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes.', 'axle-read-only-mode' ) . '</p>'
+			'<p>' . esc_html__( 'While the site is frozen for maintenance, Axle Read-Only Mode keeps a list of the changes it blocked: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes, and on a multisite network the network freeze history does the same for network freezes.', 'axle-read-only-mode' ) . '</p>'
 		);
 	}
 
 	/**
 	 * Anonymous entries in the log.
 	 *
-	 * @param array[] $log Log entries.
+	 * @param array[] $log   Log entries.
+	 * @param int     $since Only entries from this time on count.
 	 * @return int
 	 */
-	private function visitor_entries( array $log ): int {
+	private function visitor_entries( array $log, int $since = 0 ): int {
 		return count(
 			array_filter(
 				$log,
-				static function ( array $entry ): bool {
-					return empty( $entry['user'] ) && '' === (string) ( $entry['who'] ?? '' );
+				static function ( array $entry ) use ( $since ): bool {
+					return empty( $entry['user'] ) && '' === (string) ( $entry['who'] ?? '' ) && (int) ( $entry['time'] ?? 0 ) >= $since;
 				}
 			)
 		);

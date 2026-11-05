@@ -70,7 +70,7 @@ final class Blocker {
 		 */
 		do_action( 'axle_read_only_mode_blocked', $where, $source, get_current_user_id() );
 
-		$this->log->add( $where, $source );
+		$this->log->add( $where, $source, $this->state->log_since() );
 	}
 
 	/**

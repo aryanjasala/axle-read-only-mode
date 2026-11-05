@@ -11,6 +11,9 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * The one place that changes the freeze, so the log and history stay in step.
+ *
+ * One Freezer works on one freeze: the site's, or the network's. The
+ * network's fires `axle_read_only_mode_network_*` actions instead.
  */
 final class Freezer {
 
@@ -24,9 +27,9 @@ final class Freezer {
 	/**
 	 * Blocked attempts.
 	 *
-	 * @var BlockedLog
+	 * @var LogCounter
 	 */
-	private BlockedLog $log;
+	private LogCounter $log;
 
 	/**
 	 * Past freezes.
@@ -39,10 +42,10 @@ final class Freezer {
 	 * Sets up the freezer.
 	 *
 	 * @param State      $state   Saved freeze.
-	 * @param BlockedLog $log     Blocked attempts.
+	 * @param LogCounter $log     Blocked attempts.
 	 * @param History    $history Past freezes.
 	 */
-	public function __construct( State $state, BlockedLog $log, History $history ) {
+	public function __construct( State $state, LogCounter $log, History $history ) {
 		$this->state   = $state;
 		$this->log     = $log;
 		$this->history = $history;
@@ -61,6 +64,8 @@ final class Freezer {
 	 *     @type bool   $visitors        Also pause comments, forms and sign-ups.
 	 *     @type bool   $cron            Also pause scheduled tasks.
 	 *     @type int[]  $exempt          Users who can keep working.
+	 *     @type string $scope           For a network freeze: all, or sites for the ones in $sites.
+	 *     @type int[]  $sites           For a network freeze with scope sites: the sites it covers.
 	 * }
 	 */
 	public function freeze( array $args ): void {
@@ -68,28 +73,45 @@ final class Freezer {
 		$minutes = isset( $args['minutes'] ) ? max( 0, (int) $args['minutes'] ) : self::default_duration();
 
 		// The previous freeze's one-time expiry marker is no longer needed.
-		delete_option( self::expiry_key( (int) $this->state->get( 'start' ) ) );
+		$this->forget_marker( self::expiry_key( (int) $this->state->own_value( 'start' ), $this->state->is_network() ) );
 		$this->log->clear();
-		$this->state->update(
-			array(
-				'active'          => true,
-				'start'           => $start,
-				'end'             => $minutes ? $start + $minutes * MINUTE_IN_SECONDS : 0,
-				'reason'          => sanitize_text_field( (string) ( $args['reason'] ?? '' ) ),
-				'visitor_message' => sanitize_text_field( (string) ( $args['visitor_message'] ?? '' ) ),
-				'visitors'        => ! isset( $args['visitors'] ) || (bool) $args['visitors'],
-				'cron'            => ! isset( $args['cron'] ) || (bool) $args['cron'],
-				'exempt'          => array_map( 'intval', (array) ( $args['exempt'] ?? array() ) ),
-				'by'              => get_current_user_id(),
-			)
+
+		$changes = array(
+			'active'          => true,
+			'start'           => $start,
+			'end'             => $minutes ? $start + $minutes * MINUTE_IN_SECONDS : 0,
+			'reason'          => sanitize_text_field( (string) ( $args['reason'] ?? '' ) ),
+			'visitor_message' => sanitize_text_field( (string) ( $args['visitor_message'] ?? '' ) ),
+			'visitors'        => ! isset( $args['visitors'] ) || (bool) $args['visitors'],
+			'cron'            => ! isset( $args['cron'] ) || (bool) $args['cron'],
+			'exempt'          => array_map( 'intval', (array) ( $args['exempt'] ?? array() ) ),
+			'by'              => get_current_user_id(),
 		);
+
+		if ( $this->state->is_network() ) {
+			$sites            = array_values( array_unique( array_filter( array_map( 'intval', (array) ( $args['sites'] ?? array() ) ) ) ) );
+			$changes['scope'] = 'sites' === ( $args['scope'] ?? 'all' ) && $sites ? 'sites' : 'all';
+			$changes['sites'] = 'sites' === $changes['scope'] ? $sites : array();
+		}
+
+		$this->state->update( $changes );
+
+		if ( $this->state->is_network() ) {
+			/**
+			 * Fires when a network freeze starts, or is scheduled to start.
+			 *
+			 * @param array $state The network freeze: start, end, reason, visitors, cron, exempt, by, scope and sites.
+			 */
+			do_action( 'axle_read_only_mode_network_started', $this->state->own() );
+			return;
+		}
 
 		/**
 		 * Fires when a freeze starts, or is scheduled to start.
 		 *
 		 * @param array $state The freeze: start, end, reason, visitors, cron, exempt and by.
 		 */
-		do_action( 'axle_read_only_mode_started', $this->state->all() );
+		do_action( 'axle_read_only_mode_started', $this->state->own() );
 	}
 
 	/**
@@ -99,12 +121,24 @@ final class Freezer {
 	 * @return bool Whether the freeze was extended.
 	 */
 	public function extend( int $minutes ): bool {
-		$end = (int) $this->state->get( 'end' );
-		if ( ! $this->state->is_frozen() || ! $end || $minutes <= 0 ) {
+		$end = (int) $this->state->own_value( 'end' );
+		if ( ! $this->state->is_running() || ! $end || $minutes <= 0 ) {
 			return false;
 		}
 
 		$this->state->update( array( 'end' => max( $end, time() ) + $minutes * MINUTE_IN_SECONDS ) );
+
+		if ( $this->state->is_network() ) {
+			/**
+			 * Fires when a network freeze is extended.
+			 *
+			 * @param array $state   The network freeze with its new end.
+			 * @param int   $minutes Minutes added.
+			 */
+			do_action( 'axle_read_only_mode_network_extended', $this->state->own(), $minutes );
+
+			return true;
+		}
 
 		/**
 		 * Fires when a freeze is extended.
@@ -112,7 +146,7 @@ final class Freezer {
 		 * @param array $state   The freeze with its new end.
 		 * @param int   $minutes Minutes added.
 		 */
-		do_action( 'axle_read_only_mode_extended', $this->state->all(), $minutes );
+		do_action( 'axle_read_only_mode_extended', $this->state->own(), $minutes );
 
 		return true;
 	}
@@ -183,31 +217,45 @@ final class Freezer {
 	 * @param string $ended_by user, cli or expired.
 	 */
 	public function unfreeze( string $ended_by = 'user' ): void {
-		$state = $this->state->all();
+		$state = $this->state->own();
 		if ( ! $state['active'] ) {
 			return;
 		}
 
 		if ( $state['start'] <= time() ) {
-			$this->history->add(
-				array(
-					'start'    => (int) $state['start'],
-					'end'      => 'expired' === $ended_by ? (int) $state['end'] : time(),
-					'reason'   => (string) $state['reason'],
-					'by'       => (int) $state['by'],
-					'ended_by' => $ended_by,
-					'blocked'  => $this->log->count(),
-				)
+			$entry = array(
+				'start'    => (int) $state['start'],
+				'end'      => 'expired' === $ended_by ? (int) $state['end'] : time(),
+				'reason'   => (string) $state['reason'],
+				'by'       => (int) $state['by'],
+				'ended_by' => $ended_by,
+				'blocked'  => $this->log->count(),
 			);
+			if ( $this->state->is_network() ) {
+				$entry['sites'] = 'sites' === ( $state['scope'] ?? 'all' ) ? count( (array) ( $state['sites'] ?? array() ) ) : 0;
+			}
+			$this->history->add( $entry );
 		}
 
 		$this->state->update( array( 'active' => false ) );
+
+		if ( $this->state->is_network() ) {
+			/**
+			 * Fires when a network freeze ends.
+			 *
+			 * @param array  $state    The network freeze that ended.
+			 * @param string $ended_by user, cli, ability or expired.
+			 */
+			do_action( 'axle_read_only_mode_network_ended', $state, $ended_by );
+
+			return;
+		}
 
 		/**
 		 * Fires when a freeze ends.
 		 *
 		 * @param array  $state    The freeze that ended.
-		 * @param string $ended_by user, wp-cli or expired.
+		 * @param string $ended_by user, cli, ability or expired.
 		 */
 		do_action( 'axle_read_only_mode_ended', $state, $ended_by );
 	}
@@ -222,7 +270,7 @@ final class Freezer {
 
 		// Many requests can notice the end at once. add_option() succeeds for
 		// one of them only, so the history gets one entry per freeze.
-		if ( add_option( self::expiry_key( (int) $this->state->get( 'start' ) ), time(), '', false ) ) {
+		if ( $this->claim_marker( self::expiry_key( (int) $this->state->own_value( 'start' ), $this->state->is_network() ) ) ) {
 			$this->unfreeze( 'expired' );
 		}
 	}
@@ -230,10 +278,35 @@ final class Freezer {
 	/**
 	 * Option that marks a freeze as already expired.
 	 *
-	 * @param int $start Start time of the freeze.
+	 * @param int  $start   Start time of the freeze.
+	 * @param bool $network Whether it is the network's freeze.
 	 * @return string
 	 */
-	private static function expiry_key( int $start ): string {
-		return 'axle_read_only_mode_expired_' . $start;
+	private static function expiry_key( int $start, bool $network ): string {
+		return 'axle_read_only_mode_' . ( $network ? 'network_' : '' ) . 'expired_' . $start;
+	}
+
+	/**
+	 * Claims a one-time marker. Only one of many simultaneous requests gets it.
+	 *
+	 * @param string $key Option name.
+	 * @return bool Whether this call set it.
+	 */
+	private function claim_marker( string $key ): bool {
+		return $this->state->is_network() ? (bool) add_site_option( $key, time() ) : (bool) add_option( $key, time(), '', false );
+	}
+
+	/**
+	 * Removes a one-time marker.
+	 *
+	 * @param string $key Option name.
+	 */
+	private function forget_marker( string $key ): void {
+		if ( $this->state->is_network() ) {
+			delete_site_option( $key );
+			return;
+		}
+
+		delete_option( $key );
 	}
 }

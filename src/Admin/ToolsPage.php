@@ -144,9 +144,12 @@ final class ToolsPage implements Service {
 	 */
 	public function render(): void {
 		$frozen    = $this->state->is_frozen();
+		$network   = $this->state->network_applies();
 		$scheduled = ! $frozen && $this->state->is_scheduled();
 
-		if ( $frozen ) {
+		if ( $network ) {
+			$badge = array( 'warning', __( 'Frozen by the network', 'axle-read-only-mode' ) );
+		} elseif ( $frozen ) {
 			$badge = array( 'warning', __( 'Frozen', 'axle-read-only-mode' ) );
 		} elseif ( $scheduled ) {
 			$badge = array( 'info', __( 'Freeze scheduled', 'axle-read-only-mode' ) );
@@ -165,12 +168,18 @@ final class ToolsPage implements Service {
 
 			if ( $this->state->forced_by_constant() ) {
 				printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'The site is frozen by the AXLE_READ_ONLY_MODE constant in wp-config.php. Remove it to unfreeze.', 'axle-read-only-mode' ) );
-			} elseif ( $frozen ) {
-				$this->render_status();
-			} elseif ( $scheduled ) {
-				$this->render_scheduled();
 			} else {
-				$this->render_form();
+				if ( $network ) {
+					$this->render_network();
+				}
+
+				if ( $this->state->is_running() ) {
+					$this->render_status();
+				} elseif ( $this->state->is_scheduled() ) {
+					$this->render_scheduled();
+				} else {
+					$this->render_form();
+				}
 			}
 
 			$this->render_stats();
@@ -222,7 +231,7 @@ final class ToolsPage implements Service {
 	 * Prints the numbers at the top: what was blocked.
 	 */
 	private function render_stats(): void {
-		$blocked = $this->log->count();
+		$blocked = $this->log->count( $this->state->log_since() );
 		if ( ! $blocked && ! $this->state->is_frozen() ) {
 			return;
 		}
@@ -237,10 +246,40 @@ final class ToolsPage implements Service {
 	}
 
 	/**
+	 * Prints the network freeze that covers this site.
+	 */
+	private function render_network(): void {
+		$state  = $this->state->all();
+		$format = get_option( 'time_format' );
+		?>
+		<section class="axle-card aro-network">
+			<div class="axle-card__head">
+				<h2 class="axle-card__title"><?php esc_html_e( 'The network froze this site', 'axle-read-only-mode' ); ?></h2>
+				<?php if ( $state['end'] ) : ?>
+					<span class="axle-badge axle-badge--info aro-countdown" role="timer" data-aro-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-aro-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'axle-read-only-mode' ); ?>">
+						<?php
+						/* translators: %s: time the freeze ends. */
+						echo esc_html( sprintf( __( 'Ends at %s', 'axle-read-only-mode' ), wp_date( $format, (int) $state['end'] ) ) );
+						?>
+					</span>
+				<?php endif; ?>
+			</div>
+			<?php if ( '' !== $state['reason'] ) : ?>
+				<p class="aro-reason"><?php echo esc_html( $state['reason'] ); ?></p>
+			<?php endif; ?>
+			<p><?php esc_html_e( 'A network freeze applies on every site it covers. It cannot be lifted from a site, and it overrides anything set here.', 'axle-read-only-mode' ); ?></p>
+			<?php if ( current_user_can( NetworkPage::capability() ) ) : ?>
+				<div class="axle-actions"><a class="button" href="<?php echo esc_url( NetworkPage::page_url() ); ?>"><?php esc_html_e( 'Manage in Network Admin', 'axle-read-only-mode' ); ?></a></div>
+			<?php endif; ?>
+		</section>
+		<?php
+	}
+
+	/**
 	 * Prints the live status of the current freeze.
 	 */
 	private function render_status(): void {
-		$state  = $this->state->all();
+		$state  = $this->state->own();
 		$by     = get_userdata( (int) $state['by'] );
 		$format = get_option( 'time_format' );
 		$exempt = array_filter( array_map( 'get_userdata', array_map( 'intval', $state['exempt'] ) ) );
@@ -252,7 +291,7 @@ final class ToolsPage implements Service {
 					<span class="axle-badge axle-badge--info aro-countdown" role="timer" data-aro-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-aro-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'axle-read-only-mode' ); ?>">
 						<?php
 						/* translators: %s: time the freeze ends. */
-						echo esc_html( sprintf( __( 'Ends at %s', 'axle-read-only-mode' ), $this->state->end_time() ) );
+						echo esc_html( sprintf( __( 'Ends at %s', 'axle-read-only-mode' ), wp_date( $format, (int) $state['end'] ) ) );
 						?>
 					</span>
 				<?php endif; ?>
@@ -277,7 +316,7 @@ final class ToolsPage implements Service {
 					?>
 				</dd>
 				<dt><?php esc_html_e( 'Ends', 'axle-read-only-mode' ); ?></dt>
-				<dd><?php echo esc_html( $state['end'] ? $this->state->end_time() : __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); ?></dd>
+				<dd><?php echo esc_html( $state['end'] ? wp_date( $format, (int) $state['end'] ) : __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); ?></dd>
 				<dt><?php esc_html_e( 'Visitor submissions', 'axle-read-only-mode' ); ?></dt>
 				<dd><?php echo esc_html( $state['visitors'] ? __( 'Paused', 'axle-read-only-mode' ) : __( 'Still open', 'axle-read-only-mode' ) ); ?></dd>
 				<dt><?php esc_html_e( 'Scheduled tasks', 'axle-read-only-mode' ); ?></dt>
@@ -307,7 +346,7 @@ final class ToolsPage implements Service {
 	 * Prints a freeze that has not started yet.
 	 */
 	private function render_scheduled(): void {
-		$state = $this->state->all();
+		$state = $this->state->own();
 		?>
 		<section class="axle-card aro-status is-scheduled">
 			<div class="axle-card__head">
@@ -331,78 +370,14 @@ final class ToolsPage implements Service {
 	 * Prints the form that starts a freeze.
 	 */
 	private function render_form(): void {
-		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="axle-card aro-form">
-			<h2 class="axle-card__title"><?php esc_html_e( 'Freeze the site', 'axle-read-only-mode' ); ?></h2>
-			<?php wp_nonce_field( self::ACTION ); ?>
-			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
-			<input type="hidden" name="task" value="freeze">
-			<table class="form-table" role="presentation">
-				<tr>
-					<th scope="row"><label for="aro-reason"><?php esc_html_e( 'Reason', 'axle-read-only-mode' ); ?></label></th>
-					<td>
-						<input type="text" class="regular-text" id="aro-reason" name="reason" placeholder="<?php esc_attr_e( 'Moving to the new server', 'axle-read-only-mode' ); ?>">
-						<p class="description"><?php esc_html_e( 'Shown to logged-in users who try to save something.', 'axle-read-only-mode' ); ?></p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="aro-visitor-message"><?php esc_html_e( 'Message for visitors', 'axle-read-only-mode' ); ?></label></th>
-					<td>
-						<input type="text" class="large-text" id="aro-visitor-message" name="visitor_message" placeholder="<?php echo esc_attr( $this->state->visitor_message() ); ?>">
-						<p class="description"><?php esc_html_e( 'Shown when a visitor sends a comment, form or order. Leave empty for the default.', 'axle-read-only-mode' ); ?></p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><?php esc_html_e( 'Start', 'axle-read-only-mode' ); ?></th>
-					<td>
-						<fieldset>
-							<legend class="screen-reader-text"><?php esc_html_e( 'Start', 'axle-read-only-mode' ); ?></legend>
-							<label><input type="radio" name="when" value="now" checked> <?php esc_html_e( 'Now', 'axle-read-only-mode' ); ?></label><br>
-							<label><input type="radio" name="when" value="later"> <?php esc_html_e( 'At', 'axle-read-only-mode' ); ?></label>
-							<label class="screen-reader-text" for="aro-start"><?php esc_html_e( 'Start time', 'axle-read-only-mode' ); ?></label>
-							<input type="datetime-local" id="aro-start" name="start">
-							<p class="description">
-								<?php
-								/* translators: %s: site time zone. */
-								echo esc_html( sprintf( __( 'Site time zone: %s', 'axle-read-only-mode' ), wp_timezone_string() ) );
-								?>
-							</p>
-						</fieldset>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="aro-minutes"><?php esc_html_e( 'End after', 'axle-read-only-mode' ); ?></label></th>
-					<td>
-						<select id="aro-minutes" name="minutes">
-							<?php foreach ( Freezer::durations() as $minutes ) : ?>
-								<option value="<?php echo esc_attr( (string) $minutes ); ?>" <?php selected( Freezer::default_duration(), $minutes ); ?>><?php echo esc_html( self::duration_label( $minutes ) ); ?></option>
-							<?php endforeach; ?>
-						</select>
-						<p class="description"><?php esc_html_e( 'With an end time, a failed deploy cannot leave the site frozen.', 'axle-read-only-mode' ); ?></p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><?php esc_html_e( 'Also pause', 'axle-read-only-mode' ); ?></th>
-					<td>
-						<label><input type="checkbox" name="visitors" value="1" checked> <?php esc_html_e( 'Visitor submissions: comments, contact forms, checkouts and sign-ups', 'axle-read-only-mode' ); ?></label><br>
-						<label><input type="checkbox" name="cron" value="1" checked> <?php esc_html_e( 'Scheduled tasks (they run when the freeze ends)', 'axle-read-only-mode' ); ?></label>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><?php esc_html_e( 'Exempt', 'axle-read-only-mode' ); ?></th>
-					<td><label><input type="checkbox" name="exempt_me" value="1"> <?php esc_html_e( 'Let me keep editing', 'axle-read-only-mode' ); ?></label></td>
-				</tr>
-			</table>
-			<?php submit_button( __( 'Freeze the site', 'axle-read-only-mode' ) ); ?>
-		</form>
-		<?php
+		Forms::freeze( admin_url( 'admin-post.php' ), self::ACTION, __( 'Freeze the site', 'axle-read-only-mode' ), $this->state->visitor_message() );
 	}
 
 	/**
 	 * Prints what was blocked during the current or last freeze.
 	 */
 	private function render_blocked(): void {
-		$entries = $this->log->all();
+		$entries = $this->log->all( $this->state->log_since() );
 		if ( ! $entries && ! $this->state->is_frozen() ) {
 			return;
 		}
@@ -535,17 +510,7 @@ final class ToolsPage implements Service {
 	 * @param array  $fields Extra hidden fields.
 	 */
 	private function render_button( string $task, string $label, string $style, array $fields = array() ): void {
-		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<?php wp_nonce_field( self::ACTION ); ?>
-			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
-			<input type="hidden" name="task" value="<?php echo esc_attr( $task ); ?>">
-			<?php foreach ( $fields as $name => $value ) : ?>
-				<input type="hidden" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>">
-			<?php endforeach; ?>
-			<button type="submit" class="button button-<?php echo esc_attr( $style ); ?>"><?php echo esc_html( $label ); ?></button>
-		</form>
-		<?php
+		Forms::button( admin_url( 'admin-post.php' ), self::ACTION, $task, $label, $style, $fields );
 	}
 
 	/**

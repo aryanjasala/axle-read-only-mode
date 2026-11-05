@@ -7,6 +7,7 @@
 
 namespace AryanX\Axle\ReadOnlyMode\Guards;
 
+use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
 use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
 use AryanX\Axle\ReadOnlyMode\Service;
 
@@ -101,6 +102,9 @@ final class AdminGuard implements Service {
 
 		// The freeze's own controls must keep working, or nobody could unfreeze.
 		if ( 'admin-post.php' === $pagenow && ToolsPage::ACTION === $action ) {
+			return;
+		}
+		if ( 'edit.php' === $pagenow && is_network_admin() && NetworkPage::ACTION === $action ) {
 			return;
 		}
 

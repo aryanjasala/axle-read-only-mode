@@ -257,7 +257,8 @@ final class Abilities implements Service {
 
 		return array(
 			'frozen'             => $this->state->is_frozen(),
-			'scheduled'          => (bool) $state['active'] && (int) $state['start'] > time(),
+			'scheduled'          => $this->state->is_scheduled(),
+			'source'             => $this->state->source(),
 			'start'              => $state['start'] ? gmdate( 'c', (int) $state['start'] ) : '',
 			'end'                => $end ? gmdate( 'c', $end ) : '',
 			'seconds_left'       => $this->state->remaining(),
@@ -265,7 +266,7 @@ final class Abilities implements Service {
 			'visitors_paused'    => (bool) $state['visitors'],
 			'cron_paused'        => (bool) $state['cron'],
 			'forced_by_constant' => $this->state->forced_by_constant(),
-			'blocked'            => $this->log->count(),
+			'blocked'            => $this->log->count( $this->state->log_since() ),
 		);
 	}
 
@@ -318,6 +319,10 @@ final class Abilities implements Service {
 			return new \WP_Error( 'axle_read_only_mode_constant', __( 'AXLE_READ_ONLY_MODE in wp-config.php controls the freeze on this site. Remove it to unfreeze.', 'axle-read-only-mode' ) );
 		}
 
+		if ( $this->state->network_applies() && ! $this->state->is_running() ) {
+			return new \WP_Error( 'axle_read_only_mode_network', __( 'The network froze this site. Only the network can unfreeze it.', 'axle-read-only-mode' ) );
+		}
+
 		$this->freezer->unfreeze( 'ability' );
 
 		return $this->get_status();
@@ -341,7 +346,7 @@ final class Abilities implements Service {
 					'where'  => (string) $entry['where'],
 				);
 			},
-			array_slice( $this->log->all(), 0, max( 1, min( 100, $limit ) ) )
+			array_slice( $this->log->all( $this->state->log_since() ), 0, max( 1, min( 100, $limit ) ) )
 		);
 	}
 
@@ -390,7 +395,7 @@ final class Abilities implements Service {
 
 		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Our own hook, documented in Guards/Blocker.php.
 		do_action( 'axle_read_only_mode_blocked', 'ability ' . $name, 'ability', get_current_user_id() );
-		$this->log->add( 'ability ' . $name, 'ability' );
+		$this->log->add( 'ability ' . $name, 'ability', $this->state->log_since() );
 
 		return new \WP_Error( 'axle_read_only_mode', $this->state->message(), array( 'status' => 423 ) );
 	}
@@ -485,6 +490,10 @@ final class Abilities implements Service {
 				'visitors_paused'    => array( 'type' => 'boolean' ),
 				'cron_paused'        => array( 'type' => 'boolean' ),
 				'forced_by_constant' => array( 'type' => 'boolean' ),
+				'source'             => array(
+					'type'        => 'string',
+					'description' => 'What holds the site frozen: site, network (a multisite network freeze) or constant (wp-config.php). Empty when it is not frozen.',
+				),
 				'blocked'            => array( 'type' => 'integer' ),
 			),
 		);
