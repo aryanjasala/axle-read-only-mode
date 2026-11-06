@@ -7,6 +7,7 @@
 
 namespace AryanX\Axle\ReadOnlyMode\Guards;
 
+use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
 use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
 use AryanX\Axle\ReadOnlyMode\Service;
 
@@ -103,6 +104,9 @@ final class AdminGuard implements Service {
 		if ( 'admin-post.php' === $pagenow && ToolsPage::ACTION === $action ) {
 			return;
 		}
+		if ( 'edit.php' === $pagenow && is_network_admin() && NetworkPage::ACTION === $action ) {
+			return;
+		}
 
 		if ( 'POST' === Blocker::method() || isset( $_GET['_wpnonce'] ) || isset( $_GET['_ajax_nonce'] ) || in_array( $pagenow, $this->writing_screens(), true ) ) {
 			$this->blocker->stop( Blocker::method() . ' ' . Blocker::uri(), 'admin' );
@@ -134,17 +138,27 @@ final class AdminGuard implements Service {
 			return;
 		}
 
+		$custom = $this->blocker->state()->allow_list()->ajax_actions();
+
 		/**
 		 * Filters the admin-ajax actions that keep working during a freeze.
 		 *
-		 * @param string[] $actions Read-only ajax actions.
+		 * Includes the actions on the allow-list in the settings, so code can
+		 * add to the list or take one off it.
+		 *
+		 * @param string[] $actions Read-only ajax actions, and the ones on the allow-list.
 		 */
-		$allowed = (array) apply_filters( 'axle_read_only_mode_allowed_ajax_actions', self::READ_ONLY_AJAX );
+		$allowed = (array) apply_filters( 'axle_read_only_mode_allowed_ajax_actions', array_merge( self::READ_ONLY_AJAX, $custom ) );
 
 		if ( in_array( $action, $allowed, true ) ) {
 			if ( 'heartbeat' === $action ) {
 				// Heartbeat stays on so editors learn about the freeze, but must not autosave.
 				remove_filter( 'heartbeat_received', 'heartbeat_autosave', 500 );
+			}
+
+			// The read-only list is not an exception, so it is not logged.
+			if ( ! in_array( $action, self::READ_ONLY_AJAX, true ) ) {
+				$this->blocker->record_allowed( 'admin-ajax ' . $action, 'ajax', in_array( $action, $custom, true ) ? 'settings' : 'code' );
 			}
 			return;
 		}

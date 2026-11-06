@@ -25,7 +25,7 @@ test.describe.serial( 'Screenshots', () => {
 
 	test.afterAll( () => {
 		wp( 'axle-read-only-mode', 'off' );
-		for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history' ] ) {
+		for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings' ] ) {
 			wp( 'option', 'delete', option );
 		}
 		wp( 'post', 'delete', postId, '--force' );
@@ -47,11 +47,24 @@ test.describe.serial( 'Screenshots', () => {
 		await visitor.close();
 	} );
 
-	test( '2: Tools > Axle Read-Only Mode with the countdown and blocked attempts', async ( { page, rest } ) => {
+	test( '2: Tools > Read-Only Mode with the countdown and blocked attempts', async ( { page, rest } ) => {
 		await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Spring menu (updated)' } );
 		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode' );
 		await expect( page.locator( '.aro-blocked tbody tr' ).first() ).toBeVisible();
 		await page.waitForTimeout( 1200 );
 		await shot( page, 2 );
+	} );
+
+	test( '4: Tools > Read-Only Mode > Settings with the allow-list and the email choices', async ( { page } ) => {
+		wp( 'axle-read-only-mode', 'allow', 'rest', '/wc/v3/webhooks' );
+		wp( 'axle-read-only-mode', 'allow', 'rest', '/wp/v2/comments' );
+		wp( 'axle-read-only-mode', 'allow', 'path', '?wc-api=' );
+		wp( 'axle-read-only-mode', 'allow', 'path', '/checkout/order-pay' );
+		wp( 'axle-read-only-mode', 'allow', 'ajax', 'subscribe_form' );
+		wp( 'axle-read-only-mode', 'allow', 'user', 'admin' );
+		wp( 'axle-read-only-mode', 'notify', '--enable', '--to=ops@example.com', '--events=started,ended,expired' );
+		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode&tab=settings' );
+		await expect( page.locator( '.aro-matches' ).first() ).toBeVisible();
+		await shot( page, 4, { fullPage: true } );
 	} );
 } );

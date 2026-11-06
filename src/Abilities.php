@@ -211,7 +211,7 @@ final class Abilities implements Service {
 		$this->ability(
 			'get-blocked',
 			__( 'List blocked changes', 'axle-read-only-mode' ),
-			__( 'What the current or last freeze blocked: when, who and what. Useful after a migration to see which edits to redo on the new server.', 'axle-read-only-mode' ),
+			__( 'What the current or last freeze blocked, and the requests the allow-list let through: when, who and what. Useful after a migration to see which edits to redo on the new server.', 'axle-read-only-mode' ),
 			array(
 				'type'                 => 'object',
 				'properties'           => array(
@@ -233,11 +233,50 @@ final class Abilities implements Service {
 						'time'   => array( 'type' => 'string' ),
 						'who'    => array( 'type' => 'string' ),
 						'source' => array( 'type' => 'string' ),
+						'result' => array(
+							'type'        => 'string',
+							'description' => 'blocked, or allowed when the allow-list or a filter let the request through.',
+						),
 						'where'  => array( 'type' => 'string' ),
 					),
 				),
 			),
 			array( $this, 'get_blocked' ),
+			$can_manage,
+			array(
+				'readonly'   => true,
+				'idempotent' => true,
+			)
+		);
+
+		$this->ability(
+			'get-allow-list',
+			__( 'List what keeps working during a freeze', 'axle-read-only-mode' ),
+			__( 'The allow-list in the settings: REST route prefixes, front-end paths and query arguments, ajax actions and users that keep working while the site is frozen. Read-only: changing the list is left to people, because it loosens the freeze.', 'axle-read-only-mode' ),
+			array(),
+			array(
+				'type'       => 'object',
+				'properties' => array(
+					'rest'  => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+					'paths' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+					'ajax'  => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+					'users' => array(
+						'type'        => 'array',
+						'items'       => array( 'type' => 'integer' ),
+						'description' => 'User IDs.',
+					),
+				),
+			),
+			array( $this, 'get_allow_list' ),
 			$can_manage,
 			array(
 				'readonly'   => true,
@@ -257,7 +296,8 @@ final class Abilities implements Service {
 
 		return array(
 			'frozen'             => $this->state->is_frozen(),
-			'scheduled'          => (bool) $state['active'] && (int) $state['start'] > time(),
+			'scheduled'          => $this->state->is_scheduled(),
+			'source'             => $this->state->source(),
 			'start'              => $state['start'] ? gmdate( 'c', (int) $state['start'] ) : '',
 			'end'                => $end ? gmdate( 'c', $end ) : '',
 			'seconds_left'       => $this->state->remaining(),
@@ -265,7 +305,7 @@ final class Abilities implements Service {
 			'visitors_paused'    => (bool) $state['visitors'],
 			'cron_paused'        => (bool) $state['cron'],
 			'forced_by_constant' => $this->state->forced_by_constant(),
-			'blocked'            => $this->log->count(),
+			'blocked'            => $this->log->count( $this->state->log_since() ),
 		);
 	}
 
@@ -318,6 +358,10 @@ final class Abilities implements Service {
 			return new \WP_Error( 'axle_read_only_mode_constant', __( 'AXLE_READ_ONLY_MODE in wp-config.php controls the freeze on this site. Remove it to unfreeze.', 'axle-read-only-mode' ) );
 		}
 
+		if ( $this->state->network_applies() && ! $this->state->is_running() ) {
+			return new \WP_Error( 'axle_read_only_mode_network', __( 'The network froze this site. Only the network can unfreeze it.', 'axle-read-only-mode' ) );
+		}
+
 		$this->freezer->unfreeze( 'ability' );
 
 		return $this->get_status();
@@ -338,10 +382,27 @@ final class Abilities implements Service {
 					'time'   => gmdate( 'c', (int) $entry['time'] ),
 					'who'    => BlockedLog::who( $entry ),
 					'source' => (string) $entry['source'],
+					'result' => empty( $entry['allowed'] ) ? 'blocked' : 'allowed',
 					'where'  => (string) $entry['where'],
 				);
 			},
-			array_slice( $this->log->all(), 0, max( 1, min( 100, $limit ) ) )
+			array_slice( $this->log->all( $this->state->log_since() ), 0, max( 1, min( 100, $limit ) ) )
+		);
+	}
+
+	/**
+	 * Ability: the allow-list in force on this site.
+	 *
+	 * @return array
+	 */
+	public function get_allow_list(): array {
+		$list = $this->state->allow_list();
+
+		return array(
+			'rest'  => array_map( 'strval', $list->entries( 'rest' ) ),
+			'paths' => array_map( 'strval', $list->entries( 'paths' ) ),
+			'ajax'  => $list->ajax_actions(),
+			'users' => array_map( 'intval', $list->entries( 'users' ) ),
 		);
 	}
 
@@ -390,7 +451,7 @@ final class Abilities implements Service {
 
 		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Our own hook, documented in Guards/Blocker.php.
 		do_action( 'axle_read_only_mode_blocked', 'ability ' . $name, 'ability', get_current_user_id() );
-		$this->log->add( 'ability ' . $name, 'ability' );
+		$this->log->add( 'ability ' . $name, 'ability', $this->state->log_since() );
 
 		return new \WP_Error( 'axle_read_only_mode', $this->state->message(), array( 'status' => 423 ) );
 	}
@@ -485,6 +546,10 @@ final class Abilities implements Service {
 				'visitors_paused'    => array( 'type' => 'boolean' ),
 				'cron_paused'        => array( 'type' => 'boolean' ),
 				'forced_by_constant' => array( 'type' => 'boolean' ),
+				'source'             => array(
+					'type'        => 'string',
+					'description' => 'What holds the site frozen: site, network (a multisite network freeze) or constant (wp-config.php). Empty when it is not frozen.',
+				),
 				'blocked'            => array( 'type' => 'integer' ),
 			),
 		);

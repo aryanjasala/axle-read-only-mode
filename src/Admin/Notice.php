@@ -57,7 +57,11 @@ final class Notice implements Service {
 				<?php if ( $exempt ) : ?>
 					<?php esc_html_e( 'You are exempt and can keep working.', 'axle-read-only-mode' ); ?>
 				<?php endif; ?>
-				<?php if ( current_user_can( ToolsPage::capability() ) && ! $this->state->forced_by_constant() ) : ?>
+				<?php if ( $this->state->network_applies() && ! $this->state->forced_by_constant() ) : ?>
+					<?php if ( current_user_can( NetworkPage::capability() ) ) : ?>
+						<a class="button button-small" href="<?php echo esc_url( NetworkPage::page_url() ); ?>"><?php esc_html_e( 'Manage in Network Admin', 'axle-read-only-mode' ); ?></a>
+					<?php endif; ?>
+				<?php elseif ( current_user_can( ToolsPage::capability() ) && ! $this->state->forced_by_constant() ) : ?>
 					<a class="button button-small" href="<?php echo esc_url( ToolsPage::action_url( 'unfreeze' ) ); ?>"><?php esc_html_e( 'Unfreeze now', 'axle-read-only-mode' ); ?></a>
 				<?php endif; ?>
 			</p>

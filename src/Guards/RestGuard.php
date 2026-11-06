@@ -83,13 +83,21 @@ final class RestGuard implements Service {
 			return $result;
 		}
 
+		$by_settings = $state->allow_list()->matches_route( $request->get_route() );
+
 		/**
 		 * Filters whether a REST request gets through a freeze anyway.
 		 *
-		 * @param bool             $allow   Whether to let the request through. Default false.
+		 * Runs after the allow-list on the settings screen, so `$allow` is
+		 * already true for a route that list lets through, and code can return
+		 * false to stop it.
+		 *
+		 * @param bool             $allow   Whether to let the request through. Default: whether the allow-list lets it through.
 		 * @param \WP_REST_Request $request The request.
 		 */
-		if ( apply_filters( 'axle_read_only_mode_allow_rest_request', false, $request ) ) {
+		if ( apply_filters( 'axle_read_only_mode_allow_rest_request', $by_settings, $request ) ) {
+			$this->blocker->record_allowed( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest', $by_settings ? 'settings' : 'code' );
+
 			return $result;
 		}
 

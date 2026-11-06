@@ -26,13 +26,21 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase {
 	 */
 	protected $options = array();
 
+	/**
+	 * Network (site) options returned by get_site_option(), keyed by name.
+	 *
+	 * @var array<string, mixed>
+	 */
+	protected $site_options = array();
+
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
 		Functions\stubTranslationFunctions();
 		Functions\stubEscapeFunctions();
 
-		$this->options     = array();
+		$this->options      = array();
+		$this->site_options = array();
 		\WP_Query::$queue = array();
 		\WP_Query::$made  = array();
 		Functions\when( 'get_option' )->alias(
@@ -49,6 +57,32 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase {
 		Functions\when( 'delete_option' )->alias(
 			function ( $name ) {
 				unset( $this->options[ $name ] );
+				return true;
+			}
+		);
+		Functions\when( 'get_site_option' )->alias(
+			function ( $name, $default = false ) {
+				return array_key_exists( $name, $this->site_options ) ? $this->site_options[ $name ] : $default;
+			}
+		);
+		Functions\when( 'update_site_option' )->alias(
+			function ( $name, $value ) {
+				$this->site_options[ $name ] = $value;
+				return true;
+			}
+		);
+		Functions\when( 'delete_site_option' )->alias(
+			function ( $name ) {
+				unset( $this->site_options[ $name ] );
+				return true;
+			}
+		);
+		Functions\when( 'add_site_option' )->alias(
+			function ( $name, $value = '' ) {
+				if ( array_key_exists( $name, $this->site_options ) ) {
+					return false;
+				}
+				$this->site_options[ $name ] = $value;
 				return true;
 			}
 		);

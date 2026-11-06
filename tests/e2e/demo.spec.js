@@ -3,7 +3,7 @@ const { test, expect, wp, openEditor } = require( './utils' );
 const { prepareSite, recordDemo } = require( './utils/media' );
 
 const reset = () => {
-	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history' ] ) {
+	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings' ] ) {
 		try {
 			wp( 'option', 'delete', option );
 		} catch ( error ) {
@@ -33,7 +33,7 @@ test( 'demo: freeze, see what is blocked, unfreeze', async ( { browser } ) => {
 			await demo.type( page.locator( '#aro-reason' ), 'Moving to the new server' );
 			await demo.choose( page.locator( '#aro-minutes' ), '60' );
 			await demo.click( page.getByRole( 'button', { name: 'Freeze the site' } ), 300 );
-			await expect( page.locator( '.aro-status h2' ) ).toHaveText( 'The site is frozen' );
+			await expect( page.locator( '.aro-status .axle-card__title' ) ).toHaveText( 'The site is frozen' );
 			await demo.moveTo( page.locator( '.aro-countdown' ) );
 			await demo.pause( 1500 );
 			await demo.moveTo( page.locator( '#wp-admin-bar-axle-read-only-mode > a' ) );
@@ -63,6 +63,11 @@ test( 'demo: freeze, see what is blocked, unfreeze', async ( { browser } ) => {
 			await demo.click( page.getByRole( 'button', { name: 'Unfreeze now' } ), 300 );
 			await expect( page.locator( '.notice-success' ) ).toContainText( 'The site is unfrozen.' );
 			await demo.moveTo( page.locator( '.aro-history tbody tr' ).first() );
+			await demo.pause( 1800 );
+
+			// What keeps working during a freeze is a setting, not code.
+			await demo.click( page.locator( '.nav-tab', { hasText: 'Settings' } ), 300 );
+			await demo.moveTo( page.locator( '.aro-allow' ) );
 			await demo.pause( 1800 );
 		} );
 	} finally {

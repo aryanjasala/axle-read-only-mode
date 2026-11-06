@@ -11,12 +11,30 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Keeps the last ten freezes: when, who, why, how they ended, what was blocked.
+ * The network has its own, for network freezes.
  */
 final class History {
 
-	public const OPTION = 'axle_read_only_mode_history';
+	public const OPTION         = 'axle_read_only_mode_history';
+	public const NETWORK_OPTION = 'axle_read_only_mode_network_history';
 
 	private const LIMIT = 10;
+
+	/**
+	 * Where the freezes are saved.
+	 *
+	 * @var Store
+	 */
+	private Store $store;
+
+	/**
+	 * Sets up the history.
+	 *
+	 * @param Store|null $store Where the freezes are saved. Default: this site's option.
+	 */
+	public function __construct( ?Store $store = null ) {
+		$this->store = $store ?? new Store( self::OPTION, false, false );
+	}
 
 	/**
 	 * Adds a finished freeze.
@@ -42,7 +60,7 @@ final class History {
 		 * @param int $size Default 10.
 		 */
 		$size = max( 1, (int) apply_filters( 'axle_read_only_mode_history_size', self::LIMIT ) );
-		update_option( self::OPTION, array_slice( $history, 0, $size ), false );
+		$this->store->set( array_slice( $history, 0, $size ) );
 	}
 
 	/**
@@ -51,10 +69,11 @@ final class History {
 	 * @return array[]
 	 */
 	public function all(): array {
-		$history = get_option( self::OPTION, array() );
+		$history = $this->store->get( array() );
 
 		return is_array( $history ) ? $history : array();
 	}
+
 	/**
 	 * Removes a user from the history, for the personal data eraser.
 	 *
@@ -73,7 +92,7 @@ final class History {
 		}
 
 		if ( $changed ) {
-			update_option( self::OPTION, $history, false );
+			$this->store->set( $history );
 		}
 
 		return $changed;
