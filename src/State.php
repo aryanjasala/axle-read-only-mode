@@ -57,14 +57,43 @@ final class State {
 	private ?State $network;
 
 	/**
+	 * What keeps working during this freeze.
+	 *
+	 * @var AllowList|null
+	 */
+	private ?AllowList $allow;
+
+	/**
 	 * Sets up the state.
 	 *
-	 * @param Store|null $store   Where the freeze is saved. Default: this site's option.
-	 * @param State|null $network The network's freeze, for a site's State on multisite.
+	 * @param Store|null     $store   Where the freeze is saved. Default: this site's option.
+	 * @param State|null     $network The network's freeze, for a site's State on multisite.
+	 * @param AllowList|null $allow   What keeps working during this freeze. Default: the site's settings.
 	 */
-	public function __construct( ?Store $store = null, ?State $network = null ) {
+	public function __construct( ?Store $store = null, ?State $network = null, ?AllowList $allow = null ) {
 		$this->store   = $store ?? new Store( self::OPTION );
 		$this->network = $network;
+		$this->allow   = $allow;
+	}
+
+	/**
+	 * What keeps working during the freeze in force on this site.
+	 *
+	 * A network freeze uses the network's list and ignores the site's, so a
+	 * site admin cannot open a hole in it.
+	 *
+	 * @return AllowList
+	 */
+	public function allow_list(): AllowList {
+		if ( $this->network && $this->network_applies() ) {
+			return $this->network->allow_list();
+		}
+
+		if ( null === $this->allow ) {
+			$this->allow = new AllowList( new Settings( $this->is_network() ? new Store( Settings::NETWORK_OPTION, true ) : null ) );
+		}
+
+		return $this->allow;
 	}
 
 	/**
@@ -267,13 +296,15 @@ final class State {
 	/**
 	 * Whether the current user can keep working during the freeze.
 	 *
+	 * Users ticked when the freeze started, and users on the allow-list.
+	 *
 	 * WP-CLI and cron are never blocked; deploy scripts need them.
 	 *
 	 * @return bool
 	 */
 	public function can_bypass(): bool {
 		$user_id = get_current_user_id();
-		$exempt  = $user_id && in_array( $user_id, array_map( 'intval', (array) $this->get( 'exempt' ) ), true );
+		$exempt  = $user_id && ( in_array( $user_id, array_map( 'intval', (array) $this->get( 'exempt' ) ), true ) || $this->allow_list()->matches_user( $user_id ) );
 
 		/**
 		 * Filters whether the current user can keep editing during a freeze.

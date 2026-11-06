@@ -43,12 +43,20 @@ final class Network {
 	public NetworkLog $log;
 
 	/**
+	 * The network's settings: what keeps working during a network freeze.
+	 *
+	 * @var Settings
+	 */
+	public Settings $settings;
+
+	/**
 	 * Builds the network's objects.
 	 */
 	public function __construct() {
-		$this->state   = new State( new Store( State::NETWORK_OPTION, true ) );
-		$this->history = new History( new Store( History::NETWORK_OPTION, true ) );
-		$this->log     = new NetworkLog( $this->state );
-		$this->freezer = new Freezer( $this->state, $this->log, $this->history );
+		$this->settings = new Settings( new Store( Settings::NETWORK_OPTION, true ) );
+		$this->state    = new State( new Store( State::NETWORK_OPTION, true ), null, new AllowList( $this->settings ) );
+		$this->history  = new History( new Store( History::NETWORK_OPTION, true ) );
+		$this->log      = new NetworkLog( $this->state );
+		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
 	}
 }

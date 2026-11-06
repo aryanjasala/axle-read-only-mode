@@ -65,6 +65,13 @@ final class Plugin {
 	private Freezer $freezer;
 
 	/**
+	 * This site's settings.
+	 *
+	 * @var Settings
+	 */
+	private Settings $settings;
+
+	/**
 	 * The network's freeze, history and log. Null on a single site.
 	 *
 	 * @var Network|null
@@ -94,11 +101,12 @@ final class Plugin {
 	 * Builds the shared objects.
 	 */
 	private function __construct() {
-		$this->network = is_multisite() ? new Network() : null;
-		$this->state   = new State( null, $this->network ? $this->network->state : null );
-		$this->history = new History();
-		$this->log     = new BlockedLog( $this->history, $this->network ? $this->network->history : null );
-		$this->freezer = new Freezer( $this->state, $this->log, $this->history );
+		$this->network  = is_multisite() ? new Network() : null;
+		$this->settings = new Settings();
+		$this->state    = new State( null, $this->network ? $this->network->state : null, new AllowList( $this->settings ) );
+		$this->history  = new History();
+		$this->log      = new BlockedLog( $this->history, $this->network ? $this->network->history : null );
+		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
 	}
 
 	/**
@@ -117,6 +125,15 @@ final class Plugin {
 	 */
 	public function state(): State {
 		return $this->state;
+	}
+
+	/**
+	 * This site's settings, for other plugins.
+	 *
+	 * @return Settings
+	 */
+	public function settings(): Settings {
+		return $this->settings;
 	}
 
 	/**
@@ -139,7 +156,7 @@ final class Plugin {
 
 		$services = array(
 			$this->log,
-			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history ),
+			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings ),
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state ),
 			new Abilities( $this->state, $this->freezer, $this->log ),
@@ -168,7 +185,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings ) );
 		}
 	}
 }

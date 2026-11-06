@@ -11,6 +11,7 @@ use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\History;
 use AryanX\Axle\ReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
 use const AryanX\Axle\ReadOnlyMode\PLUGIN_FILE;
 use const AryanX\Axle\ReadOnlyMode\VERSION;
@@ -54,18 +55,27 @@ final class ToolsPage implements Service {
 	private History $history;
 
 	/**
+	 * This site's settings.
+	 *
+	 * @var Settings
+	 */
+	private Settings $settings;
+
+	/**
 	 * Sets up the screen.
 	 *
-	 * @param State      $state   Saved freeze.
-	 * @param Freezer    $freezer Starts, extends and ends freezes.
-	 * @param BlockedLog $log     Blocked attempts.
-	 * @param History    $history Past freezes.
+	 * @param State      $state    Saved freeze.
+	 * @param Freezer    $freezer  Starts, extends and ends freezes.
+	 * @param BlockedLog $log      Blocked attempts.
+	 * @param History    $history  Past freezes.
+	 * @param Settings   $settings This site's settings.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, History $history ) {
-		$this->state   = $state;
-		$this->freezer = $freezer;
-		$this->log     = $log;
-		$this->history = $history;
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, History $history, Settings $settings ) {
+		$this->state    = $state;
+		$this->freezer  = $freezer;
+		$this->log      = $log;
+		$this->history  = $history;
+		$this->settings = $settings;
 	}
 
 	/**
@@ -161,38 +171,106 @@ final class ToolsPage implements Service {
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Read-Only Mode', 'axle-read-only-mode' ); ?></h1>
 			<span class="axle-status"><?php self::badge( $badge[0], $badge[1] ); ?></span>
 			<hr class="wp-header-end">
-			<p class="axle-intro"><?php esc_html_e( 'Freeze the site before you migrate it or deploy a database. Visitors can still read it, but nothing can be saved until the freeze ends, so nothing written in the meantime is lost when you switch over.', 'axle-read-only-mode' ); ?></p>
+			<?php self::render_tabs( self::page_url(), self::current_tab() ); ?>
 
 			<?php
-			$this->render_notices();
-
-			if ( $this->state->forced_by_constant() ) {
-				printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'The site is frozen by the AXLE_READ_ONLY_MODE constant in wp-config.php. Remove it to unfreeze.', 'axle-read-only-mode' ) );
+			if ( 'settings' === self::current_tab() ) {
+				$this->render_settings_tab();
 			} else {
-				if ( $network ) {
-					$this->render_network();
-				}
-
-				if ( $this->state->is_running() ) {
-					$this->render_status();
-				} elseif ( $this->state->is_scheduled() ) {
-					$this->render_scheduled();
-				} else {
-					$this->render_form();
-				}
+				$this->render_freeze_tab();
 			}
 
-			$this->render_stats();
-			$this->render_blocked();
+			AxleUi::footer();
 			?>
-
-			<div class="axle-grid aro-columns">
-				<?php $this->render_history(); ?>
-				<?php $this->render_cli(); ?>
-			</div>
-
-			<?php AxleUi::footer(); ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Prints the settings tab.
+	 */
+	private function render_settings_tab(): void {
+		?>
+		<p class="axle-intro"><?php esc_html_e( 'Choose what keeps working while the site is frozen.', 'axle-read-only-mode' ); ?></p>
+		<?php
+		$this->render_notices();
+		SettingsView::render( $this->settings, admin_url( 'admin-post.php' ), self::ACTION );
+	}
+
+	/**
+	 * Prints the freeze tab: status or form, what was blocked, history.
+	 */
+	private function render_freeze_tab(): void {
+		?>
+		<p class="axle-intro"><?php esc_html_e( 'Freeze the site before you migrate it or deploy a database. Visitors can still read it, but nothing can be saved until the freeze ends, so nothing written in the meantime is lost when you switch over.', 'axle-read-only-mode' ); ?></p>
+
+		<?php
+		$this->render_notices();
+
+		if ( $this->state->forced_by_constant() ) {
+			printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'The site is frozen by the AXLE_READ_ONLY_MODE constant in wp-config.php. Remove it to unfreeze.', 'axle-read-only-mode' ) );
+		} else {
+			if ( $this->state->network_applies() ) {
+				$this->render_network();
+			}
+
+			if ( $this->state->is_running() ) {
+				$this->render_status();
+			} elseif ( $this->state->is_scheduled() ) {
+				$this->render_scheduled();
+			} else {
+				$this->render_form();
+			}
+		}
+
+		$this->render_stats();
+		$this->render_blocked();
+		?>
+
+		<div class="axle-grid aro-columns">
+			<?php $this->render_history(); ?>
+			<?php $this->render_cli(); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * The screen's address.
+	 *
+	 * @param string $tab Tab to open, empty for the first.
+	 * @return string
+	 */
+	public static function page_url( string $tab = '' ): string {
+		return admin_url( 'tools.php?page=' . self::SLUG . ( '' !== $tab ? '&tab=' . $tab : '' ) );
+	}
+
+	/**
+	 * The tab being shown: freeze or settings.
+	 *
+	 * @return string
+	 */
+	public static function current_tab(): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only value.
+		return isset( $_GET['tab'] ) && 'settings' === sanitize_key( wp_unslash( $_GET['tab'] ) ) ? 'settings' : 'freeze';
+	}
+
+	/**
+	 * Prints the tabs shared by the site and network screens.
+	 *
+	 * @param string $url Screen address without a tab.
+	 * @param string $current freeze or settings.
+	 */
+	public static function render_tabs( string $url, string $current ): void {
+		$tabs = array(
+			'freeze'   => __( 'Freeze', 'axle-read-only-mode' ),
+			'settings' => __( 'Settings', 'axle-read-only-mode' ),
+		);
+		?>
+		<nav class="nav-tab-wrapper wp-clearfix" aria-label="<?php esc_attr_e( 'Read-Only Mode sections', 'axle-read-only-mode' ); ?>">
+			<?php foreach ( $tabs as $tab => $label ) : ?>
+				<a class="nav-tab<?php echo $tab === $current ? ' nav-tab-active' : ''; ?>" href="<?php echo esc_url( 'freeze' === $tab ? $url : add_query_arg( 'tab', $tab, $url ) ); ?>"<?php echo $tab === $current ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?></a>
+			<?php endforeach; ?>
+		</nav>
 		<?php
 	}
 
@@ -231,8 +309,10 @@ final class ToolsPage implements Service {
 	 * Prints the numbers at the top: what was blocked.
 	 */
 	private function render_stats(): void {
-		$blocked = $this->log->count( $this->state->log_since() );
-		if ( ! $blocked && ! $this->state->is_frozen() ) {
+		$since   = $this->state->log_since();
+		$blocked = $this->log->count( $since );
+		$allowed = $this->log->count_allowed( $since );
+		if ( ! $blocked && ! $allowed && ! $this->state->is_frozen() ) {
 			return;
 		}
 		?>
@@ -240,6 +320,10 @@ final class ToolsPage implements Service {
 			<div class="axle-stat <?php echo $blocked ? 'axle-stat--error' : 'axle-stat--good'; ?>">
 				<span class="axle-stat__value"><?php echo esc_html( number_format_i18n( $blocked ) ); ?></span>
 				<span class="axle-stat__label"><?php esc_html_e( 'attempts blocked', 'axle-read-only-mode' ); ?></span>
+			</div>
+			<div class="axle-stat <?php echo $allowed ? 'axle-stat--good' : ''; ?>">
+				<span class="axle-stat__value"><?php echo esc_html( number_format_i18n( $allowed ) ); ?></span>
+				<span class="axle-stat__label"><?php esc_html_e( 'requests allowed through', 'axle-read-only-mode' ); ?></span>
 			</div>
 		</div>
 		<?php
@@ -382,12 +466,6 @@ final class ToolsPage implements Service {
 			return;
 		}
 
-		$sources = array(
-			'admin'     => __( 'Dashboard', 'axle-read-only-mode' ),
-			'ajax'      => __( 'Dashboard (ajax)', 'axle-read-only-mode' ),
-			'rest'      => __( 'REST API / editor', 'axle-read-only-mode' ),
-			'front-end' => __( 'Front end', 'axle-read-only-mode' ),
-		);
 		?>
 		<section class="axle-card aro-blocked">
 			<h2 class="axle-card__title">
@@ -397,7 +475,7 @@ final class ToolsPage implements Service {
 					? __( 'Blocked during this freeze (%d)', 'axle-read-only-mode' )
 					/* translators: %d: number of blocked attempts. */
 					: __( 'Blocked during the last freeze (%d)', 'axle-read-only-mode' );
-				echo esc_html( sprintf( $title, count( $entries ) ) );
+				echo esc_html( sprintf( $title, $this->log->count( $this->state->log_since() ) ) );
 				?>
 			</h2>
 			<?php if ( ! $entries ) : ?>
@@ -409,7 +487,8 @@ final class ToolsPage implements Service {
 							<th scope="col"><?php esc_html_e( 'When', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Who', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Where', 'axle-read-only-mode' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'What was blocked', 'axle-read-only-mode' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Result', 'axle-read-only-mode' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Request', 'axle-read-only-mode' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -417,7 +496,8 @@ final class ToolsPage implements Service {
 							<tr>
 								<td><?php echo self::time_tag( (int) $entry['time'], get_option( 'time_format' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in time_tag(). ?></td>
 								<td><?php echo esc_html( '' !== BlockedLog::who( $entry ) ? BlockedLog::who( $entry ) : __( 'Visitor', 'axle-read-only-mode' ) ); ?></td>
-								<td><?php echo esc_html( $sources[ $entry['source'] ] ?? $entry['source'] ); ?></td>
+								<td><?php echo esc_html( self::source_label( (string) $entry['source'] ) ); ?></td>
+								<td><?php self::result_badge( $entry ); ?></td>
 								<td><code><?php echo esc_html( $entry['where'] ); ?></code></td>
 							</tr>
 						<?php endforeach; ?>
@@ -426,6 +506,38 @@ final class ToolsPage implements Service {
 			<?php endif; ?>
 		</section>
 		<?php
+	}
+
+	/**
+	 * Words for where a request came from.
+	 *
+	 * @param string $source admin, ajax, rest, front-end or ability.
+	 * @return string
+	 */
+	public static function source_label( string $source ): string {
+		$sources = array(
+			'admin'     => __( 'Dashboard', 'axle-read-only-mode' ),
+			'ajax'      => __( 'Dashboard (ajax)', 'axle-read-only-mode' ),
+			'rest'      => __( 'REST API / editor', 'axle-read-only-mode' ),
+			'front-end' => __( 'Front end', 'axle-read-only-mode' ),
+			'ability'   => __( 'Ability', 'axle-read-only-mode' ),
+		);
+
+		return $sources[ $source ] ?? $source;
+	}
+
+	/**
+	 * Prints whether a logged request was blocked or allowed through.
+	 *
+	 * @param array $entry Log entry.
+	 */
+	public static function result_badge( array $entry ): void {
+		if ( empty( $entry['allowed'] ) ) {
+			self::badge( 'error', __( 'Blocked', 'axle-read-only-mode' ) );
+			return;
+		}
+
+		self::badge( 'good', 'code' === ( $entry['via'] ?? '' ) ? __( 'Allowed by code', 'axle-read-only-mode' ) : __( 'Allowed', 'axle-read-only-mode' ) );
 	}
 
 	/**
@@ -524,10 +636,16 @@ final class ToolsPage implements Service {
 			'scheduled' => __( 'Freeze scheduled.', 'axle-read-only-mode' ),
 			'unfrozen'  => __( 'The site is unfrozen.', 'axle-read-only-mode' ),
 			'extended'  => __( 'Freeze extended.', 'axle-read-only-mode' ),
+			'saved'     => __( 'Settings saved.', 'axle-read-only-mode' ),
+			'added'     => __( 'Entry added to the allow-list.', 'axle-read-only-mode' ),
 		);
 
 		if ( isset( $messages[ $done ] ) ) {
 			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $messages[ $done ] ) );
+		} elseif ( 'saved_with_errors' === $done ) {
+			printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', esc_html__( 'Settings saved, except the lines listed below.', 'axle-read-only-mode' ) );
+		} elseif ( 'add_failed' === $done ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html__( 'That entry could not be added.', 'axle-read-only-mode' ) );
 		}
 	}
 
@@ -571,8 +689,15 @@ final class ToolsPage implements Service {
 		$task    = isset( $_REQUEST['task'] ) ? sanitize_key( wp_unslash( $_REQUEST['task'] ) ) : '';
 		$minutes = isset( $_REQUEST['minutes'] ) ? absint( $_REQUEST['minutes'] ) : 0;
 		$done    = '';
+		$tab     = '';
 
 		switch ( $task ) {
+			case 'save_settings':
+			case 'add_allow':
+				$done = SettingsView::handle( $this->settings );
+				$tab  = 'settings';
+				break;
+
 			case 'unfreeze':
 				$this->freezer->unfreeze( 'user' );
 				$done = 'unfrozen';
@@ -613,7 +738,7 @@ final class ToolsPage implements Service {
 		}
 
 		$back = 'GET' === ( isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '' ) ? wp_get_referer() : false;
-		wp_safe_redirect( $back ? $back : add_query_arg( array_filter( array( 'aro_done' => $done ) ), admin_url( 'tools.php?page=' . self::SLUG ) ) );
+		wp_safe_redirect( $back ? $back : add_query_arg( array_filter( array( 'aro_done' => $done ) ), self::page_url( $tab ) ) );
 		exit;
 	}
 }

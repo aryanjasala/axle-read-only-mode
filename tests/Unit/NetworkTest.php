@@ -14,6 +14,8 @@ use AryanX\Axle\ReadOnlyMode\NetworkLog;
 use AryanX\Axle\ReadOnlyMode\State;
 use AryanX\Axle\ReadOnlyMode\Store;
 use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
+use AryanX\Axle\ReadOnlyMode\AllowList;
+use AryanX\Axle\ReadOnlyMode\Settings;
 use Brain\Monkey\Actions;
 use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
@@ -330,5 +332,21 @@ final class NetworkTest extends TestCase {
 		$this->assertSame( 'manage_sites', NetworkPage::capability() );
 		$this->assertSame( 1, NetworkPage::site_picker_limit(), 'Never less than one site.' );
 		$this->assertSame( 25, ( new NetworkLog( $this->network_state() ) )->site_limit() );
+	}
+
+	public function test_a_network_freeze_uses_the_network_allow_list_not_the_sites(): void {
+		Functions\when( 'wp_parse_url' )->alias( 'parse_url' );
+		Functions\when( 'home_url' )->justReturn( 'https://example.test' );
+		$this->options[ Settings::OPTION ]               = array( 'allow' => array( 'paths' => array( '/site-hole' ) ) );
+		$this->site_options[ Settings::NETWORK_OPTION ] = array( 'allow' => array( 'paths' => array( '/network-ok' ) ) );
+		$network = new Network();
+		$site    = new State( null, $network->state, new AllowList( new Settings() ) );
+
+		// No freeze on the network: the site's own list applies.
+		$this->assertTrue( $site->allow_list()->matches_uri( '/site-hole' ) );
+
+		$this->freeze_network();
+		$this->assertFalse( $site->allow_list()->matches_uri( '/site-hole' ), 'A site admin cannot open a hole in a network freeze.' );
+		$this->assertTrue( $site->allow_list()->matches_uri( '/network-ok' ) );
 	}
 }

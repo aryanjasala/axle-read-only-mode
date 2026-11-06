@@ -211,7 +211,7 @@ final class Abilities implements Service {
 		$this->ability(
 			'get-blocked',
 			__( 'List blocked changes', 'axle-read-only-mode' ),
-			__( 'What the current or last freeze blocked: when, who and what. Useful after a migration to see which edits to redo on the new server.', 'axle-read-only-mode' ),
+			__( 'What the current or last freeze blocked, and the requests the allow-list let through: when, who and what. Useful after a migration to see which edits to redo on the new server.', 'axle-read-only-mode' ),
 			array(
 				'type'                 => 'object',
 				'properties'           => array(
@@ -233,11 +233,50 @@ final class Abilities implements Service {
 						'time'   => array( 'type' => 'string' ),
 						'who'    => array( 'type' => 'string' ),
 						'source' => array( 'type' => 'string' ),
+						'result' => array(
+							'type'        => 'string',
+							'description' => 'blocked, or allowed when the allow-list or a filter let the request through.',
+						),
 						'where'  => array( 'type' => 'string' ),
 					),
 				),
 			),
 			array( $this, 'get_blocked' ),
+			$can_manage,
+			array(
+				'readonly'   => true,
+				'idempotent' => true,
+			)
+		);
+
+		$this->ability(
+			'get-allow-list',
+			__( 'List what keeps working during a freeze', 'axle-read-only-mode' ),
+			__( 'The allow-list in the settings: REST route prefixes, front-end paths and query arguments, ajax actions and users that keep working while the site is frozen. Read-only: changing the list is left to people, because it loosens the freeze.', 'axle-read-only-mode' ),
+			array(),
+			array(
+				'type'       => 'object',
+				'properties' => array(
+					'rest'  => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+					'paths' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+					'ajax'  => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+					'users' => array(
+						'type'        => 'array',
+						'items'       => array( 'type' => 'integer' ),
+						'description' => 'User IDs.',
+					),
+				),
+			),
+			array( $this, 'get_allow_list' ),
 			$can_manage,
 			array(
 				'readonly'   => true,
@@ -343,10 +382,27 @@ final class Abilities implements Service {
 					'time'   => gmdate( 'c', (int) $entry['time'] ),
 					'who'    => BlockedLog::who( $entry ),
 					'source' => (string) $entry['source'],
+					'result' => empty( $entry['allowed'] ) ? 'blocked' : 'allowed',
 					'where'  => (string) $entry['where'],
 				);
 			},
 			array_slice( $this->log->all( $this->state->log_since() ), 0, max( 1, min( 100, $limit ) ) )
+		);
+	}
+
+	/**
+	 * Ability: the allow-list in force on this site.
+	 *
+	 * @return array
+	 */
+	public function get_allow_list(): array {
+		$list = $this->state->allow_list();
+
+		return array(
+			'rest'  => array_map( 'strval', $list->entries( 'rest' ) ),
+			'paths' => array_map( 'strval', $list->entries( 'paths' ) ),
+			'ajax'  => $list->ajax_actions(),
+			'users' => array_map( 'intval', $list->entries( 'users' ) ),
 		);
 	}
 

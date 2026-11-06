@@ -11,6 +11,7 @@ use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\Network;
 use AryanX\Axle\ReadOnlyMode\Service;
+use AryanX\Axle\ReadOnlyMode\Settings;
 use const AryanX\Axle\ReadOnlyMode\PLUGIN_FILE;
 use const AryanX\Axle\ReadOnlyMode\VERSION;
 
@@ -152,37 +153,68 @@ final class NetworkPage implements Service {
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Read-Only Mode', 'axle-read-only-mode' ); ?></h1>
 			<span class="axle-status"><?php ToolsPage::badge( $badge[0], $badge[1] ); ?></span>
 			<hr class="wp-header-end">
-			<p class="axle-intro"><?php esc_html_e( 'Freeze every site on the network, or chosen sites, before you migrate or deploy. A network freeze applies on each site it covers and cannot be lifted from a site. Site admins can still freeze their own site from Tools.', 'axle-read-only-mode' ); ?></p>
+			<?php ToolsPage::render_tabs( self::page_url(), ToolsPage::current_tab() ); ?>
 
 			<?php
-			$this->render_notices();
-
-			if ( ! is_plugin_active_for_network( plugin_basename( PLUGIN_FILE ) ) ) {
-				printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'This plugin is not network-activated. A network freeze only applies on sites where it is active.', 'axle-read-only-mode' ) );
-			}
-
-			if ( $this->network->state->forced_by_constant() ) {
-				printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'Every site is frozen by the AXLE_READ_ONLY_MODE constant in wp-config.php. Remove it to unfreeze.', 'axle-read-only-mode' ) );
-			}
-
-			if ( $frozen ) {
-				$this->render_status();
-			} elseif ( $scheduled ) {
-				$this->render_scheduled();
+			if ( 'settings' === ToolsPage::current_tab() ) {
+				$this->render_settings_tab();
 			} else {
-				$this->render_form();
+				$this->render_freeze_tab( $frozen, $scheduled );
 			}
 
-			$this->render_stats();
-			$this->render_blocked();
+			AxleUi::footer();
 			?>
+		</div>
+		<?php
+	}
 
-			<div class="axle-grid aro-columns">
-				<?php $this->render_history(); ?>
-				<?php $this->render_cli(); ?>
-			</div>
+	/**
+	 * Prints the settings tab.
+	 */
+	private function render_settings_tab(): void {
+		?>
+		<p class="axle-intro"><?php esc_html_e( 'Choose what keeps working on every site while the network is frozen.', 'axle-read-only-mode' ); ?></p>
+		<?php
+		$this->render_notices();
+		SettingsView::render( $this->network->settings, self::post_url(), self::ACTION );
+	}
 
-			<?php AxleUi::footer(); ?>
+	/**
+	 * Prints the freeze tab.
+	 *
+	 * @param bool $frozen    Whether the network freeze is running.
+	 * @param bool $scheduled Whether one is set to start later.
+	 */
+	private function render_freeze_tab( bool $frozen, bool $scheduled ): void {
+		?>
+		<p class="axle-intro"><?php esc_html_e( 'Freeze every site on the network, or chosen sites, before you migrate or deploy. A network freeze applies on each site it covers and cannot be lifted from a site. Site admins can still freeze their own site from Tools.', 'axle-read-only-mode' ); ?></p>
+
+		<?php
+		$this->render_notices();
+
+		if ( ! is_plugin_active_for_network( plugin_basename( PLUGIN_FILE ) ) ) {
+			printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'This plugin is not network-activated. A network freeze only applies on sites where it is active.', 'axle-read-only-mode' ) );
+		}
+
+		if ( $this->network->state->forced_by_constant() ) {
+			printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'Every site is frozen by the AXLE_READ_ONLY_MODE constant in wp-config.php. Remove it to unfreeze.', 'axle-read-only-mode' ) );
+		}
+
+		if ( $frozen ) {
+			$this->render_status();
+		} elseif ( $scheduled ) {
+			$this->render_scheduled();
+		} else {
+			$this->render_form();
+		}
+
+		$this->render_stats();
+		$this->render_blocked();
+		?>
+
+		<div class="axle-grid aro-columns">
+			<?php $this->render_history(); ?>
+			<?php $this->render_cli(); ?>
 		</div>
 		<?php
 	}
@@ -401,13 +433,6 @@ final class NetworkPage implements Service {
 			return;
 		}
 
-		$sources = array(
-			'admin'     => __( 'Dashboard', 'axle-read-only-mode' ),
-			'ajax'      => __( 'Dashboard (ajax)', 'axle-read-only-mode' ),
-			'rest'      => __( 'REST API / editor', 'axle-read-only-mode' ),
-			'front-end' => __( 'Front end', 'axle-read-only-mode' ),
-			'ability'   => __( 'Ability', 'axle-read-only-mode' ),
-		);
 		?>
 		<section class="axle-card aro-blocked">
 			<h2 class="axle-card__title">
@@ -449,7 +474,8 @@ final class NetworkPage implements Service {
 							<th scope="col"><?php esc_html_e( 'Site', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Who', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Where', 'axle-read-only-mode' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'What was blocked', 'axle-read-only-mode' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Result', 'axle-read-only-mode' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Request', 'axle-read-only-mode' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -458,7 +484,8 @@ final class NetworkPage implements Service {
 								<td><?php echo ToolsPage::time_tag( (int) $entry['time'], get_option( 'time_format' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in time_tag(). ?></td>
 								<td><?php echo esc_html( '' !== $entry['name'] ? $entry['name'] : '#' . $entry['site_id'] ); ?></td>
 								<td><?php echo esc_html( $this->who( $entry ) ); ?></td>
-								<td><?php echo esc_html( $sources[ $entry['source'] ?? '' ] ?? (string) ( $entry['source'] ?? '' ) ); ?></td>
+								<td><?php echo esc_html( ToolsPage::source_label( (string) ( $entry['source'] ?? '' ) ) ); ?></td>
+								<td><?php ToolsPage::result_badge( $entry ); ?></td>
 								<td><code><?php echo esc_html( (string) $entry['where'] ); ?></code></td>
 							</tr>
 						<?php endforeach; ?>
@@ -581,10 +608,17 @@ final class NetworkPage implements Service {
 			'scheduled' => __( 'Network freeze scheduled.', 'axle-read-only-mode' ),
 			'unfrozen'  => __( 'The network is unfrozen.', 'axle-read-only-mode' ),
 			'extended'  => __( 'Freeze extended.', 'axle-read-only-mode' ),
+			'saved'     => __( 'Settings saved.', 'axle-read-only-mode' ),
+			'added'     => __( 'Entry added to the allow-list.', 'axle-read-only-mode' ),
 		);
 
 		if ( isset( $messages[ $done ] ) ) {
 			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $messages[ $done ] ) );
+		}
+		if ( 'saved_with_errors' === $done ) {
+			printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', esc_html__( 'Settings saved, except the lines listed below.', 'axle-read-only-mode' ) );
+		} elseif ( 'add_failed' === $done ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html__( 'That entry could not be added.', 'axle-read-only-mode' ) );
 		}
 		if ( 'no_sites' === $error ) {
 			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html__( 'Tick at least one site, or choose every site on the network.', 'axle-read-only-mode' ) );
@@ -607,7 +641,15 @@ final class NetworkPage implements Service {
 		$done    = '';
 		$error   = '';
 
+		$tab = '';
+
 		switch ( $task ) {
+			case 'save_settings':
+			case 'add_allow':
+				$done = SettingsView::handle( $this->network->settings );
+				$tab  = 'settings';
+				break;
+
 			case 'unfreeze':
 				$freezer->unfreeze( 'user' );
 				$done = 'unfrozen';
@@ -657,7 +699,8 @@ final class NetworkPage implements Service {
 					array(
 						'aro_done'  => $done,
 						'aro_error' => $error,
-					) 
+						'tab'       => $tab,
+					)
 				),
 				self::page_url() 
 			) 

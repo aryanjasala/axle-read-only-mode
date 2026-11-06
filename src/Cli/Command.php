@@ -7,9 +7,11 @@
 
 namespace AryanX\Axle\ReadOnlyMode\Cli;
 
+use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\Network;
+use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
@@ -22,6 +24,16 @@ defined( 'ABSPATH' ) || exit;
  * read the whole network instead.
  */
 final class Command {
+
+	/**
+	 * Command words and the allow-list kinds they stand for.
+	 */
+	private const KINDS = array(
+		'rest' => 'rest',
+		'path' => 'paths',
+		'ajax' => 'ajax',
+		'user' => 'users',
+	);
 
 	/**
 	 * Saved freeze.
@@ -52,18 +64,27 @@ final class Command {
 	private ?Network $network;
 
 	/**
+	 * This site's settings.
+	 *
+	 * @var Settings
+	 */
+	private Settings $settings;
+
+	/**
 	 * Sets up the command.
 	 *
-	 * @param State        $state   Saved freeze.
-	 * @param Freezer      $freezer Starts, extends and ends freezes.
-	 * @param BlockedLog   $log     Blocked attempts.
-	 * @param Network|null $network The network's freeze, on multisite.
+	 * @param State         $state    Saved freeze.
+	 * @param Freezer       $freezer  Starts, extends and ends freezes.
+	 * @param BlockedLog    $log      Blocked attempts.
+	 * @param Network|null  $network  The network's freeze, on multisite.
+	 * @param Settings|null $settings This site's settings.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null ) {
-		$this->state   = $state;
-		$this->freezer = $freezer;
-		$this->log     = $log;
-		$this->network = $network;
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null ) {
+		$this->state    = $state;
+		$this->freezer  = $freezer;
+		$this->log      = $log;
+		$this->network  = $network;
+		$this->settings = $settings ?? new Settings();
 	}
 
 	/**
@@ -271,6 +292,134 @@ final class Command {
 	}
 
 	/**
+	 * Adds a request to the allow-list, so it keeps working during a freeze.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <type>
+	 * : What to allow: rest (a REST route prefix), path (a front-end path or ?query-argument), ajax (an admin-ajax action) or user (a login, email address or ID).
+	 * ---
+	 * options:
+	 *   - rest
+	 *   - path
+	 *   - ajax
+	 *   - user
+	 * ---
+	 *
+	 * <value>
+	 * : The entry, such as /wc/v3/webhooks, ?wc-api=, my_action or editor-in-chief.
+	 *
+	 * [--network]
+	 * : Change the network's allow-list, which applies during a network freeze.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode allow rest /wc/v3/webhooks
+	 *     wp axle-read-only-mode allow path "?wc-api="
+	 *     wp axle-read-only-mode allow ajax subscribe_form
+	 *     wp axle-read-only-mode allow user ops@example.com
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function allow( array $args, array $assoc_args ): void {
+		$error = $this->settings_for( $assoc_args )->add_allow( self::kind( $args[0] ), (string) $args[1] );
+		if ( '' !== $error ) {
+			\WP_CLI::error( $error );
+		}
+
+		\WP_CLI::success( 'Added to the allow-list.' );
+	}
+
+	/**
+	 * Takes a request off the allow-list.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <type>
+	 * : rest, path, ajax or user.
+	 *
+	 * <value>
+	 * : The entry, as it was added.
+	 *
+	 * [--network]
+	 * : Change the network's allow-list.
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function disallow( array $args, array $assoc_args ): void {
+		if ( ! $this->settings_for( $assoc_args )->remove_allow( self::kind( $args[0] ), (string) $args[1] ) ) {
+			\WP_CLI::error( 'That entry is not on the allow-list.' );
+		}
+
+		\WP_CLI::success( 'Removed from the allow-list.' );
+	}
+
+	/**
+	 * Lists what keeps working during a freeze.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--network]
+	 * : List the network's allow-list.
+	 *
+	 * [--format=<format>]
+	 * : table, csv, json or count.
+	 * ---
+	 * default: table
+	 * ---
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function allowed( array $args, array $assoc_args ): void {
+		$settings = $this->settings_for( $assoc_args );
+		$routes   = array_keys( rest_get_server()->get_routes() );
+		$names    = array_flip( self::KINDS );
+		$rows     = array();
+
+		foreach ( AllowList::TYPES as $type ) {
+			foreach ( $settings->allow( $type ) as $entry ) {
+				$user   = 'users' === $type ? get_userdata( (int) $entry ) : false;
+				$rows[] = array(
+					'type'    => $names[ $type ],
+					'entry'   => $user ? $user->user_login : (string) $entry,
+					'matches' => AllowList::describe( $type, $entry, $routes )['label'],
+				);
+			}
+		}
+
+		\WP_CLI\Utils\format_items( $assoc_args['format'] ?? 'table', $rows, array( 'type', 'entry', 'matches' ) );
+	}
+
+	/**
+	 * Settings the command changes: the site's, or with --network the network's.
+	 *
+	 * @param array $assoc_args Named arguments.
+	 * @return Settings
+	 */
+	private function settings_for( array $assoc_args ): Settings {
+		$network = $this->network_target( $assoc_args );
+
+		return $network ? $network->settings : $this->settings;
+	}
+
+	/**
+	 * The allow-list kind for a command word.
+	 *
+	 * @param string $word rest, path, ajax or user.
+	 * @return string rest, paths, ajax or users.
+	 */
+	private static function kind( string $word ): string {
+		if ( ! isset( self::KINDS[ $word ] ) ) {
+			\WP_CLI::error( 'The type is rest, path, ajax or user.' );
+		}
+
+		return self::KINDS[ $word ];
+	}
+
+	/**
 	 * One line about a network freeze.
 	 *
 	 * @param Network $network The network.
@@ -286,7 +435,7 @@ final class Command {
 	}
 
 	/**
-	 * Lists what was blocked during the current or last freeze.
+	 * Lists what was blocked, and what the allow-list let through, during the current or last freeze.
 	 *
 	 * ## OPTIONS
 	 *
@@ -305,14 +454,15 @@ final class Command {
 	public function log( array $args, array $assoc_args ): void {
 		$network = $this->network_target( $assoc_args );
 		$entries = $network ? $network->log->recent( PHP_INT_MAX ) : $this->log->all( $this->state->log_since() );
-		$columns = $network ? array( 'time', 'site', 'who', 'source', 'where' ) : array( 'time', 'who', 'source', 'where' );
+		$columns = $network ? array( 'time', 'site', 'who', 'source', 'result', 'where' ) : array( 'time', 'who', 'source', 'result', 'where' );
 
 		$rows = array_map(
 			static function ( array $entry ): array {
 				return array(
-					'time' => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ),
-					'who'  => BlockedLog::who( $entry ),
-					'site' => $entry['site_id'] ?? get_current_blog_id(),
+					'time'   => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ),
+					'who'    => BlockedLog::who( $entry ),
+					'site'   => $entry['site_id'] ?? get_current_blog_id(),
+					'result' => empty( $entry['allowed'] ) ? 'blocked' : 'allowed',
 				) + $entry;
 			},
 			$entries

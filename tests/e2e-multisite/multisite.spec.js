@@ -15,7 +15,7 @@ const network = () => JSON.parse( wpEval( 'echo wp_json_encode( get_site_option(
 const reset = () =>
 	wp(
 		'eval',
-		`delete_site_option( 'axle_read_only_mode_network_state' ); delete_site_option( 'axle_read_only_mode_network_history' );
+		`delete_site_option( 'axle_read_only_mode_network_state' ); delete_site_option( 'axle_read_only_mode_network_history' ); delete_site_option( 'axle_read_only_mode_network_settings' );
 		foreach ( get_sites( array( 'fields' => 'ids' ) ) as $id ) { switch_to_blog( $id ); foreach ( array( 'state', 'log', 'history', 'settings' ) as $n ) { delete_option( 'axle_read_only_mode_' . $n ); } restore_current_blog(); }`
 	);
 
@@ -148,6 +148,42 @@ test.describe( 'Axle Read-Only Mode on a network', () => {
 		expect( status( 'two' ) ).toContain( 'Frozen by:                  site' );
 	} );
 
+	test( 'a network freeze uses the network allow-list and ignores the one on each site', async ( { page, browser } ) => {
+		site( 'two', 'axle-read-only-mode', 'allow', 'path', '?site-only=' );
+		wp( 'axle-read-only-mode', 'allow', 'path', '?net-ok=', '--network' );
+		expect( wp( 'axle-read-only-mode', 'allowed', '--network', '--format=count' ) ).toBe( '1' );
+		expect( site( 'two', 'axle-read-only-mode', 'allowed', '--format=count' ) ).toBe( '1' );
+
+		// The network's list is edited in Network Admin, on its own tab.
+		await page.goto( `${ NETWORK_PAGE }&tab=settings` );
+		await page.getByLabel( 'Ajax actions' ).fill( 'net_action' );
+		await page.getByRole( 'button', { name: 'Save settings' } ).click();
+		await expect( page.locator( '.notice-success' ) ).toContainText( 'Settings saved.' );
+		expect( JSON.parse( wpEval( 'echo wp_json_encode( get_site_option( "axle_read_only_mode_network_settings" ) );' ) ).allow ).toMatchObject( { paths: [ '?net-ok=' ], ajax: [ 'net_action' ] } );
+		await expect( page.locator( '.aro-matches' ).first() ).toContainText( 'net-ok' );
+
+		wp( 'axle-read-only-mode', 'on', '--network', '--minutes=30' );
+		const visitor = await browser.newContext( { baseURL: BASE_URL, storageState: { cookies: [], origins: [] } } );
+		const form = { comment: 'Hi', comment_post_ID: '1', author: 'Sam', email: 'sam@example.com' };
+		expect( ( await visitor.request.post( '/two/wp-comments-post.php?site-only=1', { form } ) ).status() ).toBe( 503 );
+		expect( ( await visitor.request.post( '/two/wp-comments-post.php?net-ok=1', { form } ) ).status() ).not.toBe( 503 );
+		await visitor.close();
+
+		const log = JSON.parse( wp( 'axle-read-only-mode', 'log', '--network', '--format=json' ) );
+		expect( log.map( ( entry ) => `${ entry.site }:${ entry.result }` ).sort() ).toEqual( [ '2:allowed', '2:blocked' ] );
+
+		await page.goto( NETWORK_PAGE );
+		await expect( page.locator( '.aro-network-log tbody tr' ).filter( { hasText: 'Allowed' } ) ).toHaveCount( 1 );
+		await expect( page.locator( '.aro-site-log tbody tr' ).first().locator( '.num' ) ).toHaveText( '1' );
+
+		// Without the network freeze, the site's own list applies again.
+		wp( 'axle-read-only-mode', 'off', '--network' );
+		site( 'two', 'axle-read-only-mode', 'on', '--minutes=30' );
+		const again = await browser.newContext( { baseURL: BASE_URL, storageState: { cookies: [], origins: [] } } );
+		expect( ( await again.request.post( '/two/wp-comments-post.php?site-only=1', { form } ) ).status() ).not.toBe( 503 );
+		await again.close();
+	} );
+
 	test( 'works when the plugin is active on one site only', async ( { request } ) => {
 		wp( 'plugin', 'deactivate', 'axle-read-only-mode', '--network' );
 		wp( 'plugin', 'activate', 'axle-read-only-mode', `--url=${ HOST }/two` );
@@ -169,6 +205,8 @@ test.describe( 'Axle Read-Only Mode on a network', () => {
 
 		await page.goto( NETWORK_PAGE );
 		await scan( 'Network Admin > Read-Only Mode, not frozen' );
+		await page.goto( `${ NETWORK_PAGE }&tab=settings` );
+		await scan( 'Network Admin > Read-Only Mode > Settings' );
 
 		wp( 'axle-read-only-mode', 'on', '--network', '--minutes=90', '--reason=Moving the network' );
 		wp( 'eval', 'switch_to_blog( 2 ); update_option( "axle_read_only_mode_log", array( array( "time" => time() - 30, "user" => 1, "where" => "REST POST /wp/v2/posts/1", "source" => "rest" ) ), false );' );

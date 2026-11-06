@@ -5,7 +5,7 @@ const PAGE = '/wp-admin/tools.php?page=axle-read-only-mode';
 const FIXTURE = 'aro-e2e-abilities.php';
 
 const reset = () => {
-	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history' ] ) {
+	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings' ] ) {
 		try {
 			wp( 'option', 'delete', option );
 		} catch ( error ) {
@@ -145,7 +145,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 
 		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=axle-read-only-mode' );
 		expect( listed.status ).toBe( 200 );
-		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/unfreeze' ] );
+		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-allow-list', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/unfreeze' ] );
 		// MCP clients only list abilities marked public.
 		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'axle-read-only-mode/' ); } ) ) );` ) ) ).toEqual( [] );
 
