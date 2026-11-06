@@ -70,7 +70,31 @@ final class Blocker {
 		 */
 		do_action( 'axle_read_only_mode_blocked', $where, $source, get_current_user_id() );
 
-		$this->log->add( $where, $source );
+		$this->log->add( $where, $source, $this->state->log_since() );
+	}
+
+	/**
+	 * Records a request that was let through anyway, without stopping anything.
+	 *
+	 * @param string $where What was let through, e.g. "POST /?wc-api=wc_stripe".
+	 * @param string $source admin, ajax, rest or front-end.
+	 * @param string $via    settings (the allow-list) or code (a filter).
+	 */
+	public function record_allowed( string $where, string $source, string $via ): void {
+		/**
+		 * Fires for every request the allow-list or a filter lets through a freeze.
+		 *
+		 * Fires for every one, including those the log leaves out once it has
+		 * its few examples. For an outside log or a counter.
+		 *
+		 * @param string $where   What was let through, e.g. "POST /?wc-api=wc_stripe".
+		 * @param string $source  admin, ajax, rest or front-end.
+		 * @param int    $user_id User, or 0 for a visitor.
+		 * @param string $via     settings (the allow-list) or code (a filter).
+		 */
+		do_action( 'axle_read_only_mode_allowed', $where, $source, get_current_user_id(), $via );
+
+		$this->log->add_allowed( $where, $source, $via, $this->state->log_since() );
 	}
 
 	/**
@@ -84,17 +108,24 @@ final class Blocker {
 	 * @param string $source admin, ajax, rest or front-end.
 	 */
 	public function stop( string $where, string $source ): void {
+		// Admin-ajax actions have their own list, checked by AdminGuard before this runs.
+		$by_settings = 'ajax' !== $source && $this->state->allow_list()->matches_uri( self::uri() );
+
 		/**
 		 * Filters whether a request gets through a freeze anyway.
 		 *
 		 * For callbacks that must not wait, such as single sign-on. Payment
 		 * providers retry webhooks that get a 503, so those can usually wait.
+		 * Runs after the allow-list on the settings screen, so `$allow` is
+		 * already true for a request that list lets through, and code can
+		 * return false to stop it.
 		 *
-		 * @param bool   $allow  Whether to let the request through. Default false.
+		 * @param bool   $allow  Whether to let the request through. Default: whether the allow-list lets it through.
 		 * @param string $where  What would be blocked, e.g. "POST /checkout/".
 		 * @param string $source admin, ajax or front-end.
 		 */
-		if ( apply_filters( 'axle_read_only_mode_allow_request', false, $where, $source ) ) {
+		if ( apply_filters( 'axle_read_only_mode_allow_request', $by_settings, $where, $source ) ) {
+			$this->record_allowed( $where, $source, $by_settings ? 'settings' : 'code' );
 			return;
 		}
 

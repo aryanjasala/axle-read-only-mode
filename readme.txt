@@ -26,7 +26,7 @@ Logging in always works, so an admin can always unfreeze.
 
 Free and open source under the GPL. No pro version, no upsells, no ads in wp-admin, no tracking. And it stays that way.
 
-Part of Axle by AryanX, a family of plugins for running WordPress sites safely.
+Part of [Axle](https://axlewp.com/) by AryanX, a family of free plugins for running WordPress sites safely.
 
 = See what was blocked =
 
@@ -41,6 +41,29 @@ Every blocked attempt is listed: who tried, when, and what (a post save, an uplo
 * Write your own message for visitors, for example "We are moving servers. Back by 3 pm."
 * Freeze for an hour straight from the admin bar (under the site name), and unfreeze from the admin bar or the notice on every screen.
 
+= Keep what must keep working =
+
+A payment webhook, one form, a REST route, an AJAX action or one person may need to keep working during a freeze. **Tools > Read-Only Mode > Settings** has a "Keep these working while frozen" card for them, so you do not need code:
+
+* **REST API routes**, one prefix per line, such as `/wc/v3/webhooks`.
+* **Front-end paths or query arguments**, such as `/checkout/order-pay` or `?wc-api=`.
+* **Ajax actions**, one per line.
+* **Users** who may keep editing, on top of the "Let me keep editing" tick.
+
+Each entry is checked when you save it, and each one says what it matches. When WooCommerce, Stripe for WooCommerce or Gravity Forms is active, you also get common entries with an Add button. Nothing is ever added without a click. Requests the list lets through show up in the blocked list, marked as allowed, so you can see it working. The existing filters still run after the settings, so code can say yes or no.
+
+= Multisite =
+
+Freeze the whole network, or chosen sites, from **Network Admin > Settings > Read-Only Mode**. A network freeze applies on every site it covers and cannot be lifted from a site, which shows "frozen by the network" in its notice and admin bar. Each site admin can still freeze their own site from Tools. Each site logs what it blocked, and the network screen lists it per site and across the network. Network-activate the plugin so a network freeze reaches every site. WP-CLI takes `--network`, `--sites` and the global `--url`.
+
+= Email when a freeze starts or ends =
+
+Off by default. Choose who gets it (the admin email if you leave it empty) and when: a freeze starts, someone ends it, it ends by itself at its end time, it is extended, or a scheduled freeze starts. The email says who, why and until when, and for an end, how many attempts were blocked with a link to the list. It uses `wp_mail()`, and the same event never sends more than one email a minute.
+
+= Site Health =
+
+Tools > Site Health has a read-only mode test. It is good when the site is not frozen, recommended while a freeze with an end time is running, and critical when a freeze ran 30 minutes past its end time, a freeze with no end time has lasted more than 6 hours, or `wp-config.php` forces the freeze. The Info tab lists the state, end time, allow-list counts and email settings.
+
 = From a deploy script =
 
 `wp axle-read-only-mode on --minutes=30 --reason="Moving servers"`
@@ -48,6 +71,10 @@ Every blocked attempt is listed: who tried, when, and what (a post save, an uplo
 `wp axle-read-only-mode status`
 `wp axle-read-only-mode extend 30`
 `wp axle-read-only-mode log`
+`wp axle-read-only-mode on --network` (a whole multisite network)
+`wp axle-read-only-mode allow rest /wc/v3/webhooks`
+`wp axle-read-only-mode notify --enable`
+`wp axle-read-only-mode health`
 
 WP-CLI itself is never blocked, so your scripts can keep importing and replacing data. Use `--no-visitors` or `--no-cron` to leave those running.
 
@@ -58,7 +85,6 @@ Or freeze from wp-config.php while files are being swapped:
 
 **Try it before you install.** [try.axlewp.com/axle-read-only-mode](https://try.axlewp.com/axle-read-only-mode) opens a private WordPress in your browser with this plugin and some demo content.
 
-Part of [Axle](https://axlewp.com/), a family of free plugins for running WordPress sites safely.
 
 == Frequently Asked Questions ==
 
@@ -72,17 +98,34 @@ It stops every form that posts to the site from the front end, every REST API wr
 
 = A read-only screen of my plugin stopped working during the freeze. =
 
-Admin-ajax requests are blocked unless they are known to be read-only. Add the action name with the `axle_read_only_mode_allowed_ajax_actions` filter.
+Admin-ajax requests are blocked unless they are known to be read-only. Add the action name under Tools > Read-Only Mode > Settings, or with the `axle_read_only_mode_allowed_ajax_actions` filter.
+
+= How do I let a payment webhook or one form through? =
+
+Add its REST route, its path or its query argument (such as `?wc-api=`) on the Settings tab. Payment providers such as Stripe and PayPal retry a webhook that gets a "back soon" answer, so orders paid during a freeze usually arrive once it ends. Let a webhook through only if its provider does not retry.
 
 = Can someone keep working while the site is frozen? =
 
-Yes. Tick "Let me keep editing" when you freeze, or use the `axle_read_only_mode_user_can_bypass` filter.
+Yes. Tick "Let me keep editing" when you freeze, add the person under "Users who may keep editing" on the Settings tab, or use the `axle_read_only_mode_user_can_bypass` filter.
+
+= Can a site on my network unfreeze itself during a network freeze? =
+
+No. A network freeze overrides the site. Only a network admin can end it, from Network Admin or with `wp axle-read-only-mode off --network`. The site's own freeze is separate: the site is frozen while either one is running.
+
+= Does a network freeze reach sites where the plugin is not active? =
+
+No. The plugin enforces the freeze, so it has to be active on the site. Network-activate it so every site is covered.
+
+= Does it send email? =
+
+Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mail()` and sends at most one email per event per minute.
 
 == Screenshots ==
 
 1. The block editor during a freeze.
-2. Tools > Axle Read-Only Mode during a freeze, with countdown and blocked attempts.
+2. Tools > Read-Only Mode during a freeze, with countdown and blocked attempts.
 3. What visitors see when they send a form during a freeze.
+4. Tools > Read-Only Mode > Settings, with the allow-list and the email choices.
 
 == Changelog ==
 

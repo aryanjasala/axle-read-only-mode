@@ -5,7 +5,7 @@ const PAGE = '/wp-admin/tools.php?page=axle-read-only-mode';
 const FIXTURE = 'aro-e2e-abilities.php';
 
 const reset = () => {
-	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history' ] ) {
+	for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings' ] ) {
 		try {
 			wp( 'option', 'delete', option );
 		} catch ( error ) {
@@ -35,7 +35,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 		await page.locator( '#aro-minutes' ).selectOption( '60' );
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();
 
-		await expect( page.locator( '.aro-status h2' ) ).toHaveText( 'The site is frozen' );
+		await expect( page.locator( '.aro-status .axle-card__title' ) ).toHaveText( 'The site is frozen' );
 		await expect( page.locator( '.aro-reason' ) ).toHaveText( 'Moving servers' );
 		await expect( page.locator( '.aro-countdown' ) ).toHaveText( /^Ends in (59|60):\d\d$/ );
 		await expect( page.locator( '#wp-admin-bar-axle-read-only-mode' ) ).toContainText( 'Frozen until' );
@@ -90,7 +90,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 		await expect( blocked ).toContainText( 'admin' );
 
 		const before = Number( wpEval( 'echo get_option( "axle_read_only_mode_state" )["end"];' ) );
-		await page.getByRole( 'button', { name: '+1 hour' } ).click();
+		await page.getByRole( 'button', { name: 'Add 1 hour' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Freeze extended.' );
 		expect( Number( wpEval( 'echo get_option( "axle_read_only_mode_state" )["end"];' ) ) ).toBe( before + 3600 );
 
@@ -145,7 +145,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 
 		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=axle-read-only-mode' );
 		expect( listed.status ).toBe( 200 );
-		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/unfreeze' ] );
+		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-allow-list', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/unfreeze' ] );
 		// MCP clients only list abilities marked public.
 		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'axle-read-only-mode/' ); } ) ) );` ) ) ).toEqual( [] );
 
@@ -223,7 +223,8 @@ test.describe( 'Axle Read-Only Mode', () => {
 		await page.goto( PAGE );
 		await page.getByLabel( 'Let me keep editing' ).check();
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();
-		await expect( page.locator( '.aro-facts' ) ).toContainText( 'Can still edit: admin' );
+		await expect( page.locator( '.axle-facts' ) ).toContainText( 'Can still edit' );
+		await expect( page.locator( '.axle-facts' ) ).toContainText( 'admin' );
 
 		const save = await rest( 'POST', `/wp/v2/posts/${ postId }`, { title: 'Edited by exempt admin' } );
 		expect( save.status ).toBe( 200 );
@@ -268,7 +269,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 		const later = Math.floor( Date.now() / 1000 ) + 3600;
 		wpEval( `AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => ${ later }, 'minutes' => 30, 'reason' => 'Night deploy' ) );` );
 		await page.goto( PAGE );
-		await expect( page.locator( '.aro-status.is-scheduled h2' ) ).toContainText( 'Freeze scheduled for' );
+		await expect( page.locator( '.aro-status.is-scheduled .axle-card__title' ) ).toContainText( 'Freeze scheduled for' );
 		expect( wp( 'axle-read-only-mode', 'status' ) ).toContain( 'Scheduled to freeze at' );
 		await page.getByRole( 'button', { name: 'Cancel scheduled freeze' } ).click();
 		await expect( page.locator( '.aro-form' ) ).toBeVisible();

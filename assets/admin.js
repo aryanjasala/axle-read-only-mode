@@ -1,6 +1,7 @@
 /**
- * Axle Read-Only Mode: live "Ends in 1:23:45" countdown on the freeze screen.
- * Reloads the page when the freeze ends so the screen shows the new state.
+ * Axle Read-Only Mode screen: the live "Ends in 1:23:45" countdown, which
+ * reloads the page when the freeze ends so the screen shows the new state,
+ * and the Copy buttons next to commands.
  */
 ( function () {
 	'use strict';
@@ -35,5 +36,19 @@
 
 		tick();
 		timer = window.setInterval( tick, 1000 );
+	} );
+
+	document.querySelectorAll( '[data-aro-copy]' ).forEach( function ( button ) {
+		button.addEventListener( 'click', function () {
+			if ( ! navigator.clipboard || ! navigator.clipboard.writeText ) {
+				return;
+			}
+
+			navigator.clipboard.writeText( button.getAttribute( 'data-aro-copy' ) ).then( function () {
+				if ( window.wp && window.wp.a11y ) {
+					window.wp.a11y.speak( button.getAttribute( 'data-aro-copied' ) );
+				}
+			} );
+		} );
 	} );
 } )();

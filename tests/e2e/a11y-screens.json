@@ -4,15 +4,15 @@
   "exclude": [],
   "screens": [
     {
-      "name": "Tools > Axle Read-Only Mode, not frozen",
+      "name": "Tools > Read-Only Mode, not frozen",
       "url": "/wp-admin/tools.php?page=axle-read-only-mode"
     },
     {
-      "name": "Tools > Axle Read-Only Mode, frozen with blocked attempts and history",
+      "name": "Tools > Read-Only Mode, frozen with blocked and allowed requests and history",
       "setup": [
         ["eval", "AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() - 9000, 'minutes' => 45, 'reason' => 'PHP upgrade' ) ); AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->expire_if_needed();"],
         ["axle-read-only-mode", "on", "--minutes=90", "--reason=Moving to the new server"],
-        ["eval", "update_option( 'axle_read_only_mode_log', array( array( 'time' => time() - 60, 'user' => 1, 'where' => 'POST /wp/v2/posts/1', 'source' => 'rest' ), array( 'time' => time() - 30, 'user' => 0, 'where' => '/wp-comments-post.php', 'source' => 'front' ) ), false );"]
+        ["eval", "update_option( 'axle_read_only_mode_log', array( array( 'time' => time() - 60, 'user' => 1, 'where' => 'POST /wp/v2/posts/1', 'source' => 'rest' ), array( 'time' => time() - 45, 'user' => 0, 'where' => 'POST /', 'source' => 'front-end', 'allowed' => true, 'via' => 'settings' ), array( 'time' => time() - 30, 'user' => 0, 'where' => '/wp-comments-post.php', 'source' => 'front-end' ) ), false );"]
       ],
       "url": "/wp-admin/tools.php?page=axle-read-only-mode",
       "steps": [{ "waitFor": ".aro-countdown" }],
@@ -23,23 +23,99 @@
       ]
     },
     {
-      "name": "Tools > Axle Read-Only Mode, freeze scheduled",
-      "setup": [["eval", "AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() + 3600, 'minutes' => 30, 'reason' => 'Release night' ) );"]],
+      "name": "Tools > Read-Only Mode, freeze scheduled",
+      "setup": [
+        ["eval", "AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => time() + 3600, 'minutes' => 30, 'reason' => 'Release night' ) );"]
+      ],
       "url": "/wp-admin/tools.php?page=axle-read-only-mode",
       "steps": [{ "waitFor": ".aro-status.is-scheduled" }],
-      "cleanup": [["axle-read-only-mode", "off"]]
+      "cleanup": [
+        ["axle-read-only-mode", "off"]
+      ]
+    },
+    {
+      "name": "Tools > Read-Only Mode > Settings, empty allow-list",
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode&tab=settings",
+      "steps": [{ "waitFor": ".aro-allow" }],
+      "cleanup": [
+        ["option", "delete", "axle_read_only_mode_settings"]
+      ]
+    },
+    {
+      "name": "Tools > Read-Only Mode > Settings, entries with what each matches",
+      "setup": [
+        ["axle-read-only-mode", "allow", "rest", "/wp/v2/comments"],
+        ["axle-read-only-mode", "allow", "rest", "/nothing/registered"],
+        ["axle-read-only-mode", "allow", "path", "?wc-api="],
+        ["axle-read-only-mode", "allow", "path", "/checkout/order-pay"],
+        ["axle-read-only-mode", "allow", "ajax", "subscribe_form"],
+        ["axle-read-only-mode", "allow", "user", "admin"]
+      ],
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode&tab=settings",
+      "steps": [{ "waitFor": ".aro-matches" }],
+      "cleanup": [
+        ["option", "delete", "axle_read_only_mode_settings"]
+      ]
+    },
+    {
+      "name": "Tools > Read-Only Mode > Settings, lines that were refused",
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode&tab=settings",
+      "steps": [
+        {
+          "fill": "#aro-allow-rest",
+          "value": "/wp/v2"
+        },
+        {
+          "click": "#submit"
+        },
+        {
+          "waitFor": ".aro-rejected"
+        }
+      ],
+      "cleanup": [
+        ["option", "delete", "axle_read_only_mode_settings"]
+      ]
+    },
+    {
+      "name": "Tools > Read-Only Mode > Settings, emails on",
+      "setup": [
+        ["axle-read-only-mode", "notify", "--enable", "--to=ops@example.com,pager@example.com", "--events=started,ended,expired"]
+      ],
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode&tab=settings",
+      "steps": [{ "waitFor": ".aro-notify" }],
+      "cleanup": [
+        ["option", "delete", "axle_read_only_mode_settings"]
+      ]
+    },
+    {
+      "name": "Tools > Read-Only Mode > Settings, suggestions for active plugins",
+      "setup": [
+        ["eval", "wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/axle-read-only-mode/tests/e2e/fixtures/aro-e2e-allow.php', WPMU_PLUGIN_DIR . '/aro-e2e-allow.php' ); update_option( 'aro_e2e_suggest', 1 );"]
+      ],
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode&tab=settings",
+      "steps": [{ "waitFor": ".aro-suggestions" }],
+      "cleanup": [
+        ["eval", "@unlink( WPMU_PLUGIN_DIR . '/aro-e2e-allow.php' ); delete_option( 'aro_e2e_suggest' );"]
+      ]
     },
     {
       "name": "Dashboard notice and toolbar item during a freeze",
-      "setup": [["axle-read-only-mode", "on", "--minutes=30"]],
+      "setup": [
+        ["axle-read-only-mode", "on", "--minutes=30"]
+      ],
       "url": "/wp-admin/index.php",
       "include": [".axle-read-only-mode-notice", "#wp-admin-bar-axle-read-only-mode"],
-      "cleanup": [["axle-read-only-mode", "off"]]
+      "cleanup": [
+        ["axle-read-only-mode", "off"]
+      ]
     },
     {
       "name": "Block editor locked during a freeze",
       "setup": [
-        { "wp": ["post", "create", "--post_title=Freeze check", "--post_status=publish", "--porcelain"], "save": "post" },
+        {
+          "wp": ["post", "create", "--post_title=Freeze check", "--post_status=publish", "--porcelain"],
+          "save": "post"
+        },
         ["axle-read-only-mode", "on", "--minutes=30"]
       ],
       "editor": "{post}",
@@ -51,5 +127,7 @@
       ]
     }
   ],
-  "skip": {}
+  "skip": {
+
+  }
 }
