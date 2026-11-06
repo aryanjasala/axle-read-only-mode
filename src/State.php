@@ -32,6 +32,7 @@ final class State {
 		'cron'            => true,
 		'exempt'          => array(),
 		'by'              => 0,
+		'announce'        => false,
 	);
 
 	/**
@@ -108,7 +109,7 @@ final class State {
 	/**
 	 * The freeze saved here, merged with defaults, whatever the network says.
 	 *
-	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, scope?: string, sites?: int[]}
+	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, scope?: string, sites?: int[]}
 	 */
 	public function own(): array {
 		$defaults = $this->is_network() ? self::DEFAULTS + self::NETWORK_DEFAULTS : self::DEFAULTS;
@@ -120,7 +121,7 @@ final class State {
 	/**
 	 * The freeze in force on this site: the network's when it applies, else the site's own.
 	 *
-	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int}
+	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool}
 	 */
 	public function all(): array {
 		if ( $this->network_applies() && $this->network ) {

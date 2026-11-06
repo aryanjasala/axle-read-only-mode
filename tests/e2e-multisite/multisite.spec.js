@@ -27,6 +27,9 @@ async function restOn( request, slug, method, route, data ) {
 	return { status: response.status(), body: await response.json().catch( () => null ) };
 }
 
+const MAIL_FIXTURE = 'aro-e2e-mail.php';
+const mail = () => JSON.parse( wpEval( 'echo wp_json_encode( get_site_option( "aro_e2e_mail", array() ) );' ) );
+
 test.describe( 'Axle Read-Only Mode on a network', () => {
 	test.beforeEach( reset );
 	test.afterAll( reset );
@@ -182,6 +185,35 @@ test.describe( 'Axle Read-Only Mode on a network', () => {
 		const again = await browser.newContext( { baseURL: BASE_URL, storageState: { cookies: [], origins: [] } } );
 		expect( ( await again.request.post( '/two/wp-comments-post.php?site-only=1', { form } ) ).status() ).not.toBe( 503 );
 		await again.close();
+	} );
+
+	test( 'a network freeze emails the network admin, and a site freeze emails the site', async ( { page } ) => {
+		// Catches every wp_mail() in a network option, on every site.
+		wpEval( `wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/axle-read-only-mode/tests/e2e/fixtures/${ MAIL_FIXTURE }', WPMU_PLUGIN_DIR . '/${ MAIL_FIXTURE }' ); file_put_contents( WPMU_PLUGIN_DIR . '/aro-e2e-mail-network.php', '<?php add_filter( "pre_wp_mail", function ( $n, $a ) { $m = get_site_option( "aro_e2e_mail", array() ); $m[] = array( "to" => (array) $a["to"], "subject" => $a["subject"], "message" => $a["message"] ); update_site_option( "aro_e2e_mail", $m ); return true; }, 5, 2 );' );` );
+		try {
+			wp( 'eval', 'delete_site_option( "aro_e2e_mail" ); foreach ( array( "started", "ended" ) as $e ) { delete_site_transient( "axle_read_only_mode_mail_" . $e . "_network" ); delete_transient( "axle_read_only_mode_mail_" . $e ); }' );
+
+			await page.goto( `${ NETWORK_PAGE }&tab=settings` );
+			await page.getByLabel( 'Send an email when a freeze changes' ).check();
+			await page.locator( '#aro-notify-recipients' ).fill( 'network-ops@example.com' );
+			await page.getByRole( 'button', { name: 'Save settings' } ).click();
+			await expect( page.locator( '.notice-success' ) ).toContainText( 'Settings saved.' );
+
+			wp( 'axle-read-only-mode', 'on', '--network', '--minutes=30', '--reason=Moving the network' );
+			wp( 'axle-read-only-mode', 'off', '--network' );
+
+			const sent = mail();
+			expect( sent.map( ( email ) => email.subject.replace( /^\[[^\]]+\] /, '' ) ) ).toEqual( [ 'Network freeze started', 'Network freeze ended' ] );
+			expect( sent[ 0 ].to ).toEqual( [ 'network-ops@example.com' ] );
+			expect( sent[ 0 ].message ).toContain( 'Covers: every site on the network' );
+			expect( sent[ 1 ].message ).toContain( 'network/settings.php?page=axle-read-only-mode' );
+
+			// A site freeze is the site's own business: the network recipients are not told.
+			site( 'two', 'axle-read-only-mode', 'on', '--minutes=30' );
+			expect( mail() ).toHaveLength( 2 );
+		} finally {
+			wpEval( `@unlink( WPMU_PLUGIN_DIR . '/${ MAIL_FIXTURE }' ); @unlink( WPMU_PLUGIN_DIR . '/aro-e2e-mail-network.php' );` );
+		}
 	} );
 
 	test( 'works when the plugin is active on one site only', async ( { request } ) => {

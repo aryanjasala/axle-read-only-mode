@@ -74,6 +74,7 @@ final class Freezer {
 
 		// The previous freeze's one-time expiry marker is no longer needed.
 		$this->forget_marker( self::expiry_key( (int) $this->state->own_value( 'start' ), $this->state->is_network() ) );
+		$this->forget_marker( self::marker_key( 'started', (int) $this->state->own_value( 'start' ), $this->state->is_network() ) );
 		$this->log->clear();
 
 		$changes = array(
@@ -86,6 +87,8 @@ final class Freezer {
 			'cron'            => ! isset( $args['cron'] ) || (bool) $args['cron'],
 			'exempt'          => array_map( 'intval', (array) ( $args['exempt'] ?? array() ) ),
 			'by'              => get_current_user_id(),
+			// A freeze set for later announces itself once it starts.
+			'announce'        => $start > time(),
 		);
 
 		if ( $this->state->is_network() ) {
@@ -276,6 +279,46 @@ final class Freezer {
 	}
 
 	/**
+	 * Announces a freeze that was set for later, once its start time has come.
+	 *
+	 * Runs on every request. A freeze that starts right away is announced by
+	 * `started` when it is made, so only scheduled freezes come through here.
+	 */
+	public function announce_scheduled_start(): void {
+		$own = $this->state->own();
+		if ( empty( $own['announce'] ) || ! $this->state->is_running() ) {
+			return;
+		}
+
+		// Many requests can notice the start at once. Only one claims it.
+		if ( ! $this->claim_marker( self::marker_key( 'started', (int) $own['start'], $this->state->is_network() ) ) ) {
+			return;
+		}
+
+		$this->state->update( array( 'announce' => false ) );
+
+		if ( $this->state->is_network() ) {
+			/**
+			 * Fires when a network freeze that was scheduled starts.
+			 *
+			 * @param array $state The network freeze.
+			 */
+			do_action( 'axle_read_only_mode_network_scheduled_started', $this->state->own() );
+
+			return;
+		}
+
+		/**
+		 * Fires when a freeze that was scheduled starts.
+		 *
+		 * Runs on the first request after the start time, so a quiet site can be late.
+		 *
+		 * @param array $state The freeze.
+		 */
+		do_action( 'axle_read_only_mode_scheduled_started', $this->state->own() );
+	}
+
+	/**
 	 * Option that marks a freeze as already expired.
 	 *
 	 * @param int  $start   Start time of the freeze.
@@ -283,7 +326,19 @@ final class Freezer {
 	 * @return string
 	 */
 	private static function expiry_key( int $start, bool $network ): string {
-		return 'axle_read_only_mode_' . ( $network ? 'network_' : '' ) . 'expired_' . $start;
+		return self::marker_key( 'expired', $start, $network );
+	}
+
+	/**
+	 * Name of a one-time marker option.
+	 *
+	 * @param string $kind    expired or started.
+	 * @param int    $start   Start time of the freeze.
+	 * @param bool   $network Whether it is the network's freeze.
+	 * @return string
+	 */
+	private static function marker_key( string $kind, int $start, bool $network ): string {
+		return 'axle_read_only_mode_' . ( $network ? 'network_' : '' ) . $kind . '_' . $start;
 	}
 
 	/**

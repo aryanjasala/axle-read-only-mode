@@ -9,6 +9,7 @@ namespace AryanX\Axle\ReadOnlyMode\Admin;
 
 use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\AllowSuggestions;
+use AryanX\Axle\ReadOnlyMode\Notifier;
 use AryanX\Axle\ReadOnlyMode\Settings;
 
 defined( 'ABSPATH' ) || exit;
@@ -36,7 +37,10 @@ final class SettingsView {
 			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 			<input type="hidden" name="task" value="save_settings">
 
-			<?php self::render_allow( $settings, $rejected ); ?>
+			<?php
+			self::render_allow( $settings, $rejected );
+			self::render_notify( $settings, $rejected );
+			?>
 
 			<?php submit_button( __( 'Save settings', 'axle-read-only-mode' ) ); ?>
 		</form>
@@ -93,7 +97,7 @@ final class SettingsView {
 					<ul class="aro-rejected">
 						<?php foreach ( $rejected as $type => $lines ) : ?>
 							<?php foreach ( $lines as $line ) : ?>
-								<li><code><?php echo esc_html( $line['line'] ); ?></code> (<?php echo esc_html( $fields[ $type ]['label'] ?? $type ); ?>): <?php echo esc_html( $line['error'] ); ?></li>
+								<li><code><?php echo esc_html( $line['line'] ); ?></code> (<?php echo esc_html( $fields[ $type ]['label'] ?? __( 'Email recipients', 'axle-read-only-mode' ) ); ?>): <?php echo esc_html( $line['error'] ); ?></li>
 							<?php endforeach; ?>
 						<?php endforeach; ?>
 					</ul>
@@ -123,6 +127,56 @@ final class SettingsView {
 						</td>
 					</tr>
 				<?php endforeach; ?>
+			</table>
+		</section>
+		<?php
+	}
+
+	/**
+	 * Prints the "Email when a freeze starts or ends" card.
+	 *
+	 * @param Settings $settings Whose settings.
+	 * @param array    $rejected Lines the last save refused, by kind. Unused here, so the allow-list card shows them once.
+	 */
+	private static function render_notify( Settings $settings, array $rejected ): void {
+		unset( $rejected );
+
+		$notify  = $settings->notify();
+		$network = $settings->is_network();
+		$default = (string) ( $network ? get_site_option( 'admin_email' ) : get_option( 'admin_email' ) );
+		?>
+		<section class="axle-card aro-notify">
+			<h2 class="axle-card__title"><?php esc_html_e( 'Email when a freeze starts or ends', 'axle-read-only-mode' ); ?></h2>
+			<p><?php esc_html_e( 'Off by default. The email says who, why and until when, and for an end, how many attempts were blocked with a link to the list. It is sent with wp_mail(), never more than once per event per minute.', 'axle-read-only-mode' ); ?></p>
+			<input type="hidden" name="notify[submitted]" value="1">
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Emails', 'axle-read-only-mode' ); ?></th>
+					<td><label><input type="checkbox" name="notify[enabled]" value="1" <?php checked( $notify['enabled'] ); ?>> <?php esc_html_e( 'Send an email when a freeze changes', 'axle-read-only-mode' ); ?></label></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="aro-notify-recipients"><?php esc_html_e( 'Recipients', 'axle-read-only-mode' ); ?></label></th>
+					<td>
+						<textarea id="aro-notify-recipients" name="notify[recipients]" class="large-text" rows="3" placeholder="<?php echo esc_attr( $default ); ?>" aria-describedby="aro-notify-recipients-help"><?php echo esc_textarea( implode( "\n", $notify['recipients'] ) ); ?></textarea>
+						<p class="description" id="aro-notify-recipients-help">
+							<?php
+							/* translators: %s: the admin email address. */
+							echo esc_html( sprintf( __( 'One address per line. Leave empty to use the admin email, %s.', 'axle-read-only-mode' ), $default ) );
+							?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Send an email when', 'axle-read-only-mode' ); ?></th>
+					<td>
+						<fieldset>
+							<legend class="screen-reader-text"><?php esc_html_e( 'Events that send an email', 'axle-read-only-mode' ); ?></legend>
+							<?php foreach ( Notifier::event_labels() as $event => $label ) : ?>
+								<label><input type="checkbox" name="notify[events][]" value="<?php echo esc_attr( $event ); ?>" <?php checked( in_array( $event, $notify['events'], true ) ); ?>> <?php echo esc_html( $label ); ?></label><br>
+							<?php endforeach; ?>
+						</fieldset>
+					</td>
+				</tr>
 			</table>
 		</section>
 		<?php
@@ -201,9 +255,23 @@ final class SettingsView {
 				$input[ $type ] = sanitize_textarea_field( wp_unslash( $_POST['allow'][ $type ] ) );
 			}
 		}
-		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		$rejected = $settings->save_allow( $input );
+
+		if ( isset( $_POST['notify']['submitted'] ) && is_array( $_POST['notify'] ) ) {
+			$bad = $settings->save_notify(
+				array(
+					'enabled'    => ! empty( $_POST['notify']['enabled'] ),
+					'recipients' => isset( $_POST['notify']['recipients'] ) && is_string( $_POST['notify']['recipients'] ) ? sanitize_textarea_field( wp_unslash( $_POST['notify']['recipients'] ) ) : '',
+					'events'     => isset( $_POST['notify']['events'] ) && is_array( $_POST['notify']['events'] ) ? array_map( 'sanitize_key', wp_unslash( $_POST['notify']['events'] ) ) : array(),
+				)
+			);
+			if ( $bad ) {
+				$rejected['recipients'] = $bad;
+			}
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
 		if ( $rejected ) {
 			set_transient( self::rejected_key( $settings ), $rejected, 5 * MINUTE_IN_SECONDS );
 

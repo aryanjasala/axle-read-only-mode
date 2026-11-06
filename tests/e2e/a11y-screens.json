@@ -77,6 +77,17 @@
       ]
     },
     {
+      "name": "Tools > Read-Only Mode > Settings, emails on",
+      "setup": [
+        ["axle-read-only-mode", "notify", "--enable", "--to=ops@example.com,pager@example.com", "--events=started,ended,expired"]
+      ],
+      "url": "/wp-admin/tools.php?page=axle-read-only-mode&tab=settings",
+      "steps": [{ "waitFor": ".aro-notify" }],
+      "cleanup": [
+        ["option", "delete", "axle_read_only_mode_settings"]
+      ]
+    },
+    {
       "name": "Tools > Read-Only Mode > Settings, suggestions for active plugins",
       "setup": [
         ["eval", "wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/axle-read-only-mode/tests/e2e/fixtures/aro-e2e-allow.php', WPMU_PLUGIN_DIR . '/aro-e2e-allow.php' ); update_option( 'aro_e2e_suggest', 1 );"]

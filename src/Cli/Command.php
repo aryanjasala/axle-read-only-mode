@@ -11,6 +11,7 @@ use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\Network;
+use AryanX\Axle\ReadOnlyMode\Notifier;
 use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
 
@@ -391,6 +392,68 @@ final class Command {
 		}
 
 		\WP_CLI\Utils\format_items( $assoc_args['format'] ?? 'table', $rows, array( 'type', 'entry', 'matches' ) );
+	}
+
+	/**
+	 * Shows or changes the emails sent when a freeze starts or ends.
+	 *
+	 * With no options, shows the current settings.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--enable]
+	 * : Turn the emails on.
+	 *
+	 * [--disable]
+	 * : Turn the emails off.
+	 *
+	 * [--to=<addresses>]
+	 * : Who gets them. Comma-separated email addresses. An empty value goes back to the admin email.
+	 *
+	 * [--events=<events>]
+	 * : Which events send one. Comma-separated: started, ended, expired, extended, scheduled_start.
+	 *
+	 * [--network]
+	 * : Change the emails for network freezes.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode notify --enable --to=ops@example.com --events=started,ended,expired
+	 *     wp axle-read-only-mode notify --disable
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function notify( array $args, array $assoc_args ): void {
+		$settings = $this->settings_for( $assoc_args );
+		$current  = $settings->notify();
+
+		if ( isset( $assoc_args['enable'], $assoc_args['disable'] ) ) {
+			\WP_CLI::error( 'Use --enable or --disable, not both.' );
+		}
+
+		if ( isset( $assoc_args['enable'] ) || isset( $assoc_args['disable'] ) || isset( $assoc_args['to'] ) || isset( $assoc_args['events'] ) ) {
+			$events = isset( $assoc_args['events'] ) ? array_filter( array_map( 'trim', explode( ',', (string) $assoc_args['events'] ) ) ) : $current['events'];
+			foreach ( array_diff( $events, Notifier::EVENTS ) as $unknown ) {
+				\WP_CLI::error( sprintf( 'Unknown event "%s". Choose from: %s.', $unknown, implode( ', ', Notifier::EVENTS ) ) );
+			}
+
+			$rejected = $settings->save_notify(
+				array(
+					'enabled'    => isset( $assoc_args['enable'] ) || ( ! isset( $assoc_args['disable'] ) && $current['enabled'] ),
+					'recipients' => isset( $assoc_args['to'] ) ? (string) $assoc_args['to'] : implode( ',', $current['recipients'] ),
+					'events'     => $events,
+				)
+			);
+			foreach ( $rejected as $bad ) {
+				\WP_CLI::warning( sprintf( '"%s" is not an email address and was left out.', $bad['line'] ) );
+			}
+			$current = $settings->notify();
+		}
+
+		\WP_CLI::line( 'Emails:     ' . ( $current['enabled'] ? 'on' : 'off' ) );
+		\WP_CLI::line( 'Recipients: ' . ( $current['recipients'] ? implode( ', ', $current['recipients'] ) : 'the admin email' ) );
+		\WP_CLI::line( 'Events:     ' . ( $current['events'] ? implode( ', ', $current['events'] ) : 'none' ) );
 	}
 
 	/**

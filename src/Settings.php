@@ -18,11 +18,16 @@ final class Settings {
 	public const NETWORK_OPTION = 'axle_read_only_mode_network_settings';
 
 	private const DEFAULTS = array(
-		'allow' => array(
+		'allow'  => array(
 			'rest'  => array(),
 			'paths' => array(),
 			'ajax'  => array(),
 			'users' => array(),
+		),
+		'notify' => array(
+			'enabled'    => false,
+			'recipients' => array(),
+			'events'     => array( 'started', 'ended', 'expired' ),
 		),
 	);
 
@@ -54,14 +59,22 @@ final class Settings {
 	/**
 	 * Saved settings merged with defaults.
 	 *
-	 * @return array{allow: array{rest: string[], paths: string[], ajax: string[], users: int[]}}
+	 * @return array{allow: array{rest: string[], paths: string[], ajax: string[], users: int[]}, notify: array{enabled: bool, recipients: string[], events: string[]}}
 	 */
 	public function all(): array {
-		$saved = $this->store->get( array() );
-		$saved = is_array( $saved ) ? $saved : array();
-		$allow = isset( $saved['allow'] ) && is_array( $saved['allow'] ) ? $saved['allow'] : array();
+		$saved  = $this->store->get( array() );
+		$saved  = is_array( $saved ) ? $saved : array();
+		$allow  = isset( $saved['allow'] ) && is_array( $saved['allow'] ) ? $saved['allow'] : array();
+		$notify = isset( $saved['notify'] ) && is_array( $saved['notify'] ) ? $saved['notify'] : array();
 
-		$merged = array( 'allow' => array() );
+		$merged = array(
+			'allow'  => array(),
+			'notify' => array(
+				'enabled'    => ! empty( $notify['enabled'] ),
+				'recipients' => isset( $notify['recipients'] ) && is_array( $notify['recipients'] ) ? array_values( array_map( 'strval', $notify['recipients'] ) ) : self::DEFAULTS['notify']['recipients'],
+				'events'     => isset( $notify['events'] ) && is_array( $notify['events'] ) ? array_values( array_map( 'strval', $notify['events'] ) ) : self::DEFAULTS['notify']['events'],
+			),
+		);
 		foreach ( self::DEFAULTS['allow'] as $type => $default ) {
 			$merged['allow'][ $type ] = isset( $allow[ $type ] ) && is_array( $allow[ $type ] ) ? array_values( $allow[ $type ] ) : $default;
 		}
@@ -81,6 +94,60 @@ final class Settings {
 	 */
 	public function allow( string $type ): array {
 		return $this->all()['allow'][ $type ] ?? array();
+	}
+
+	/**
+	 * The email notification settings.
+	 *
+	 * @return array{enabled: bool, recipients: string[], events: string[]}
+	 */
+	public function notify(): array {
+		return $this->all()['notify'];
+	}
+
+	/**
+	 * Saves the email notification settings from the settings form.
+	 *
+	 * @param array $input enabled (checked or not), recipients (one address per line or comma separated), events (list).
+	 * @return array<int, array{line: string, error: string}> Recipients that are not email addresses.
+	 */
+	public function save_notify( array $input ): array {
+		$all      = $this->all();
+		$rejected = array();
+		$valid    = array();
+
+		foreach ( (array) preg_split( '/[\s,;]+/', (string) ( $input['recipients'] ?? '' ) ) as $address ) {
+			$address = trim( (string) $address );
+			if ( '' === $address ) {
+				continue;
+			}
+
+			if ( is_email( $address ) ) {
+				$valid[ strtolower( $address ) ] = $valid[ strtolower( $address ) ] ?? $address;
+			} else {
+				$rejected[] = array(
+					'line'  => $address,
+					'error' => __( 'That is not an email address.', 'axle-read-only-mode' ),
+				);
+			}
+		}
+
+		$all['notify'] = array(
+			'enabled'    => ! empty( $input['enabled'] ),
+			'recipients' => array_values( $valid ),
+			'events'     => array_values( array_intersect( Notifier::EVENTS, array_map( 'strval', (array) ( $input['events'] ?? array() ) ) ) ),
+		);
+		$this->store->set( $all );
+
+		/**
+		 * Fires after the email notification settings are saved.
+		 *
+		 * @param array $notify  enabled, recipients (addresses) and events.
+		 * @param bool  $network Whether they are the network's.
+		 */
+		do_action( 'axle_read_only_mode_notify_settings_saved', $all['notify'], $this->is_network() );
+
+		return $rejected;
 	}
 
 	/**

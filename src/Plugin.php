@@ -149,9 +149,20 @@ final class Plugin {
 	 * Registers the services.
 	 */
 	private function register(): void {
+		// Listening comes first: expiring and starting a freeze fire the actions the emails hang on.
+		$notifiers = array( new Notifier( $this->state, $this->settings, $this->history ) );
+		if ( $this->network ) {
+			$notifiers[] = new Notifier( $this->network->state, $this->network->settings, $this->network->history );
+		}
+		foreach ( $notifiers as $notifier ) {
+			$notifier->register();
+		}
+
 		$this->freezer->expire_if_needed();
+		$this->freezer->announce_scheduled_start();
 		if ( $this->network ) {
 			$this->network->freezer->expire_if_needed();
+			$this->network->freezer->announce_scheduled_start();
 		}
 
 		$services = array(
