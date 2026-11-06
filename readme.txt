@@ -4,7 +4,7 @@ Tags: maintenance, migration, read only, deploy, freeze
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 3.0.0
+Stable tag: 3.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -128,6 +128,9 @@ Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mai
 4. Tools > Read-Only Mode > Settings, with the allow-list and the email choices.
 
 == Changelog ==
+
+= 3.1.0 =
+* New: freeze a multisite network, allow-list, email and Site Health
 
 = 3.0.0 =
 * Changed (breaking change): rename to Axle Read-Only Mode for WordPress.org
