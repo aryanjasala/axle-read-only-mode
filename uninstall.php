@@ -1,6 +1,6 @@
 <?php
 /**
- * Removes Axle Read-Only Mode's state, log and history, on every site.
+ * Removes Axle Read-Only Mode's state, settings, log and history, on every site and for the network.
  *
  * @package ReadOnlyMode
  */
@@ -8,18 +8,39 @@
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 /**
- * Removes Axle Read-Only Mode data from the current site.
+ * Removes every Axle Read-Only Mode option from the current site: the freeze,
+ * the settings, the log, the history, and the one-time markers and the email
+ * rate limit marks that carry the freeze's start time in their names.
  */
 function axle_read_only_mode_uninstall_site(): void {
 	global $wpdb;
 
-	delete_option( 'axle_read_only_mode_state' );
-	delete_option( 'axle_read_only_mode_log' );
-	delete_option( 'axle_read_only_mode_history' );
+	foreach ( array( 'state', 'log', 'history', 'settings' ) as $name ) {
+		delete_option( 'axle_read_only_mode_' . $name );
+	}
 
-	// One-time expiry markers, one per freeze.
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off cleanup on uninstall.
-	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'axle_read_only_mode_expired_' ) . '%' ) );
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off cleanup on uninstall.
+	foreach ( array( 'axle_read_only_mode_', '_transient_axle_read_only_mode_', '_transient_timeout_axle_read_only_mode_' ) as $prefix ) {
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) );
+	}
+	// phpcs:enable
+}
+
+/**
+ * Removes the network's freeze, settings and history, and every network-wide marker.
+ */
+function axle_read_only_mode_uninstall_network(): void {
+	global $wpdb;
+
+	foreach ( array( 'network_state', 'network_history', 'network_settings' ) as $name ) {
+		delete_site_option( 'axle_read_only_mode_' . $name );
+	}
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off cleanup on uninstall.
+	foreach ( array( 'axle_read_only_mode_', '_site_transient_axle_read_only_mode_', '_site_transient_timeout_axle_read_only_mode_' ) as $prefix ) {
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->sitemeta} WHERE meta_key LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) );
+	}
+	// phpcs:enable
 }
 
 if ( is_multisite() ) {
@@ -41,6 +62,8 @@ if ( is_multisite() ) {
 
 		$axle_read_only_mode_offset += 100;
 	} while ( $axle_read_only_mode_sites );
+
+	axle_read_only_mode_uninstall_network();
 } else {
 	axle_read_only_mode_uninstall_site();
 }

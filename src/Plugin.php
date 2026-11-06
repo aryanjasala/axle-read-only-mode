@@ -8,6 +8,7 @@
 namespace AryanX\Axle\ReadOnlyMode;
 
 use AryanX\Axle\ReadOnlyMode\Admin\AdminBar;
+use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
 use AryanX\Axle\ReadOnlyMode\Admin\Notice;
 use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
 use AryanX\Axle\ReadOnlyMode\Cli\Command;
@@ -17,6 +18,7 @@ use AryanX\Axle\ReadOnlyMode\Guards\Blocker;
 use AryanX\Axle\ReadOnlyMode\Guards\FrontEndGuard;
 use AryanX\Axle\ReadOnlyMode\Guards\RestGuard;
 use AryanX\Axle\ReadOnlyMode\Guards\SideEffects;
+use AryanX\Axle\ReadOnlyMode\Health\SiteHealth;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -64,6 +66,20 @@ final class Plugin {
 	private Freezer $freezer;
 
 	/**
+	 * This site's settings.
+	 *
+	 * @var Settings
+	 */
+	private Settings $settings;
+
+	/**
+	 * The network's freeze, history and log. Null on a single site.
+	 *
+	 * @var Network|null
+	 */
+	private ?Network $network;
+
+	/**
 	 * Starts the plugin. Runs on `plugins_loaded`.
 	 */
 	public static function boot(): void {
@@ -86,10 +102,12 @@ final class Plugin {
 	 * Builds the shared objects.
 	 */
 	private function __construct() {
-		$this->state   = new State();
-		$this->history = new History();
-		$this->log     = new BlockedLog( $this->history );
-		$this->freezer = new Freezer( $this->state, $this->log, $this->history );
+		$this->network  = is_multisite() ? new Network() : null;
+		$this->settings = new Settings();
+		$this->state    = new State( null, $this->network ? $this->network->state : null, new AllowList( $this->settings ) );
+		$this->history  = new History();
+		$this->log      = new BlockedLog( $this->history, $this->network ? $this->network->history : null );
+		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
 	}
 
 	/**
@@ -111,18 +129,55 @@ final class Plugin {
 	}
 
 	/**
+	 * This site's settings, for other plugins.
+	 *
+	 * @return Settings
+	 */
+	public function settings(): Settings {
+		return $this->settings;
+	}
+
+	/**
+	 * The network's freeze controls, on a multisite network.
+	 *
+	 * @return Network|null
+	 */
+	public function network(): ?Network {
+		return $this->network;
+	}
+
+	/**
 	 * Registers the services.
 	 */
 	private function register(): void {
+		// Listening comes first: expiring and starting a freeze fire the actions the emails hang on.
+		$notifiers = array( new Notifier( $this->state, $this->settings, $this->history ) );
+		if ( $this->network ) {
+			$notifiers[] = new Notifier( $this->network->state, $this->network->settings, $this->network->history );
+		}
+		foreach ( $notifiers as $notifier ) {
+			$notifier->register();
+		}
+
 		$this->freezer->expire_if_needed();
+		$this->freezer->announce_scheduled_start();
+		if ( $this->network ) {
+			$this->network->freezer->expire_if_needed();
+			$this->network->freezer->announce_scheduled_start();
+		}
 
 		$services = array(
 			$this->log,
-			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history ),
+			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings ),
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state ),
 			new Abilities( $this->state, $this->freezer, $this->log ),
+			new SiteHealth( $this->state, $this->network, $this->settings ),
 		);
+
+		if ( $this->network ) {
+			$services[] = new NetworkPage( $this->network );
+		}
 
 		if ( $this->state->is_frozen() ) {
 			$blocker  = new Blocker( $this->state, $this->log );
@@ -143,7 +198,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings ) ) );
 		}
 	}
 }
