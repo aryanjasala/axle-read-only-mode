@@ -216,6 +216,20 @@ test.describe( 'Axle Read-Only Mode on a network', () => {
 		}
 	} );
 
+	test( 'Site Health on a site shows the network freeze', async ( { page } ) => {
+		wp( 'axle-read-only-mode', 'on', '--network', '--sites=2', '--minutes=30' );
+
+		expect( site( 'two', 'axle-read-only-mode', 'health' ) ).toContain( 'RECOMMENDED: The site is read-only' );
+		expect( site( 'two', 'axle-read-only-mode', 'health' ) ).toContain( 'set by the network' );
+		expect( site( 'three', 'axle-read-only-mode', 'health' ) ).toContain( 'GOOD: The site is not read-only' );
+
+		await page.goto( '/two/wp-admin/site-health.php?tab=debug' );
+		const section = page.locator( '#health-check-accordion-block-axle-read-only-mode' );
+		await expect( section ).toContainText( 'The network' );
+		await expect( section ).toContainText( 'Network freeze covers' );
+		await expect( section ).toContainText( '1 site' );
+	} );
+
 	test( 'works when the plugin is active on one site only', async ( { request } ) => {
 		wp( 'plugin', 'deactivate', 'axle-read-only-mode', '--network' );
 		wp( 'plugin', 'activate', 'axle-read-only-mode', `--url=${ HOST }/two` );

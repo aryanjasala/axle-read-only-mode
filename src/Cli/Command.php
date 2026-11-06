@@ -10,6 +10,7 @@ namespace AryanX\Axle\ReadOnlyMode\Cli;
 use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Health\SiteHealth;
 use AryanX\Axle\ReadOnlyMode\Network;
 use AryanX\Axle\ReadOnlyMode\Notifier;
 use AryanX\Axle\ReadOnlyMode\Settings;
@@ -72,20 +73,29 @@ final class Command {
 	private Settings $settings;
 
 	/**
+	 * The Site Health check.
+	 *
+	 * @var SiteHealth|null
+	 */
+	private ?SiteHealth $health;
+
+	/**
 	 * Sets up the command.
 	 *
-	 * @param State         $state    Saved freeze.
-	 * @param Freezer       $freezer  Starts, extends and ends freezes.
-	 * @param BlockedLog    $log      Blocked attempts.
-	 * @param Network|null  $network  The network's freeze, on multisite.
-	 * @param Settings|null $settings This site's settings.
+	 * @param State           $state    Saved freeze.
+	 * @param Freezer         $freezer  Starts, extends and ends freezes.
+	 * @param BlockedLog      $log      Blocked attempts.
+	 * @param Network|null    $network  The network's freeze, on multisite.
+	 * @param Settings|null   $settings This site's settings.
+	 * @param SiteHealth|null $health The Site Health check.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null ) {
 		$this->state    = $state;
 		$this->freezer  = $freezer;
 		$this->log      = $log;
 		$this->network  = $network;
 		$this->settings = $settings ?? new Settings();
+		$this->health   = $health;
 	}
 
 	/**
@@ -454,6 +464,45 @@ final class Command {
 		\WP_CLI::line( 'Emails:     ' . ( $current['enabled'] ? 'on' : 'off' ) );
 		\WP_CLI::line( 'Recipients: ' . ( $current['recipients'] ? implode( ', ', $current['recipients'] ) : 'the admin email' ) );
 		\WP_CLI::line( 'Events:     ' . ( $current['events'] ? implode( ', ', $current['events'] ) : 'none' ) );
+	}
+
+	/**
+	 * Runs the Site Health check for read-only mode.
+	 *
+	 * Exits with an error when the check is critical, so a monitor can alert on it.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--format=<format>]
+	 * : table or json.
+	 * ---
+	 * default: table
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode health
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function health( array $args, array $assoc_args ): void {
+		if ( ! $this->health ) {
+			\WP_CLI::error( 'The Site Health check is not available.' );
+		}
+
+		$checked = $this->health->evaluate();
+
+		if ( 'json' === ( $assoc_args['format'] ?? 'table' ) ) {
+			\WP_CLI::line( (string) wp_json_encode( $checked ) );
+		} else {
+			\WP_CLI::line( strtoupper( $checked['status'] ) . ': ' . $checked['label'] );
+			\WP_CLI::line( $checked['description'] );
+		}
+
+		if ( 'critical' === $checked['status'] ) {
+			\WP_CLI::halt( 2 );
+		}
 	}
 
 	/**

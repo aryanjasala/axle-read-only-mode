@@ -18,6 +18,7 @@ use AryanX\Axle\ReadOnlyMode\Guards\Blocker;
 use AryanX\Axle\ReadOnlyMode\Guards\FrontEndGuard;
 use AryanX\Axle\ReadOnlyMode\Guards\RestGuard;
 use AryanX\Axle\ReadOnlyMode\Guards\SideEffects;
+use AryanX\Axle\ReadOnlyMode\Health\SiteHealth;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -171,6 +172,7 @@ final class Plugin {
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state ),
 			new Abilities( $this->state, $this->freezer, $this->log ),
+			new SiteHealth( $this->state, $this->network, $this->settings ),
 		);
 
 		if ( $this->network ) {
@@ -196,7 +198,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings ) ) );
 		}
 	}
 }
