@@ -29,7 +29,7 @@ When you move a site to a new server, or replace the live database with one from
 > [!NOTE]
 > Free and open source under the GPL. No pro version, no upsells, no ads in wp-admin, no tracking. And it stays that way.
 >
-> Part of Axle by AryanX, a family of plugins for running WordPress sites safely.
+> Part of [Axle](https://axlewp.com/) by AryanX, a family of free plugins for running WordPress sites safely.
 
 ## Features
 
@@ -39,6 +39,10 @@ When you move a site to a new server, or replace the live database with one from
 - **Visitors** posting comments, forms, checkouts or sign-ups get a `503` with `Retry-After` and your own message
 - **WP-Cron** is held back and runs when the freeze ends
 - **End time**, schedule, +30 minutes and +1 hour, and quick freeze from the admin bar
+- **Allow-list**: keep a payment webhook, one form, a REST route, an AJAX action or a user working during a freeze, with suggestions for WooCommerce, Stripe and Gravity Forms. Requests let through are logged as allowed
+- **Multisite**: freeze the whole network or chosen sites from Network Admin, while each site can still freeze itself. A network freeze shows as "frozen by the network" on every site
+- **Email** when a freeze starts, ends, ends by itself, is extended or a scheduled freeze starts. Off by default
+- **Site Health** check for a freeze that ran past its end time, has no end after 6 hours, or is forced by wp-config.php
 - **Blocked attempts** listed (who, when, what), and the last ten freezes kept
 - Logging in always works, so an admin can always unfreeze
 
@@ -72,10 +76,11 @@ If the script dies halfway, the freeze still ends after 30 minutes.
 <table>
   <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-1.png" alt="The block editor during a freeze"><br><sub>The block editor during a freeze</sub></td>
-    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-2.png" alt="Tools > Axle Read-Only Mode during a freeze, with countdown and blocked attempts"><br><sub>Tools > Axle Read-Only Mode during a freeze, with countdown and blocked attempts</sub></td>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-2.png" alt="Tools > Read-Only Mode during a freeze, with countdown and blocked attempts"><br><sub>Tools > Read-Only Mode during a freeze, with countdown and blocked attempts</sub></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-3.png" alt="What visitors see when they send a form during a freeze"><br><sub>What visitors see when they send a form during a freeze</sub></td>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-4.png" alt="Tools > Read-Only Mode > Settings, with the allow-list and the email choices"><br><sub>Tools > Read-Only Mode > Settings, with the allow-list and the email choices</sub></td>
   </tr>
 </table>
 
@@ -96,25 +101,31 @@ If the script dies halfway, the freeze still ends after 30 minutes.
 axle-read-only-mode.php        plugin header and PSR-4 autoloader
 src/
 ├── Plugin.php           creates the services, guards load only while frozen
-├── State.php            the saved freeze, its timing and messages
+├── State.php            the saved freeze, its timing and messages, and the network freeze over it
 ├── Freezer.php          starts, extends and ends freezes
-├── BlockedLog.php       what the freeze stopped
+├── BlockedLog.php       what the freeze stopped and what the allow-list let through
 ├── History.php          the last ten freezes
+├── Settings.php         the allow-list and email settings
+├── AllowList.php        checks, matches and describes allow-list entries
+├── Notifier.php         emails when a freeze starts or ends
+├── Network.php          the network's freeze, history and log
 ├── Guards/              wp-admin, REST, front-end and cron guards
-├── Admin/               freeze screen, notice, admin bar
+├── Admin/               freeze screen, settings tab, network screen, notice, admin bar
+├── Health/SiteHealth.php  Site Health test and info section
 ├── Editor/EditorLock.php  locks the block editor through the heartbeat
 └── Cli/Command.php      wp axle-read-only-mode
-assets/                  editor lock and countdown scripts
+assets/                  editor lock, screen script and shared styles
 tests/
 ├── Unit/                PHPUnit
-└── e2e/                 Playwright specs and the Docker site
+├── e2e/                 Playwright specs and the Docker site
+└── e2e-multisite/       Playwright specs and a Docker multisite network
 .wordpress-org/          screenshots
 docs/                    reference, development, contributing, releasing
 ```
 
 ## More free plugins
 
-Part of [Axle by AryanX](https://axlewp.com/): small plugins that each fill one gap in WordPress, all free with no pro version. Try them all together at [demo.axlewp.com](https://demo.axlewp.com/).
+Small plugins that each fill one gap in WordPress, all free with no pro version. Try them all together at [demo.axlewp.com](https://demo.axlewp.com/).
 
 | | Plugin | What it does |
 | --- | --- | --- |
