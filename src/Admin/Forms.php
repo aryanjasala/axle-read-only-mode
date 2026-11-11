@@ -8,6 +8,7 @@
 namespace AryanX\Axle\ReadOnlyMode\Admin;
 
 use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -49,6 +50,21 @@ final class Forms {
 					</td>
 				</tr>
 				<tr>
+					<th scope="row"><?php esc_html_e( 'Freeze', 'axle-read-only-mode' ); ?></th>
+					<td>
+						<fieldset class="aro-scopes">
+							<legend class="screen-reader-text"><?php esc_html_e( 'What to freeze', 'axle-read-only-mode' ); ?></legend>
+							<?php foreach ( Scopes::all() as $slug => $scope ) : ?>
+								<label class="aro-scope">
+									<input type="radio" name="freeze_scope" value="<?php echo esc_attr( $slug ); ?>" <?php checked( Scopes::default_scope(), $slug ); ?>>
+									<strong><?php echo esc_html( $scope['label'] ); ?></strong>
+									<span class="description"><?php echo esc_html( $scope['description'] ); ?></span>
+								</label>
+							<?php endforeach; ?>
+						</fieldset>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><?php esc_html_e( 'Start', 'axle-read-only-mode' ); ?></th>
 					<td>
 						<fieldset>
@@ -82,6 +98,7 @@ final class Forms {
 					<td>
 						<label><input type="checkbox" name="visitors" value="1" checked> <?php esc_html_e( 'Visitor submissions: comments, contact forms, checkouts and sign-ups', 'axle-read-only-mode' ); ?></label><br>
 						<label><input type="checkbox" name="cron" value="1" checked> <?php esc_html_e( 'Scheduled tasks (they run when the freeze ends)', 'axle-read-only-mode' ); ?></label>
+						<p class="description"><?php esc_html_e( 'Visitor submissions are content, so they stay open when you freeze settings and code only. Content only holds every scheduled task except update checks. Settings and code only holds just those.', 'axle-read-only-mode' ); ?></p>
 					</td>
 				</tr>
 				<tr>

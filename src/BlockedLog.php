@@ -73,15 +73,16 @@ final class BlockedLog implements Service, LogCounter {
 	 * @param string $where  What was blocked, e.g. "REST POST /wp/v2/posts/12".
 	 * @param string $source admin, ajax, rest or front-end.
 	 * @param int    $since  Only entries from this time count towards the visitor limit: the start of the freeze, for a network freeze that does not empty the log.
+	 * @param string $area   What the request would have changed: content or code. Empty when not known.
 	 */
-	public function add( string $where, string $source, int $since = 0 ): void {
+	public function add( string $where, string $source, int $since = 0, string $area = '' ): void {
 		$log = $this->all();
 
 		if ( ! get_current_user_id() && $this->visitor_entries( $log, $since ) >= $this->visitor_limit() ) {
 			return;
 		}
 
-		$this->write( $log, $where, $source );
+		$this->write( $log, $where, $source, '' !== $area ? array( 'area' => $area ) : array() );
 	}
 
 	/**
@@ -94,8 +95,9 @@ final class BlockedLog implements Service, LogCounter {
 	 * @param string $source admin, ajax, rest or front-end.
 	 * @param string $via    settings (the allow-list) or code (a filter).
 	 * @param int    $since  Only entries from this time count towards the limit.
+	 * @param string $area   What the request would have changed: content or code. Empty when not known.
 	 */
-	public function add_allowed( string $where, string $source, string $via, int $since = 0 ): void {
+	public function add_allowed( string $where, string $source, string $via, int $since = 0, string $area = '' ): void {
 		$log = $this->all();
 
 		if ( $this->allowed_entries( $log, $since ) >= $this->allowed_limit() ) {
@@ -109,7 +111,7 @@ final class BlockedLog implements Service, LogCounter {
 			array(
 				'allowed' => true,
 				'via'     => $via,
-			)
+			) + ( '' !== $area ? array( 'area' => $area ) : array() )
 		);
 	}
 

@@ -15,6 +15,7 @@ foreach ( array(
 	'KB_IN_BYTES'       => 1024,
 	'MB_IN_BYTES'       => 1048576,
 	'ARRAY_N'           => 'ARRAY_N',
+	'ARRAY_A'           => 'ARRAY_A',
 ) as $name => $value ) {
 	defined( $name ) || define( $name, $value );
 }

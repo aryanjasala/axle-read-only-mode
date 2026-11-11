@@ -15,12 +15,77 @@
 
 Users marked exempt when the freeze starts, users on the [allow-list](#allow-list), and anyone a filter lets through, are not blocked at all. Requests the allow-list lets through are logged as allowed.
 
+The table is for the default scope, Everything. A [scope](#scopes) can freeze only part of it.
+
+## Scopes
+
+A freeze covers one scope. Every request, ability and scheduled task belongs to one of two areas, and a freeze stops it only when its scope covers that area.
+
+| Scope | `--scope=` | Refused | Keeps working |
+| --- | --- | --- | --- |
+| Everything (default) | `all` | Content, settings, plugins, themes and updates | Reading, logging in |
+| Content only | `content` | Posts, pages, media, comments, terms, menus, orders, form entries and anything not recognised as settings or code | Options, plugins, themes, widgets, templates, user accounts, updates |
+| Settings and code only | `code` | Options, plugins, themes, widgets, templates, fonts, updates, user accounts and roles | Editing content, comments, forms, checkouts |
+
+A freeze stored before scopes existed is Everything. Scopes are one of the three above, or one added with the `axle_read_only_mode_scopes` filter.
+
+**How a request is sorted.** Settings and code is what the built-in rules recognise: the admin screens for options, plugins, themes, updates, widgets, users and the customizer, anything posted from a Settings API form, a plugin settings page whose name says settings, options, config or license, REST routes such as `/wp/v2/settings`, `/wp/v2/plugins`, `/wp/v2/themes`, `/wp/v2/templates`, `/wp/v2/global-styles` and `/wp/v2/users`, the ajax actions that install or update code, and abilities whose name says option, setting, plugin, theme, update, user, role, widget or template. **Everything else is content**, so a content freeze errs on the side of stopping. If a plugin screen is sorted wrongly, fix it with `axle_read_only_mode_request_area` or one of the lists below.
+
+**What each part of a freeze does per scope**
+
+| Part | Everything | Content only | Settings and code only |
+| --- | --- | --- | --- |
+| wp-admin, REST, admin-ajax, abilities | As in the table above | Content writes refused, code writes allowed | Code writes refused, content writes allowed |
+| Block editor | Locked | Locked | Not locked |
+| Visitor submissions (comments, forms, checkouts, sign-ups) | Paused, if "visitor submissions" is on | Paused, if it is on | Open: they are content |
+| XML-RPC | Off | Off | On, without `wp.setOptions`, `wp.newUser`, `wp.editProfile` and `wp.deleteUser` |
+| Scheduled tasks (if "scheduled tasks" is on) | All held | All held, except update checks and site checks | Only update checks and site checks held |
+| Automatic updates | Off | On | Off |
+| The allow-list | Lets through what would be refused | Same, and only for content | Same, and only for settings and code |
+
+A request the scope does not cover is left alone: it is not blocked, not logged and not counted as allowed. The scope shows in the status badge ("Content frozen", "Settings and code frozen"), the notice on every screen, the admin bar, the blocked list (an "Affects" column, and `area` in `wp axle-read-only-mode log` and the `get-blocked` ability), the history, the start and end emails, `wp axle-read-only-mode status`, and the abilities.
+
+## Before you freeze
+
+The freeze screen has a **Before you freeze** card. It shows what a freeze with the chosen length, start and scope would interrupt right now, and updates when you change them. It informs and never blocks. Each item has a tone and a word.
+
+| Item | Looks at | Words |
+| --- | --- | --- |
+| Editing | Posts opened in the editor in the last 150 seconds (post locks): who, which post, how long ago. Not you | Editing now (warning), Clear (good), Not affected (neutral, when the scope leaves content alone) |
+| Scheduled posts | Posts due inside the freeze window. With scheduled tasks held they publish when the freeze ends | Will be late (warning), Will publish (info), Clear (good) |
+| Orders | WooCommerce orders waiting for payment, created in the last two hours. Only when WooCommerce is active | Mid-checkout (warning), Not affected (neutral), Clear (good) |
+| Scheduled tasks | Tasks due inside the window that the scope would hold, grouped by name | Delayed (info), Clear (good) |
+
+A freeze with no end time looks one day ahead. If anyone else is editing, the freeze button asks first and says how many people. The admin bar "Freeze site for 1 hour" stays one click, with no question: afterwards the notice on the freeze screen says how many people were editing, because it can be undone with one click and an extra step on every quick freeze would be the more annoying choice.
+
+`wp axle-read-only-mode check` prints the same items, and the `axle-read-only-mode/check-freeze` ability returns them. Other plugins add items with the `axle_read_only_mode_checks` filter:
+
+```php
+add_filter( 'axle_read_only_mode_checks', function ( $checks ) {
+	$checks['my_backup'] = function ( array $context ) {
+		if ( ! my_backup_is_running() ) {
+			return null;
+		}
+
+		return array(
+			'tone'   => 'warning',
+			'word'   => 'Backup running',
+			'title'  => 'A backup is running',
+			'detail' => 'Freezing now stops it from writing its log.',
+		);
+	};
+
+	return $checks;
+} );
+```
+
 ## Constants
 
 | Constant | Effect |
 | --- | --- |
 | `AXLE_READ_ONLY_MODE` | `true` freezes the site with no end time, before the database is even needed. Remove it to unfreeze |
 | `AXLE_READ_ONLY_MODE_REASON` | The reason shown while `AXLE_READ_ONLY_MODE` is on |
+| `AXLE_READ_ONLY_MODE_SCOPE` | `all`, `content` or `code`: the scope of a freeze that `AXLE_READ_ONLY_MODE` forces. Default `all` |
 
 ## Hooks
 
@@ -28,6 +93,21 @@ Users marked exempt when the freeze starts, users on the [allow-list](#allow-lis
 | --- | --- | --- |
 | `axle_read_only_mode_default_duration` | filter | `( int $minutes )`. Length when none is given: the admin bar quick freeze, `wp axle-read-only-mode on` and the PHP API. Also preselected on the screen. Default 60, `0` for no end |
 | `axle_read_only_mode_durations` | filter | `( int[] $minutes )`. Lengths offered on Tools > Read-Only Mode. Default 30, 60, 120, 240, 480 and 0 |
+| `axle_read_only_mode_scopes` | filter | `( array $scopes )`. The scopes a freeze can have. Each: `label`, `status`, `description`, `covers` (the areas it freezes, `content` and `code`). Keep `all` first |
+| `axle_read_only_mode_default_scope` | filter | `( string $scope )`. Scope when none is chosen: the admin bar quick freeze, WP-CLI, abilities, the PHP API. Also preselected on the screen. Default `all` |
+| `axle_read_only_mode_scope` | filter | `( string $scope, array $state )`. The scope of the freeze in force |
+| `axle_read_only_mode_request_area` | filter | `( string $area, string $kind, string $subject, array $context )`. Sort one request into `content` or `code`. `$kind` is `admin`, `rest`, `ajax`, `ability`, `cron` or `front-end` |
+| `axle_read_only_mode_code_screens` | filter | `( string[] $screens )`. Admin files that change settings, plugins, themes, updates or accounts |
+| `axle_read_only_mode_code_routes` | filter | `( string[] $routes )`. REST route prefixes that change settings, plugins, themes, templates or accounts |
+| `axle_read_only_mode_code_ajax_actions` | filter | `( string[] $actions )`. Ajax actions that install, change or update code and settings |
+| `axle_read_only_mode_code_ability_words` | filter | `( string[] $words )`. Words in an ability name that mark it as settings or code |
+| `axle_read_only_mode_code_cron_hooks` | filter | `( string[] $hooks )`. Scheduled events that check for updates or run site checks. Every other event counts as content |
+| `axle_read_only_mode_code_xmlrpc_methods` | filter | `( string[] $methods )`. XML-RPC methods a settings and code freeze removes |
+| `axle_read_only_mode_checks` | filter | `( array $checks, array $context )`. The checks on the Before you freeze card: ID to callable. Add yours, or unset a built-in one: `editing`, `scheduled_posts`, `orders`, `cron`. A callable gets the context (`start`, `end`, `until`, `minutes`, `scope`, `cron`, `visitors`, `now`, `user_id`) and returns an item (`tone`, `word`, `title`, `detail`, `rows`, `count`) or `null` |
+| `axle_read_only_mode_check_items` | filter | `( array $items, array $context )`. The items after every check ran |
+| `axle_read_only_mode_check_editors` | filter | `( array $editors )`. The people the card says are editing. Each: `post_id`, `title`, `user_id`, `name`, `time` |
+| `axle_read_only_mode_check_open_window` | filter | `( int $seconds )`. How far ahead the checks look when a freeze has no end time. Default one day |
+| `axle_read_only_mode_check_order_age` | filter | `( int $seconds )`. How recent an unpaid WooCommerce order must be to count as waiting for payment. Default two hours |
 | `axle_read_only_mode_extend_minutes` | filter | `( int[] $minutes )`. The extend buttons. The first one is also the admin bar's "Add 30 minutes". Default 30 and 60 |
 | `axle_read_only_mode_is_frozen` | filter | `( bool $frozen, array $state )`. Freeze or unfreeze from outside, such as one switch for every site. `$frozen` includes a network freeze. Add it from a must-use plugin. `AXLE_READ_ONLY_MODE` always wins |
 | `axle_read_only_mode_message` | filter | `( string $message, array $state )`. What logged-in users see |
@@ -58,12 +138,13 @@ Users marked exempt when the freeze starts, users on the [allow-list](#allow-lis
 | `axle_read_only_mode_network_capability` | filter | `( string $capability )`. Who may freeze and unfreeze the network. Default `manage_network_options` |
 | `axle_read_only_mode_network_log_sites` | filter | `( int $limit )`. Sites the network log reads, most recently active first. Default 100 |
 | `axle_read_only_mode_network_site_picker_limit` | filter | `( int $limit )`. Sites the "chosen sites" list shows. Default 200 |
-| `axle_read_only_mode_started` | action | `( array $state )`. A freeze started or was scheduled |
+| `axle_read_only_mode_started` | action | `( array $state )`. A freeze started or was scheduled. `$state['area']` is its scope: `all`, `content` or `code` |
 | `axle_read_only_mode_ended` | action | `( array $state, string $ended_by )`. A freeze ended: `user`, `cli`, `ability` or `expired` |
 | `axle_read_only_mode_extended` | action | `( array $state, int $minutes )`. A freeze got longer |
-| `axle_read_only_mode_blocked` | action | `( string $where, string $source, int $user_id )`. Every blocked request, including the ones the log leaves out. For an outside log or an alert channel |
+| `axle_read_only_mode_blocked` | action | `( string $where, string $source, int $user_id, string $area )`. Every blocked request, including the ones the log leaves out. `$area` is `content` or `code`. For an outside log or an alert channel |
+| `axle_read_only_mode_checked` | action | `( array $result )`. The Before you freeze checks ran, from the screen, WP-CLI or an ability. `$result` has `items`, `editing`, `attention` and `context` |
 | `axle_read_only_mode_scheduled_started` | action | `( array $state )`. A freeze that was set for later has started. Fires on the first request after its start time |
-| `axle_read_only_mode_allowed` | action | `( string $where, string $source, int $user_id, string $via )`. Every request the allow-list (`settings`) or a filter (`code`) let through a freeze, including the ones the log leaves out |
+| `axle_read_only_mode_allowed` | action | `( string $where, string $source, int $user_id, string $via, string $area )`. Every request the allow-list (`settings`) or a filter (`code`) let through a freeze, including the ones the log leaves out |
 | `axle_read_only_mode_allow_list_saved` | action | `( array $allow, bool $network )`. The allow-list was saved, from the screen, WP-CLI or a suggestion button |
 | `axle_read_only_mode_notify_settings_saved` | action | `( array $notify, bool $network )`. The email settings were saved |
 | `axle_read_only_mode_notified` | action | `( string $event, string[] $recipients, string $subject, bool $sent, array $freeze, bool $network )`. An email was handed to `wp_mail()` |
@@ -152,8 +233,9 @@ On WordPress 6.9 and later, Axle Read-Only Mode registers [abilities](https://de
 
 | Ability | Does | Needs |
 | --- | --- | --- |
-| `axle-read-only-mode/get-status` | Read-only. Whether the site is frozen, until when and why, and what holds it (`source`: `site`, `network` or `constant`) | `edit_posts` |
-| `axle-read-only-mode/freeze` | Freezes the site. Input: `minutes`, `reason`, `visitor_message`, `visitors`, `cron` | the freeze capability |
+| `axle-read-only-mode/get-status` | Read-only. Whether the site is frozen, until when and why, what holds it (`source`: `site`, `network` or `constant`), and its `scope` | `edit_posts` |
+| `axle-read-only-mode/check-freeze` | Read-only. What a freeze would interrupt right now: people editing, scheduled posts and tasks due, orders waiting for payment. Input: `minutes`, `start`, `scope`, `cron`, `visitors`. Run it before `freeze` | the freeze capability |
+| `axle-read-only-mode/freeze` | Freezes the site. Input: `minutes`, `reason`, `visitor_message`, `visitors`, `cron`, `scope` (`all`, `content` or `code`) | the freeze capability |
 | `axle-read-only-mode/extend` | Adds `minutes` to the running freeze | the freeze capability |
 | `axle-read-only-mode/unfreeze` | Ends the freeze now | the freeze capability |
 | `axle-read-only-mode/get-blocked` | Read-only. What the freeze blocked, and the requests the allow-list let through (`result`), newest first. Input: `limit` | the freeze capability |
@@ -172,7 +254,8 @@ There is no ability that changes the allow-list. It loosens the freeze, so only 
 ## WP-CLI
 
 ```sh
-wp axle-read-only-mode on [--minutes=<n>] [--reason=<text>] [--visitor-message=<text>] [--no-visitors] [--no-cron] [--network] [--sites=<ids>]
+wp axle-read-only-mode check [--minutes=<n>] [--start=<datetime>] [--scope=<all|content|code>] [--no-cron] [--no-visitors] [--format=table|json]
+wp axle-read-only-mode on [--minutes=<n>] [--reason=<text>] [--visitor-message=<text>] [--scope=<all|content|code>] [--no-visitors] [--no-cron] [--network] [--sites=<ids>]
 wp axle-read-only-mode off [--network]
 wp axle-read-only-mode extend <minutes> [--network]
 wp axle-read-only-mode status [--network]
@@ -186,11 +269,16 @@ wp axle-read-only-mode health [--format=table|json]
 
 `--minutes=0` freezes until `wp axle-read-only-mode off`. The default is 60.
 
+`check` shows what a freeze would interrupt and always exits 0, so a script can read it and decide. `--scope=content` freezes only content, `--scope=code` only settings and code; the default is `all`.
+
 `health` prints the Site Health result and exits with status 2 when it is critical, so a monitor can alert on it.
 
 On multisite, a command acts on the site WP-CLI loaded: the main site, or the one given with the global `--url`. Add `--network` to freeze, end, extend, list or configure the whole network instead, and `--sites=2,5` with `on --network` to freeze only those sites.
 
 ```sh
+wp axle-read-only-mode check --minutes=30                           # look first
+wp axle-read-only-mode on --scope=content --minutes=120             # content migration, deploys still work
+wp axle-read-only-mode on --scope=code --minutes=30                 # code deploy window, editors keep writing
 wp axle-read-only-mode on --url=shop.example.com --minutes=30      # one site
 wp axle-read-only-mode on --network --minutes=30                   # every site
 wp axle-read-only-mode on --network --sites=2,5 --minutes=30       # chosen sites
@@ -211,9 +299,9 @@ $freezer->unfreeze();
 
 | Option | Contents |
 | --- | --- |
-| `axle_read_only_mode_state` | The current or scheduled freeze |
-| `axle_read_only_mode_log` | Blocked attempts, and the first few requests the allow-list let through, during the current or last freeze (up to 100): time, user ID, the address without its query string, where it came from, and whether it was allowed |
-| `axle_read_only_mode_history` | The last ten freezes, with the ID of the user who started each one |
+| `axle_read_only_mode_state` | The current or scheduled freeze, with its scope in `area` (`all`, `content` or `code`; missing means `all`) |
+| `axle_read_only_mode_log` | Blocked attempts, and the first few requests the allow-list let through, during the current or last freeze (up to 100): time, user ID, the address without its query string, where it came from, whether it was allowed, and `area` (what it would have changed: `content` or `code`) |
+| `axle_read_only_mode_history` | The last ten freezes, with the ID of the user who started each one and each one's `scope` |
 | `axle_read_only_mode_settings` | The allow-list and the email settings |
 | `axle_read_only_mode_expired_<start>`, `axle_read_only_mode_started_<start>` | Mark a freeze as expired, or a scheduled one as started, so busy sites record each once |
 | `axle_read_only_mode_mail_<event>` (transient) | One minute, so an event sends at most one email a minute |

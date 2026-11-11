@@ -51,4 +51,94 @@
 			} );
 		} );
 	} );
+
+	/**
+	 * The "Before you freeze" card: refreshes when the length, start, scope or
+	 * pauses change, and asks first when other people have a post open.
+	 */
+	var card = document.querySelector( '.aro-before' );
+	var form = document.querySelector( '.aro-form' );
+	var settings = window.axleReadOnlyModeCheck;
+
+	if ( card && form && settings ) {
+		var body = card.querySelector( '.aro-before__body' );
+		var spinner = card.querySelector( '.aro-before__spinner' );
+		var timer;
+		var request = 0;
+
+		var field = function ( name ) {
+			return form.elements[ name ];
+		};
+
+		var query = function () {
+			var params = new URLSearchParams();
+			var when = form.querySelector( 'input[name="when"]:checked' );
+			var scope = form.querySelector( 'input[name="freeze_scope"]:checked' );
+
+			params.set( 'action', settings.action );
+			params.set( '_ajax_nonce', settings.nonce );
+			params.set( 'minutes', field( 'minutes' ).value );
+			params.set( 'start', when && 'later' === when.value ? field( 'start' ).value : '' );
+			params.set( 'freeze_scope', scope ? scope.value : 'all' );
+			if ( field( 'cron' ).checked ) {
+				params.set( 'cron', '1' );
+			}
+			if ( field( 'visitors' ).checked ) {
+				params.set( 'visitors', '1' );
+			}
+
+			return params.toString();
+		};
+
+		var refresh = function () {
+			var current = ++request;
+
+			card.setAttribute( 'aria-busy', 'true' );
+			spinner.classList.add( 'is-active' );
+
+			window
+				.fetch( settings.url + '?' + query(), { credentials: 'same-origin' } )
+				.then( function ( response ) {
+					return response.json();
+				} )
+				.then( function ( json ) {
+					if ( current !== request ) {
+						return;
+					}
+					if ( ! json || ! json.success ) {
+						throw new Error( 'failed' );
+					}
+
+					body.innerHTML = json.data.html;
+					card.setAttribute( 'data-aro-confirm', json.data.confirm );
+					if ( window.wp && window.wp.a11y ) {
+						window.wp.a11y.speak( json.data.summary );
+					}
+				} )
+				.catch( function () {
+					if ( current === request ) {
+						body.textContent = settings.failed;
+					}
+				} )
+				.then( function () {
+					if ( current === request ) {
+						card.removeAttribute( 'aria-busy' );
+						spinner.classList.remove( 'is-active' );
+					}
+				} );
+		};
+
+		form.addEventListener( 'change', function () {
+			window.clearTimeout( timer );
+			timer = window.setTimeout( refresh, 250 );
+		} );
+
+		form.addEventListener( 'submit', function ( event ) {
+			var message = card.getAttribute( 'data-aro-confirm' );
+
+			if ( message && ! window.confirm( message ) ) {
+				event.preventDefault();
+			}
+		} );
+	}
 } )();

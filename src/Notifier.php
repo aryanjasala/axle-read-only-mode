@@ -356,6 +356,9 @@ final class Notifier implements Service {
 		/* translators: %s: the reason given for the freeze, or "none given". */
 		$lines[] = sprintf( __( 'Why: %s', 'axle-read-only-mode' ), '' !== $reason ? $reason : __( 'No reason given', 'axle-read-only-mode' ) );
 
+		/* translators: %s: what the freeze covers, e.g. "Content only". */
+		$lines[] = sprintf( __( 'Scope: %s', 'axle-read-only-mode' ), Scopes::label( (string) ( $freeze['area'] ?? Scopes::ALL ) ) );
+
 		if ( ! in_array( $event, array( 'ended', 'expired' ), true ) ) {
 			$lines[] = $end
 				/* translators: 1: date and time the freeze ends, 2: site time zone. */

@@ -10,6 +10,7 @@ namespace AryanX\Axle\ReadOnlyMode\Admin;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\Network;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 use AryanX\Axle\ReadOnlyMode\Settings;
 use const AryanX\Axle\ReadOnlyMode\PLUGIN_FILE;
@@ -142,7 +143,7 @@ final class NetworkPage implements Service {
 		$scheduled = $state->is_scheduled();
 
 		if ( $frozen ) {
-			$badge = array( 'warning', __( 'Frozen', 'axle-read-only-mode' ) );
+			$badge = array( 'warning', Scopes::status( $state->scope() ) );
 		} elseif ( $scheduled ) {
 			$badge = array( 'info', __( 'Freeze scheduled', 'axle-read-only-mode' ) );
 		} else {
@@ -269,6 +270,8 @@ final class NetworkPage implements Service {
 			<dl class="axle-facts">
 				<dt><?php esc_html_e( 'Covers', 'axle-read-only-mode' ); ?></dt>
 				<dd><?php echo esc_html( $this->scope_label() ); ?></dd>
+				<dt><?php esc_html_e( 'Scope', 'axle-read-only-mode' ); ?></dt>
+				<dd><?php echo esc_html( Scopes::label( $this->network->state->scope() ) ); ?></dd>
 				<dt><?php esc_html_e( 'Started', 'axle-read-only-mode' ); ?></dt>
 				<dd>
 					<?php
@@ -285,9 +288,9 @@ final class NetworkPage implements Service {
 				<dt><?php esc_html_e( 'Ends', 'axle-read-only-mode' ); ?></dt>
 				<dd><?php echo esc_html( $state['end'] ? wp_date( $format, (int) $state['end'] ) : __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); ?></dd>
 				<dt><?php esc_html_e( 'Visitor submissions', 'axle-read-only-mode' ); ?></dt>
-				<dd><?php echo esc_html( $state['visitors'] ? __( 'Paused', 'axle-read-only-mode' ) : __( 'Still open', 'axle-read-only-mode' ) ); ?></dd>
+				<dd><?php echo esc_html( ToolsPage::visitors_label( (bool) $state['visitors'], $this->network->state->scope() ) ); ?></dd>
 				<dt><?php esc_html_e( 'Scheduled tasks', 'axle-read-only-mode' ); ?></dt>
-				<dd><?php echo esc_html( $state['cron'] ? __( 'Paused', 'axle-read-only-mode' ) : __( 'Still running', 'axle-read-only-mode' ) ); ?></dd>
+				<dd><?php echo esc_html( ToolsPage::cron_label( (bool) $state['cron'], $this->network->state->scope() ) ); ?></dd>
 				<?php if ( $exempt ) : ?>
 					<dt><?php esc_html_e( 'Can still edit', 'axle-read-only-mode' ); ?></dt>
 					<dd><?php echo esc_html( implode( ', ', wp_list_pluck( $exempt, 'display_name' ) ) ); ?></dd>
@@ -532,6 +535,7 @@ final class NetworkPage implements Service {
 							<th scope="col"><?php esc_html_e( 'Started', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Length', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Reason', 'axle-read-only-mode' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Scope', 'axle-read-only-mode' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Ended', 'axle-read-only-mode' ); ?></th>
 							<th scope="col" class="num"><?php esc_html_e( 'Blocked', 'axle-read-only-mode' ); ?></th>
 						</tr>
@@ -546,6 +550,7 @@ final class NetworkPage implements Service {
 								</td>
 								<td><?php echo esc_html( human_time_diff( (int) $entry['start'], (int) $entry['end'] ) ); ?></td>
 								<td><?php echo esc_html( '' !== $entry['reason'] ? $entry['reason'] : '-' ); ?></td>
+								<td><?php echo esc_html( Scopes::label( (string) ( $entry['scope'] ?? Scopes::ALL ) ) ); ?></td>
 								<td><?php echo esc_html( $ended[ $entry['ended_by'] ] ?? $entry['ended_by'] ); ?></td>
 								<td class="num"><?php echo esc_html( number_format_i18n( (int) $entry['blocked'] ) ); ?></td>
 							</tr>
@@ -687,6 +692,7 @@ final class NetworkPage implements Service {
 						'exempt'          => ! empty( $_POST['exempt_me'] ) ? array( get_current_user_id() ) : array(),
 						'scope'           => $scope,
 						'sites'           => $sites,
+						'area'            => isset( $_POST['freeze_scope'] ) ? sanitize_key( wp_unslash( $_POST['freeze_scope'] ) ) : Scopes::default_scope(),
 					)
 				);
 				$done = $start > time() ? 'scheduled' : 'frozen';

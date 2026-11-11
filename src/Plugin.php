@@ -73,6 +73,13 @@ final class Plugin {
 	private Settings $settings;
 
 	/**
+	 * The "Before you freeze" checks.
+	 *
+	 * @var Checks
+	 */
+	private Checks $checks;
+
+	/**
 	 * The network's freeze, history and log. Null on a single site.
 	 *
 	 * @var Network|null
@@ -108,6 +115,16 @@ final class Plugin {
 		$this->history  = new History();
 		$this->log      = new BlockedLog( $this->history, $this->network ? $this->network->history : null );
 		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
+		$this->checks   = new Checks();
+	}
+
+	/**
+	 * The "Before you freeze" checks, for other plugins.
+	 *
+	 * @return Checks
+	 */
+	public function checks(): Checks {
+		return $this->checks;
 	}
 
 	/**
@@ -168,10 +185,10 @@ final class Plugin {
 
 		$services = array(
 			$this->log,
-			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings ),
+			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings, $this->checks ),
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state ),
-			new Abilities( $this->state, $this->freezer, $this->log ),
+			new Abilities( $this->state, $this->freezer, $this->log, $this->checks ),
 			new SiteHealth( $this->state, $this->network, $this->settings ),
 		);
 
@@ -198,7 +215,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings ) ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings ), $this->checks ) );
 		}
 	}
 }

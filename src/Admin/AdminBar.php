@@ -8,6 +8,7 @@
 namespace AryanX\Axle\ReadOnlyMode\Admin;
 
 use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 use AryanX\Axle\ReadOnlyMode\State;
 
@@ -69,7 +70,23 @@ final class AdminBar implements Service {
 
 		$until   = $this->state->end_time();
 		$network = $this->state->network_applies() && ! $this->state->forced_by_constant();
-		if ( $network ) {
+		$scope   = $this->state->scope();
+		$status  = Scopes::status( $scope );
+		if ( Scopes::ALL !== $scope ) {
+			// For example: content frozen until 3 pm, or settings and code frozen by the network.
+			if ( $network ) {
+				$title = $until
+					/* translators: 1: what is frozen, e.g. "Content frozen", 2: time the freeze ends. */
+					? sprintf( __( '%1$s by the network until %2$s', 'axle-read-only-mode' ), $status, $until )
+					/* translators: %s: what is frozen, e.g. "Content frozen". */
+					: sprintf( __( '%s by the network', 'axle-read-only-mode' ), $status );
+			} else {
+				$title = $until
+					/* translators: 1: what is frozen, e.g. "Content frozen", 2: time the freeze ends. */
+					? sprintf( __( '%1$s until %2$s', 'axle-read-only-mode' ), $status, $until )
+					: $status;
+			}
+		} elseif ( $network ) {
 			$title = $until
 				/* translators: %s: time the freeze ends. */
 				? sprintf( __( 'Frozen by the network until %s', 'axle-read-only-mode' ), $until )
