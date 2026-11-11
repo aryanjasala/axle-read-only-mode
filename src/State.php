@@ -33,6 +33,7 @@ final class State {
 		'exempt'          => array(),
 		'by'              => 0,
 		'announce'        => false,
+		'area'            => 'all',
 	);
 
 	/**
@@ -109,7 +110,7 @@ final class State {
 	/**
 	 * The freeze saved here, merged with defaults, whatever the network says.
 	 *
-	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, scope?: string, sites?: int[]}
+	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, area: string, scope?: string, sites?: int[]}
 	 */
 	public function own(): array {
 		$defaults = $this->is_network() ? self::DEFAULTS + self::NETWORK_DEFAULTS : self::DEFAULTS;
@@ -121,7 +122,7 @@ final class State {
 	/**
 	 * The freeze in force on this site: the network's when it applies, else the site's own.
 	 *
-	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool}
+	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, area: string}
 	 */
 	public function all(): array {
 		if ( $this->network_applies() && $this->network ) {
@@ -129,6 +130,40 @@ final class State {
 		}
 
 		return $this->own();
+	}
+
+	/**
+	 * The scope of the freeze in force: all, content or code.
+	 *
+	 * Freezes saved before scopes existed have none, and are `all`. The
+	 * AXLE_READ_ONLY_MODE_SCOPE constant sets it for a freeze the constant forces.
+	 *
+	 * @return string
+	 */
+	public function scope(): string {
+		if ( $this->forced_by_constant() ) {
+			$scope = defined( 'AXLE_READ_ONLY_MODE_SCOPE' ) ? (string) AXLE_READ_ONLY_MODE_SCOPE : Scopes::ALL;
+		} else {
+			$scope = (string) $this->all()['area'];
+		}
+
+		/**
+		 * Filters the scope of the freeze in force.
+		 *
+		 * @param string $scope all, content or code, or one added with the axle_read_only_mode_scopes filter.
+		 * @param array  $state The freeze in force on this site.
+		 */
+		return Scopes::normalize( (string) apply_filters( 'axle_read_only_mode_scope', Scopes::normalize( $scope ), $this->all() ) );
+	}
+
+	/**
+	 * Whether the freeze in force covers an area.
+	 *
+	 * @param string $area content or code.
+	 * @return bool
+	 */
+	public function freezes( string $area ): bool {
+		return Scopes::covers( $this->scope(), $area );
 	}
 
 	/**
@@ -336,7 +371,34 @@ final class State {
 		$reason = $this->forced_by_constant() && defined( 'AXLE_READ_ONLY_MODE_REASON' ) ? (string) AXLE_READ_ONLY_MODE_REASON : (string) $this->get( 'reason' );
 		$until  = $this->end_time();
 
-		if ( $this->network_applies() && ! $this->forced_by_constant() ) {
+		$network = $this->network_applies() && ! $this->forced_by_constant();
+		$scope   = $this->scope();
+
+		if ( Scopes::CONTENT === $scope ) {
+			if ( $network ) {
+				$message = $until
+					/* translators: %s: time the freeze ends. */
+					? sprintf( __( 'The content of this site is frozen by the network for maintenance until %s. Content cannot be saved right now, but settings, plugins and themes still work.', 'axle-read-only-mode' ), $until )
+					: __( 'The content of this site is frozen by the network for maintenance. Content cannot be saved right now, but settings, plugins and themes still work.', 'axle-read-only-mode' );
+			} else {
+				$message = $until
+					/* translators: %s: time the freeze ends. */
+					? sprintf( __( 'The content of this site is frozen for maintenance until %s. Content cannot be saved right now, but settings, plugins and themes still work.', 'axle-read-only-mode' ), $until )
+					: __( 'The content of this site is frozen for maintenance. Content cannot be saved right now, but settings, plugins and themes still work.', 'axle-read-only-mode' );
+			}
+		} elseif ( Scopes::CODE === $scope ) {
+			if ( $network ) {
+				$message = $until
+					/* translators: %s: time the freeze ends. */
+					? sprintf( __( 'The settings and code of this site are frozen by the network for maintenance until %s. Settings, plugins, themes and updates cannot be changed right now, but content can still be saved.', 'axle-read-only-mode' ), $until )
+					: __( 'The settings and code of this site are frozen by the network for maintenance. Settings, plugins, themes and updates cannot be changed right now, but content can still be saved.', 'axle-read-only-mode' );
+			} else {
+				$message = $until
+					/* translators: %s: time the freeze ends. */
+					? sprintf( __( 'The settings and code of this site are frozen for maintenance until %s. Settings, plugins, themes and updates cannot be changed right now, but content can still be saved.', 'axle-read-only-mode' ), $until )
+					: __( 'The settings and code of this site are frozen for maintenance. Settings, plugins, themes and updates cannot be changed right now, but content can still be saved.', 'axle-read-only-mode' );
+			}
+		} elseif ( $network ) {
 			$message = $until
 				/* translators: %s: time the freeze ends. */
 				? sprintf( __( 'This site is frozen by the network for maintenance until %s. Changes cannot be saved right now.', 'axle-read-only-mode' ), $until )
@@ -346,6 +408,11 @@ final class State {
 				/* translators: %s: time the freeze ends. */
 				? sprintf( __( 'This site is frozen for maintenance until %s. Changes cannot be saved right now.', 'axle-read-only-mode' ), $until )
 				: __( 'This site is frozen for maintenance. Changes cannot be saved right now.', 'axle-read-only-mode' );
+		}
+
+		if ( ! in_array( $scope, array( Scopes::ALL, Scopes::CONTENT, Scopes::CODE ), true ) ) {
+			/* translators: %s: scope of the freeze, e.g. "Content only". */
+			$message .= ' ' . sprintf( __( 'Scope: %s.', 'axle-read-only-mode' ), Scopes::label( $scope ) );
 		}
 
 		if ( '' !== $reason ) {

@@ -8,6 +8,7 @@
 namespace AryanX\Axle\ReadOnlyMode\Guards;
 
 use AryanX\Axle\ReadOnlyMode\Abilities;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
@@ -83,6 +84,12 @@ final class RestGuard implements Service {
 			return $result;
 		}
 
+		// A freeze that does not cover this route's area leaves it alone, and does not log it.
+		$area = Scopes::rest_area( $request->get_route(), $request->get_method() );
+		if ( ! $state->freezes( $area ) ) {
+			return $result;
+		}
+
 		$by_settings = $state->allow_list()->matches_route( $request->get_route() );
 
 		/**
@@ -96,12 +103,12 @@ final class RestGuard implements Service {
 		 * @param \WP_REST_Request $request The request.
 		 */
 		if ( apply_filters( 'axle_read_only_mode_allow_rest_request', $by_settings, $request ) ) {
-			$this->blocker->record_allowed( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest', $by_settings ? 'settings' : 'code' );
+			$this->blocker->record_allowed( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest', $by_settings ? 'settings' : 'code', $area );
 
 			return $result;
 		}
 
-		$this->blocker->record( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest' );
+		$this->blocker->record( 'REST ' . $request->get_method() . ' ' . $request->get_route(), 'rest', $area );
 
 		return new \WP_Error( 'axle_read_only_mode', is_user_logged_in() ? $state->message() : $state->visitor_message(), array( 'status' => 423 ) );
 	}

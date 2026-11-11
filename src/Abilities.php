@@ -52,13 +52,22 @@ final class Abilities implements Service {
 	private BlockedLog $log;
 
 	/**
+	 * The "Before you freeze" checks.
+	 *
+	 * @var Checks
+	 */
+	private Checks $checks;
+
+	/**
 	 * Sets up the abilities.
 	 *
-	 * @param State      $state   The freeze state.
-	 * @param Freezer    $freezer Freeze controls.
-	 * @param BlockedLog $log     What the freeze stopped.
+	 * @param State       $state   The freeze state.
+	 * @param Freezer     $freezer Freeze controls.
+	 * @param BlockedLog  $log     What the freeze stopped.
+	 * @param Checks|null $checks  The "Before you freeze" checks.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Checks $checks = null ) {
+		$this->checks  = $checks ?? new Checks();
 		$this->state   = $state;
 		$this->freezer = $freezer;
 		$this->log     = $log;
@@ -121,9 +130,81 @@ final class Abilities implements Service {
 		);
 
 		$this->ability(
+			'check-freeze',
+			__( 'Check before freezing', 'axle-read-only-mode' ),
+			__( 'What a freeze would interrupt right now, for the length, start and scope given: people with a post open in the editor, scheduled posts and scheduled tasks due during the freeze, and WooCommerce orders waiting for payment. It only reports. Run it before the freeze ability and tell the people involved.', 'axle-read-only-mode' ),
+			array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'minutes'  => array(
+						'type'        => 'integer',
+						'minimum'     => 0,
+						'description' => __( 'Length of the freeze in minutes. 0 means until someone unfreezes it.', 'axle-read-only-mode' ),
+						'default'     => Freezer::default_duration(),
+					),
+					'start'    => array(
+						'type'        => 'string',
+						'description' => __( 'When the freeze would start, as a date and time. Empty for now.', 'axle-read-only-mode' ),
+					),
+					'scope'    => $this->scope_schema(),
+					'cron'     => array(
+						'type'    => 'boolean',
+						'default' => true,
+					),
+					'visitors' => array(
+						'type'    => 'boolean',
+						'default' => true,
+					),
+				),
+				'additionalProperties' => false,
+				'default'              => array(),
+			),
+			array(
+				'type'       => 'object',
+				'properties' => array(
+					'editing'   => array(
+						'type'        => 'integer',
+						'description' => 'People with a post open in the editor right now, not counting the caller.',
+					),
+					'attention' => array(
+						'type'        => 'integer',
+						'description' => 'Items whose tone is warning or error.',
+					),
+					'items'     => array(
+						'type'  => 'array',
+						'items' => array(
+							'type'       => 'object',
+							'properties' => array(
+								'id'     => array( 'type' => 'string' ),
+								'tone'   => array(
+									'type' => 'string',
+									'enum' => array( 'good', 'warning', 'error', 'info', 'neutral' ),
+								),
+								'word'   => array( 'type' => 'string' ),
+								'title'  => array( 'type' => 'string' ),
+								'detail' => array( 'type' => 'string' ),
+								'rows'   => array(
+									'type'  => 'array',
+									'items' => array( 'type' => 'string' ),
+								),
+								'count'  => array( 'type' => 'integer' ),
+							),
+						),
+					),
+				),
+			),
+			array( $this, 'check_freeze' ),
+			$can_manage,
+			array(
+				'readonly'   => true,
+				'idempotent' => true,
+			)
+		);
+
+		$this->ability(
 			'freeze',
 			__( 'Freeze the site', 'axle-read-only-mode' ),
-			__( 'Makes the site read-only: nothing can be saved in wp-admin, the REST API or forms, while visitors can still read it. Ends on its own after the given minutes.', 'axle-read-only-mode' ),
+			__( 'Makes the site read-only: by default nothing can be saved in wp-admin, the REST API or forms, while visitors can still read it. With a scope it freezes only content, or only settings and code. Ends on its own after the given minutes.', 'axle-read-only-mode' ),
 			array(
 				'type'                 => 'object',
 				'properties'           => array(
@@ -153,6 +234,7 @@ final class Abilities implements Service {
 						'default'     => true,
 						'description' => __( 'Pause scheduled tasks until the freeze ends.', 'axle-read-only-mode' ),
 					),
+					'scope'           => $this->scope_schema(),
 				),
 				'additionalProperties' => false,
 				'default'              => array(),
@@ -238,6 +320,10 @@ final class Abilities implements Service {
 							'description' => 'blocked, or allowed when the allow-list or a filter let the request through.',
 						),
 						'where'  => array( 'type' => 'string' ),
+						'area'   => array(
+							'type'        => 'string',
+							'description' => 'What the request would have changed: content or code. Empty for entries from before scopes existed.',
+						),
 					),
 				),
 			),
@@ -304,8 +390,50 @@ final class Abilities implements Service {
 			'reason'             => (string) $state['reason'],
 			'visitors_paused'    => (bool) $state['visitors'],
 			'cron_paused'        => (bool) $state['cron'],
+			'scope'              => $this->state->scope(),
 			'forced_by_constant' => $this->state->forced_by_constant(),
 			'blocked'            => $this->log->count( $this->state->log_since() ),
+		);
+	}
+
+	/**
+	 * Ability: what a freeze would interrupt.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array
+	 */
+	public function check_freeze( $input = null ): array {
+		$input  = (array) $input;
+		$result = $this->checks->run(
+			array(
+				'minutes'  => isset( $input['minutes'] ) ? (int) $input['minutes'] : Freezer::default_duration(),
+				'start'    => ToolsPage::parse_start( (string) ( $input['start'] ?? '' ) ),
+				'scope'    => (string) ( $input['scope'] ?? Scopes::default_scope() ),
+				'cron'     => ! isset( $input['cron'] ) || (bool) $input['cron'],
+				'visitors' => ! isset( $input['visitors'] ) || (bool) $input['visitors'],
+			)
+		);
+
+		return array(
+			'editing'   => $result['editing'],
+			'attention' => $result['attention'],
+			'items'     => $result['items'],
+		);
+	}
+
+	/**
+	 * The scope input, shared by the abilities that take one.
+	 *
+	 * @return array
+	 */
+	private function scope_schema(): array {
+		$scopes = Scopes::all();
+
+		return array(
+			'type'        => 'string',
+			'enum'        => array_keys( $scopes ),
+			'default'     => Scopes::default_scope(),
+			'description' => __( 'What the freeze covers: all (everything, the default), content (posts, pages, media, comments, terms, menus and other content, while settings, plugins, themes and updates keep working) or code (options, plugins, themes, updates and user accounts, while content keeps working).', 'axle-read-only-mode' ),
 		);
 	}
 
@@ -328,6 +456,7 @@ final class Abilities implements Service {
 				'visitor_message' => (string) ( $input['visitor_message'] ?? '' ),
 				'visitors'        => ! isset( $input['visitors'] ) || (bool) $input['visitors'],
 				'cron'            => ! isset( $input['cron'] ) || (bool) $input['cron'],
+				'area'            => isset( $input['scope'] ) ? (string) $input['scope'] : Scopes::default_scope(),
 			)
 		);
 
@@ -384,6 +513,7 @@ final class Abilities implements Service {
 					'source' => (string) $entry['source'],
 					'result' => empty( $entry['allowed'] ) ? 'blocked' : 'allowed',
 					'where'  => (string) $entry['where'],
+					'area'   => (string) ( $entry['area'] ?? '' ),
 				);
 			},
 			array_slice( $this->log->all( $this->state->log_since() ), 0, max( 1, min( 100, $limit ) ) )
@@ -432,6 +562,12 @@ final class Abilities implements Service {
 			return $pre;
 		}
 
+		// A freeze that does not cover this ability's area leaves it alone, and does not log it.
+		$area = Scopes::ability_area( $name );
+		if ( ! $this->state->freezes( $area ) ) {
+			return $pre;
+		}
+
 		$ability     = function_exists( 'wp_get_ability' ) ? wp_get_ability( $name ) : null;
 		$annotations = $ability ? (array) ( $ability->get_meta()['annotations'] ?? array() ) : array();
 		if ( ! empty( $annotations['readonly'] ) ) {
@@ -450,8 +586,8 @@ final class Abilities implements Service {
 		}
 
 		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Our own hook, documented in Guards/Blocker.php.
-		do_action( 'axle_read_only_mode_blocked', 'ability ' . $name, 'ability', get_current_user_id() );
-		$this->log->add( 'ability ' . $name, 'ability', $this->state->log_since() );
+		do_action( 'axle_read_only_mode_blocked', 'ability ' . $name, 'ability', get_current_user_id(), $area );
+		$this->log->add( 'ability ' . $name, 'ability', $this->state->log_since(), $area );
 
 		return new \WP_Error( 'axle_read_only_mode', $this->state->message(), array( 'status' => 423 ) );
 	}
@@ -545,6 +681,10 @@ final class Abilities implements Service {
 				'reason'             => array( 'type' => 'string' ),
 				'visitors_paused'    => array( 'type' => 'boolean' ),
 				'cron_paused'        => array( 'type' => 'boolean' ),
+				'scope'              => array(
+					'type'        => 'string',
+					'description' => 'What the freeze covers: all, content or code.',
+				),
 				'forced_by_constant' => array( 'type' => 'boolean' ),
 				'source'             => array(
 					'type'        => 'string',

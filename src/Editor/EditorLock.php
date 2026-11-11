@@ -7,6 +7,7 @@
 
 namespace AryanX\Axle\ReadOnlyMode\Editor;
 
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 use AryanX\Axle\ReadOnlyMode\State;
 use const AryanX\Axle\ReadOnlyMode\PLUGIN_FILE;
@@ -48,12 +49,13 @@ final class EditorLock implements Service {
 	}
 
 	/**
-	 * The message to show, or an empty string when the user can edit.
+	 * The message to show, or an empty string when the user can edit: the freeze
+	 * is off, does not cover content, or the user is exempt.
 	 *
 	 * @return string
 	 */
 	private function lock_message(): string {
-		return $this->state->is_frozen() && ! $this->state->can_bypass() ? $this->state->message() : '';
+		return $this->state->is_frozen() && $this->state->freezes( Scopes::CONTENT ) && ! $this->state->can_bypass() ? $this->state->message() : '';
 	}
 
 	/**

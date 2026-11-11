@@ -8,6 +8,7 @@
 namespace AryanX\Axle\ReadOnlyMode\Guards;
 
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\State;
 
 defined( 'ABSPATH' ) || exit;
@@ -57,8 +58,9 @@ final class Blocker {
 	 *
 	 * @param string $where  What was attempted.
 	 * @param string $source admin, ajax, rest or front-end.
+	 * @param string $area   What the request would have changed: content or code.
 	 */
-	public function record( string $where, string $source ): void {
+	public function record( string $where, string $source, string $area = Scopes::CONTENT ): void {
 		/**
 		 * Fires for every request a freeze blocks, including ones the log leaves out.
 		 *
@@ -67,10 +69,11 @@ final class Blocker {
 		 * @param string $where   What was blocked, e.g. "REST POST /wp/v2/posts/12".
 		 * @param string $source  admin, ajax, rest or front-end.
 		 * @param int    $user_id User, or 0 for a visitor.
+		 * @param string $area    What the request would have changed: content or code.
 		 */
-		do_action( 'axle_read_only_mode_blocked', $where, $source, get_current_user_id() );
+		do_action( 'axle_read_only_mode_blocked', $where, $source, get_current_user_id(), $area );
 
-		$this->log->add( $where, $source, $this->state->log_since() );
+		$this->log->add( $where, $source, $this->state->log_since(), $area );
 	}
 
 	/**
@@ -79,8 +82,9 @@ final class Blocker {
 	 * @param string $where What was let through, e.g. "POST /?wc-api=wc_stripe".
 	 * @param string $source admin, ajax, rest or front-end.
 	 * @param string $via    settings (the allow-list) or code (a filter).
+	 * @param string $area   What the request would have changed: content or code.
 	 */
-	public function record_allowed( string $where, string $source, string $via ): void {
+	public function record_allowed( string $where, string $source, string $via, string $area = Scopes::CONTENT ): void {
 		/**
 		 * Fires for every request the allow-list or a filter lets through a freeze.
 		 *
@@ -91,10 +95,11 @@ final class Blocker {
 		 * @param string $source  admin, ajax, rest or front-end.
 		 * @param int    $user_id User, or 0 for a visitor.
 		 * @param string $via     settings (the allow-list) or code (a filter).
+		 * @param string $area    What the request would have changed: content or code.
 		 */
-		do_action( 'axle_read_only_mode_allowed', $where, $source, get_current_user_id(), $via );
+		do_action( 'axle_read_only_mode_allowed', $where, $source, get_current_user_id(), $via, $area );
 
-		$this->log->add_allowed( $where, $source, $via, $this->state->log_since() );
+		$this->log->add_allowed( $where, $source, $via, $this->state->log_since(), $area );
 	}
 
 	/**
@@ -106,8 +111,9 @@ final class Blocker {
 	 *
 	 * @param string $where  What was attempted.
 	 * @param string $source admin, ajax, rest or front-end.
+	 * @param string $area   What the request would have changed: content or code.
 	 */
-	public function stop( string $where, string $source ): void {
+	public function stop( string $where, string $source, string $area = Scopes::CONTENT ): void {
 		// Admin-ajax actions have their own list, checked by AdminGuard before this runs.
 		$by_settings = 'ajax' !== $source && $this->state->allow_list()->matches_uri( self::uri() );
 
@@ -125,11 +131,11 @@ final class Blocker {
 		 * @param string $source admin, ajax or front-end.
 		 */
 		if ( apply_filters( 'axle_read_only_mode_allow_request', $by_settings, $where, $source ) ) {
-			$this->record_allowed( $where, $source, $by_settings ? 'settings' : 'code' );
+			$this->record_allowed( $where, $source, $by_settings ? 'settings' : 'code', $area );
 			return;
 		}
 
-		$this->record( $where, $source );
+		$this->record( $where, $source, $area );
 
 		$visitor   = ! is_user_logged_in();
 		$remaining = $this->state->remaining();

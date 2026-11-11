@@ -7,6 +7,7 @@
 
 namespace AryanX\Axle\ReadOnlyMode\Guards;
 
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
@@ -56,8 +57,14 @@ final class FrontEndGuard implements Service {
 			return;
 		}
 
+		// Submissions from the front end are content. A settings and code freeze leaves them open.
+		$area = Scopes::front_end_area( Blocker::uri() );
+		if ( ! $state->freezes( $area ) ) {
+			return;
+		}
+
 		if ( is_user_logged_in() || $state->get( 'visitors' ) ) {
-			$this->blocker->stop( 'POST ' . Blocker::uri(), 'front-end' );
+			$this->blocker->stop( 'POST ' . Blocker::uri(), 'front-end', $area );
 		}
 	}
 

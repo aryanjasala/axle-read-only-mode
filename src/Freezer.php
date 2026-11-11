@@ -64,6 +64,7 @@ final class Freezer {
 	 *     @type bool   $visitors        Also pause comments, forms and sign-ups.
 	 *     @type bool   $cron            Also pause scheduled tasks.
 	 *     @type int[]  $exempt          Users who can keep working.
+	 *     @type string $area            What the freeze covers: all (default), content or code. See Scopes.
 	 *     @type string $scope           For a network freeze: all, or sites for the ones in $sites.
 	 *     @type int[]  $sites           For a network freeze with scope sites: the sites it covers.
 	 * }
@@ -87,6 +88,7 @@ final class Freezer {
 			'cron'            => ! isset( $args['cron'] ) || (bool) $args['cron'],
 			'exempt'          => array_map( 'intval', (array) ( $args['exempt'] ?? array() ) ),
 			'by'              => get_current_user_id(),
+			'area'            => isset( $args['area'] ) ? Scopes::normalize( (string) $args['area'] ) : Scopes::default_scope(),
 			// A freeze set for later announces itself once it starts.
 			'announce'        => $start > time(),
 		);
@@ -103,7 +105,7 @@ final class Freezer {
 			/**
 			 * Fires when a network freeze starts, or is scheduled to start.
 			 *
-			 * @param array $state The network freeze: start, end, reason, visitors, cron, exempt, by, scope and sites.
+			 * @param array $state The network freeze: start, end, reason, visitors, cron, exempt, by, area (all, content or code), scope (which sites) and sites.
 			 */
 			do_action( 'axle_read_only_mode_network_started', $this->state->own() );
 			return;
@@ -112,7 +114,7 @@ final class Freezer {
 		/**
 		 * Fires when a freeze starts, or is scheduled to start.
 		 *
-		 * @param array $state The freeze: start, end, reason, visitors, cron, exempt and by.
+		 * @param array $state The freeze: start, end, reason, visitors, cron, exempt, by and area (all, content or code).
 		 */
 		do_action( 'axle_read_only_mode_started', $this->state->own() );
 	}
@@ -233,6 +235,7 @@ final class Freezer {
 				'by'       => (int) $state['by'],
 				'ended_by' => $ended_by,
 				'blocked'  => $this->log->count(),
+				'scope'    => Scopes::normalize( (string) $state['area'] ),
 			);
 			if ( $this->state->is_network() ) {
 				$entry['sites'] = 'sites' === ( $state['scope'] ?? 'all' ) ? count( (array) ( $state['sites'] ?? array() ) ) : 0;

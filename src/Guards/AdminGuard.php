@@ -9,6 +9,7 @@ namespace AryanX\Axle\ReadOnlyMode\Guards;
 
 use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
 use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 
 defined( 'ABSPATH' ) || exit;
@@ -47,6 +48,7 @@ final class AdminGuard implements Service {
 		'wp-compression-test',
 		'health-check-site-status-result',
 		'health-check-get-sizes',
+		'axle_read_only_mode_check',
 	);
 
 	/**
@@ -109,7 +111,18 @@ final class AdminGuard implements Service {
 		}
 
 		if ( 'POST' === Blocker::method() || isset( $_GET['_wpnonce'] ) || isset( $_GET['_ajax_nonce'] ) || in_array( $pagenow, $this->writing_screens(), true ) ) {
-			$this->blocker->stop( Blocker::method() . ' ' . Blocker::uri(), 'admin' );
+			$area = Scopes::admin_area(
+				(string) $pagenow,
+				$action,
+				isset( $_REQUEST['page'] ) ? sanitize_key( wp_unslash( $_REQUEST['page'] ) ) : '',
+				is_network_admin(),
+				isset( $_POST['option_page'] )
+			);
+
+			// A freeze that does not cover this area leaves the request alone, and does not log it.
+			if ( $this->blocker->state()->freezes( $area ) ) {
+				$this->blocker->stop( Blocker::method() . ' ' . Blocker::uri(), 'admin', $area );
+			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification
 	}
@@ -138,6 +151,11 @@ final class AdminGuard implements Service {
 			return;
 		}
 
+		$area = Scopes::ajax_area( $action );
+		if ( ! $this->blocker->state()->freezes( $area ) ) {
+			return;
+		}
+
 		$custom = $this->blocker->state()->allow_list()->ajax_actions();
 
 		/**
@@ -158,11 +176,11 @@ final class AdminGuard implements Service {
 
 			// The read-only list is not an exception, so it is not logged.
 			if ( ! in_array( $action, self::READ_ONLY_AJAX, true ) ) {
-				$this->blocker->record_allowed( 'admin-ajax ' . $action, 'ajax', in_array( $action, $custom, true ) ? 'settings' : 'code' );
+				$this->blocker->record_allowed( 'admin-ajax ' . $action, 'ajax', in_array( $action, $custom, true ) ? 'settings' : 'code', $area );
 			}
 			return;
 		}
 
-		$this->blocker->stop( 'admin-ajax ' . $action, 'ajax' );
+		$this->blocker->stop( 'admin-ajax ' . $action, 'ajax', $area );
 	}
 }

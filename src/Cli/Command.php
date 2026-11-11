@@ -9,10 +9,12 @@ namespace AryanX\Axle\ReadOnlyMode\Cli;
 
 use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
+use AryanX\Axle\ReadOnlyMode\Checks;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\Health\SiteHealth;
 use AryanX\Axle\ReadOnlyMode\Network;
 use AryanX\Axle\ReadOnlyMode\Notifier;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
 
@@ -80,6 +82,13 @@ final class Command {
 	private ?SiteHealth $health;
 
 	/**
+	 * The "Before you freeze" checks.
+	 *
+	 * @var Checks
+	 */
+	private Checks $checks;
+
+	/**
 	 * Sets up the command.
 	 *
 	 * @param State           $state    Saved freeze.
@@ -88,8 +97,10 @@ final class Command {
 	 * @param Network|null    $network  The network's freeze, on multisite.
 	 * @param Settings|null   $settings This site's settings.
 	 * @param SiteHealth|null $health The Site Health check.
+	 * @param Checks|null     $checks The "Before you freeze" checks.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null, ?Checks $checks = null ) {
+		$this->checks   = $checks ?? new Checks();
 		$this->state    = $state;
 		$this->freezer  = $freezer;
 		$this->log      = $log;
@@ -136,6 +147,12 @@ final class Command {
 	 * [--[no-]cron]
 	 * : Pause scheduled tasks. On by default.
 	 *
+	 * [--scope=<scope>]
+	 * : What to freeze. all (everything, the default), content (posts, pages, media, comments, terms, menus and other content; settings, plugins, themes and updates keep working) or code (options, plugins, themes, updates and user accounts; content keeps working).
+	 * ---
+	 * default: all
+	 * ---
+	 *
 	 * [--network]
 	 * : Freeze the whole multisite network instead of one site. Without it, the command freezes the site WP-CLI loaded: the main site, or the one given with --url.
 	 *
@@ -145,6 +162,8 @@ final class Command {
 	 * ## EXAMPLES
 	 *
 	 *     wp axle-read-only-mode on --minutes=30 --reason="Moving servers"
+	 *     wp axle-read-only-mode on --scope=content --minutes=120 --reason="Content migration"
+	 *     wp axle-read-only-mode on --scope=code --minutes=30
 	 *     wp axle-read-only-mode on --url=shop.example.com --minutes=30
 	 *     wp axle-read-only-mode on --network --minutes=30
 	 *     wp axle-read-only-mode on --network --sites=2,5 --minutes=30
@@ -160,6 +179,7 @@ final class Command {
 			'visitor_message' => (string) ( $assoc_args['visitor-message'] ?? '' ),
 			'visitors'        => \WP_CLI\Utils\get_flag_value( $assoc_args, 'visitors', true ),
 			'cron'            => \WP_CLI\Utils\get_flag_value( $assoc_args, 'cron', true ),
+			'area'            => $this->scope_arg( $assoc_args ),
 		);
 
 		if ( ! $network ) {
@@ -189,6 +209,92 @@ final class Command {
 
 		$network->freezer->freeze( $freeze );
 		\WP_CLI::success( $this->network_summary( $network ) );
+	}
+
+	/**
+	 * The --scope value, checked.
+	 *
+	 * @param array $assoc_args Named arguments.
+	 * @return string all, content or code.
+	 */
+	private function scope_arg( array $assoc_args ): string {
+		if ( ! isset( $assoc_args['scope'] ) ) {
+			return Scopes::default_scope();
+		}
+
+		$scopes = array_keys( Scopes::all() );
+		if ( ! in_array( (string) $assoc_args['scope'], $scopes, true ) ) {
+			\WP_CLI::error( sprintf( 'Unknown scope "%s". Choose from: %s.', (string) $assoc_args['scope'], implode( ', ', $scopes ) ) );
+		}
+
+		return (string) $assoc_args['scope'];
+	}
+
+	/**
+	 * Shows what a freeze would interrupt right now, without freezing.
+	 *
+	 * Lists people with a post open in the editor, scheduled posts and scheduled
+	 * tasks due during the freeze, and WooCommerce orders waiting for payment.
+	 * It only reports: the exit status is 0 whatever it finds.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--minutes=<minutes>]
+	 * : Length of the freeze to check. 0 means no end. Default 60, or the axle_read_only_mode_default_duration filter.
+	 *
+	 * [--start=<datetime>]
+	 * : When the freeze would start, in the site time zone, such as "2026-11-20 22:00". Default: now.
+	 *
+	 * [--scope=<scope>]
+	 * : all, content or code. Default all.
+	 *
+	 * [--[no-]cron]
+	 * : Whether scheduled tasks would be paused. On by default.
+	 *
+	 * [--[no-]visitors]
+	 * : Whether visitor submissions would be paused. On by default.
+	 *
+	 * [--format=<format>]
+	 * : table or json.
+	 * ---
+	 * default: table
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode check --minutes=30
+	 *     wp axle-read-only-mode check --start="2026-11-20 22:00" --minutes=120 --scope=content --format=json
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function check( array $args, array $assoc_args ): void {
+		$result = $this->checks->run(
+			array(
+				'minutes'  => isset( $assoc_args['minutes'] ) ? (int) $assoc_args['minutes'] : Freezer::default_duration(),
+				'start'    => isset( $assoc_args['start'] ) ? \AryanX\Axle\ReadOnlyMode\Admin\ToolsPage::parse_start( (string) $assoc_args['start'] ) : 0,
+				'scope'    => $this->scope_arg( $assoc_args ),
+				'cron'     => \WP_CLI\Utils\get_flag_value( $assoc_args, 'cron', true ),
+				'visitors' => \WP_CLI\Utils\get_flag_value( $assoc_args, 'visitors', true ),
+			)
+		);
+
+		if ( 'json' === ( $assoc_args['format'] ?? 'table' ) ) {
+			\WP_CLI::line( (string) wp_json_encode( array_diff_key( $result, array( 'context' => true ) ) ) );
+			return;
+		}
+
+		foreach ( $result['items'] as $item ) {
+			\WP_CLI::line( sprintf( '[%s] %s', $item['word'], $item['title'] ) );
+			if ( '' !== $item['detail'] ) {
+				\WP_CLI::line( '    ' . $item['detail'] );
+			}
+			foreach ( $item['rows'] as $row ) {
+				\WP_CLI::line( '    - ' . $row );
+			}
+		}
+
+		\WP_CLI::line( $result['attention'] ? sprintf( '%d check(s) need a look before you freeze.', $result['attention'] ) : 'Nothing would be interrupted.' );
 	}
 
 	/**
@@ -279,6 +385,7 @@ final class Command {
 			}
 
 			\WP_CLI::line( $this->network_summary( $network ) );
+			\WP_CLI::line( 'Scope:                     ' . $network->state->scope() );
 			\WP_CLI::line( 'Visitor submissions paused: ' . ( $network->state->own_value( 'visitors' ) ? 'yes' : 'no' ) );
 			\WP_CLI::line( 'Scheduled tasks paused:     ' . ( $network->state->own_value( 'cron' ) ? 'yes' : 'no' ) );
 			\WP_CLI::line( 'Blocked so far:             ' . $network->log->count() );
@@ -297,6 +404,7 @@ final class Command {
 
 		\WP_CLI::line( $this->state->message() );
 		\WP_CLI::line( 'Frozen by:                  ' . $this->state->source() );
+		\WP_CLI::line( 'Scope:                     ' . $this->state->scope() );
 		\WP_CLI::line( 'Visitor submissions paused: ' . ( $this->state->get( 'visitors' ) ? 'yes' : 'no' ) );
 		\WP_CLI::line( 'Scheduled tasks paused:     ' . ( $this->state->get( 'cron' ) ? 'yes' : 'no' ) );
 		\WP_CLI::line( 'Blocked so far:             ' . $this->log->count( $this->state->log_since() ) );
@@ -542,8 +650,9 @@ final class Command {
 		$until = $own['end'] ? ' until ' . wp_date( get_option( 'time_format' ), (int) $own['end'] ) : '';
 		$where = 'sites' === ( $own['scope'] ?? 'all' ) ? count( (array) ( $own['sites'] ?? array() ) ) . ' site(s)' : 'every site';
 		$why   = '' !== $own['reason'] ? ' Reason: ' . $own['reason'] : '';
+		$what  = Scopes::ALL === $network->state->scope() ? '' : ' (' . strtolower( Scopes::label( $network->state->scope() ) ) . ')';
 
-		return sprintf( 'The network is frozen%s for %s.%s', $until, $where, $why );
+		return sprintf( 'The network is frozen%s%s for %s.%s', $what, $until, $where, $why );
 	}
 
 	/**
@@ -566,7 +675,7 @@ final class Command {
 	public function log( array $args, array $assoc_args ): void {
 		$network = $this->network_target( $assoc_args );
 		$entries = $network ? $network->log->recent( PHP_INT_MAX ) : $this->log->all( $this->state->log_since() );
-		$columns = $network ? array( 'time', 'site', 'who', 'source', 'result', 'where' ) : array( 'time', 'who', 'source', 'result', 'where' );
+		$columns = $network ? array( 'time', 'site', 'who', 'source', 'area', 'result', 'where' ) : array( 'time', 'who', 'source', 'area', 'result', 'where' );
 
 		$rows = array_map(
 			static function ( array $entry ): array {
@@ -574,6 +683,7 @@ final class Command {
 					'time'   => gmdate( 'Y-m-d H:i:s', (int) $entry['time'] ),
 					'who'    => BlockedLog::who( $entry ),
 					'site'   => $entry['site_id'] ?? get_current_blog_id(),
+					'area'   => $entry['area'] ?? '',
 					'result' => empty( $entry['allowed'] ) ? 'blocked' : 'allowed',
 				) + $entry;
 			},

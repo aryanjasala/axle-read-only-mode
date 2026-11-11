@@ -28,6 +28,27 @@ Free and open source under the GPL. No pro version, no upsells, no ads in wp-adm
 
 Part of [Axle](https://axlewp.com/) by AryanX, a family of free plugins for running WordPress sites safely.
 
+= Check before you freeze =
+
+The freeze screen has a "Before you freeze" card that shows what a freeze would interrupt right now, for the length, start and scope you picked, and updates as you change them:
+
+* **People editing**: who has a post open in the editor, which post, and how long ago.
+* **Scheduled posts** due inside the freeze. With scheduled tasks held, they publish when the freeze ends, not on time.
+* **WooCommerce orders waiting for payment**, created recently. Only when WooCommerce is active.
+* **Scheduled tasks** due inside the freeze that would be held.
+
+It informs and never blocks. If anyone else is editing, the freeze button asks first and says how many people. The admin bar freeze stays one click, and the notice afterwards says how many people were editing. Other plugins can add their own items with the `axle_read_only_mode_checks` filter. `wp axle-read-only-mode check` and the `check-freeze` ability give the same answer to scripts and AI agents.
+
+= Freeze part of the site =
+
+A freeze has a scope:
+
+* **Everything** (the default): nothing can be saved.
+* **Content only**: posts, pages, media, comments, terms, menus, orders and form entries cannot be saved. Settings, plugins, themes and updates keep working, so a deploy can go on during a content migration or a launch-day content lock.
+* **Settings and code only**: options, plugins, themes, updates and user accounts cannot be changed. Editors, commenters and customers keep working, so a code deploy or a content migration cannot drift from its configuration.
+
+The admin screens, REST API, XML-RPC, block editor, abilities, visitor submissions, scheduled tasks and the allow-list all follow the scope. The scope shows in the status badge, the notice on every screen, the admin bar, the blocked list, the history, the emails and WP-CLI (`--scope=content` or `--scope=code`). Anything the plugin cannot recognise as settings or code counts as content, and the `axle_read_only_mode_request_area` filter fixes a screen it sorts wrongly.
+
 = See what was blocked =
 
 Every blocked attempt is listed: who tried, when, and what (a post save, an upload, a REST request, a contact form). After the move you know exactly which edits to redo on the new server. The last ten freezes are kept too, with how many attempts each one blocked.
@@ -115,6 +136,18 @@ No. A network freeze overrides the site. Only a network admin can end it, from N
 = Does a network freeze reach sites where the plugin is not active? =
 
 No. The plugin enforces the freeze, so it has to be active on the site. Network-activate it so every site is covered.
+
+= What does "Content only" leave open? =
+
+Options, plugins, themes, widgets, templates, user accounts and updates keep working, and update checks keep running. Everything else is treated as content, including a plugin's own screens and forms the plugin does not recognise as settings. Visitor comments, forms and checkouts are content, so they pause too. Sign-ups pause with them.
+
+= Do editors get interrupted when I freeze settings and code only? =
+
+No. Editors, commenters and customers keep working. The "Before you freeze" card says so ("Not affected") when you pick that scope.
+
+= Does the check stop me from freezing? =
+
+No. It only tells you what would be interrupted. If other people have a post open, the freeze button asks first and says how many.
 
 = Does it send email? =
 

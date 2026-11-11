@@ -10,6 +10,7 @@ namespace AryanX\Axle\ReadOnlyMode\Health;
 use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
 use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
 use AryanX\Axle\ReadOnlyMode\Network;
+use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
@@ -319,6 +320,11 @@ final class SiteHealth implements Service {
 				'label' => __( 'Frozen by', 'axle-read-only-mode' ),
 				'value' => $labels[ $source ] ?? __( 'Nothing', 'axle-read-only-mode' ),
 				'debug' => '' !== $source ? $source : 'none',
+			),
+			'scope'  => array(
+				'label' => __( 'Scope', 'axle-read-only-mode' ),
+				'value' => $frozen ? Scopes::label( $this->state->scope() ) : __( 'Not applicable', 'axle-read-only-mode' ),
+				'debug' => $frozen ? $this->state->scope() : 'none',
 			),
 			'start'  => array(
 				'label' => __( 'Started', 'axle-read-only-mode' ),

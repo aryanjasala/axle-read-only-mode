@@ -39,3 +39,57 @@
 .aro-commands .axle-code {
 	white-space: pre-wrap;
 }
+
+.aro-scope {
+	display: block;
+	margin: 0 0 8px;
+}
+
+.aro-scope .description {
+	display: block;
+	margin-left: 24px;
+}
+
+.aro-checks {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.aro-check {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	align-items: baseline;
+	margin: 0;
+	padding: 12px 0;
+	border-top: 1px solid #dcdcde;
+}
+
+.aro-check:first-child {
+	border-top: 0;
+}
+
+.aro-check .axle-badge {
+	flex: 0 0 9em;
+	justify-content: center;
+}
+
+.aro-check__text {
+	flex: 1 1 16em;
+	min-width: 0;
+}
+
+.aro-check__text .axle-muted {
+	display: block;
+}
+
+.aro-check__rows {
+	margin: 4px 0 0 16px;
+	list-style: disc;
+}
+
+.aro-before__spinner {
+	float: none;
+	margin: 0;
+}

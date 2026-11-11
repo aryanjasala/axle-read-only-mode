@@ -48,6 +48,7 @@ final class History {
 	 *     @type int    $by       User who started it, 0 for WP-CLI.
 	 *     @type string $ended_by user, cli or expired.
 	 *     @type int    $blocked  Blocked attempts.
+	 *     @type string $scope    What the freeze covered: all, content or code. Entries from before scopes existed have none and were `all`.
 	 * }
 	 */
 	public function add( array $entry ): void {

@@ -268,7 +268,7 @@ final class AllowListTest extends TestCase {
 		$blocker                   = new Blocker( $state, new BlockedLog( new History() ) );
 
 		Filters\expectApplied( 'axle_read_only_mode_allow_request' )->once()->with( true, 'POST /?wc-api=wc_stripe', 'front-end' )->andReturn( true );
-		Actions\expectDone( 'axle_read_only_mode_allowed' )->once()->with( 'POST /?wc-api=wc_stripe', 'front-end', 0, 'settings' );
+		Actions\expectDone( 'axle_read_only_mode_allowed' )->once()->with( 'POST /?wc-api=wc_stripe', 'front-end', 0, 'settings', 'content' );
 
 		$blocker->stop( 'POST /?wc-api=wc_stripe', 'front-end' );
 
@@ -337,7 +337,7 @@ final class AllowListTest extends TestCase {
 		$state = $this->state( array( 'ajax' => array( 'subscribe_form' ) ) );
 		$guard = new AdminGuard( new Blocker( $state, new BlockedLog( new History() ) ) );
 
-		Actions\expectDone( 'axle_read_only_mode_allowed' )->once()->with( 'admin-ajax subscribe_form', 'ajax', 0, 'settings' );
+		Actions\expectDone( 'axle_read_only_mode_allowed' )->once()->with( 'admin-ajax subscribe_form', 'ajax', 0, 'settings', 'content' );
 		$guard->guard();
 		$this->assertSame( 'ajax', $this->options[ BlockedLog::OPTION ][0]['source'] );
 

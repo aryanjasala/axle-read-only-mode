@@ -116,6 +116,20 @@ final class NotifierTest extends TestCase {
 		);
 	}
 
+	public function test_the_email_says_what_the_freeze_covers(): void {
+		$this->enable();
+
+		$this->notifier()->send( 'started', $this->freeze( array( 'area' => 'content' ) ) );
+		$this->assertStringContainsString( 'Scope: Content only', $this->mail[0]['body'] );
+
+		$this->notifier()->send( 'ended', $this->freeze( array( 'area' => 'code' ) ), array( 'ended_by' => 'user' ) );
+		$this->assertStringContainsString( 'Scope: Settings and code only', $this->mail[1]['body'] );
+
+		$this->transients = array();
+		$this->notifier()->send( 'started', $this->freeze() );
+		$this->assertStringContainsString( 'Scope: Everything', $this->mail[2]['body'], 'A freeze with no stored scope covers everything.' );
+	}
+
 	public function test_nothing_is_sent_until_emails_are_turned_on(): void {
 		$this->assertFalse( $this->notifier()->send( 'started', $this->freeze() ) );
 
