@@ -106,6 +106,8 @@ Or freeze from wp-config.php while files are being swapped:
 
 **Try it before you install.** [try.axlewp.com/axle-read-only-mode](https://try.axlewp.com/axle-read-only-mode) opens a private WordPress in your browser with this plugin and some demo content.
 
+**Every hook, WP-CLI command and constant** is in the [guide on axlewp.com](https://axlewp.com/docs/axle-read-only-mode/).
+
 
 == Frequently Asked Questions ==
 
