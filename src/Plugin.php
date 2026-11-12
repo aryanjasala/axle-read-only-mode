@@ -80,6 +80,13 @@ final class Plugin {
 	private Checks $checks;
 
 	/**
+	 * This site's planned freezes.
+	 *
+	 * @var Planner
+	 */
+	private Planner $planner;
+
+	/**
 	 * The network's freeze, history and log. Null on a single site.
 	 *
 	 * @var Network|null
@@ -116,6 +123,16 @@ final class Plugin {
 		$this->log      = new BlockedLog( $this->history, $this->network ? $this->network->history : null );
 		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
 		$this->checks   = new Checks();
+		$this->planner  = Planner::for_site( $this->freezer, $this->state );
+	}
+
+	/**
+	 * This site's planned freezes, for other plugins.
+	 *
+	 * @return Planner
+	 */
+	public function planner(): Planner {
+		return $this->planner;
 	}
 
 	/**
@@ -176,23 +193,44 @@ final class Plugin {
 			$notifier->register();
 		}
 
+		// A plan starts on the first request after its time, with no help from WP-Cron.
 		$this->freezer->expire_if_needed();
+		$this->planner->tick();
 		$this->freezer->announce_scheduled_start();
 		if ( $this->network ) {
 			$this->network->freezer->expire_if_needed();
+			$this->network->planner->tick();
 			$this->network->freezer->announce_scheduled_start();
 		}
 
+		$heads_up = new HeadsUp(
+			array_filter(
+				array(
+					array(
+						'state'   => $this->state,
+						'planner' => $this->planner,
+					),
+					$this->network ? array(
+						'state'   => $this->network->state,
+						'planner' => $this->network->planner,
+					) : null,
+				)
+			)
+		);
+
 		$services = array(
 			$this->log,
-			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings, $this->checks ),
+			$this->planner,
+			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings, $this->checks, $this->planner ),
 			new AdminBar( $this->state ),
-			new EditorLock( $this->state ),
-			new Abilities( $this->state, $this->freezer, $this->log, $this->checks ),
-			new SiteHealth( $this->state, $this->network, $this->settings ),
+			new EditorLock( $this->state, $heads_up ),
+			$heads_up,
+			new Abilities( $this->state, $this->freezer, $this->log, $this->checks, $this->planner ),
+			new SiteHealth( $this->state, $this->network, $this->settings, $this->planner ),
 		);
 
 		if ( $this->network ) {
+			$services[] = $this->network->planner;
 			$services[] = new NetworkPage( $this->network );
 		}
 
@@ -215,7 +253,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings ), $this->checks ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings, $this->planner ), $this->checks, $this->planner ) );
 		}
 	}
 }

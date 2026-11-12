@@ -352,14 +352,21 @@ final class State {
 	}
 
 	/**
-	 * Time the freeze ends, formatted in the site's time zone.
+	 * Time the freeze ends, formatted in the site's time zone, with the date when it is not today.
 	 *
 	 * @return string Empty when the freeze has no end.
 	 */
 	public function end_time(): string {
 		$end = (int) $this->get( 'end' );
 
-		return $end && ! $this->forced_by_constant() ? wp_date( get_option( 'time_format' ), $end ) : '';
+		if ( ! $end || $this->forced_by_constant() ) {
+			return '';
+		}
+
+		// A freeze that ends on another day says which day, so "until 2:00 am" cannot mean the wrong night.
+		$format = wp_date( 'Y-m-d', $end ) === wp_date( 'Y-m-d' ) ? get_option( 'time_format' ) : get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+
+		return wp_date( $format, $end );
 	}
 
 	/**

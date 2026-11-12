@@ -378,6 +378,15 @@ final class Notifier implements Service {
 				: __( 'Covers: every site on the network', 'axle-read-only-mode' );
 		}
 
+		if ( 'started' === $event && ! $network ) {
+			$findings = Planner::findings( (int) ( $freeze['start'] ?? 0 ) );
+			if ( $findings ) {
+				$lines[] = '';
+				$lines[] = __( 'The check before freezing found:', 'axle-read-only-mode' );
+				$lines   = array_merge( $lines, $findings );
+			}
+		}
+
 		if ( in_array( $event, array( 'ended', 'expired' ), true ) ) {
 			if ( isset( $context['blocked'] ) ) {
 				/* translators: %d: number of attempts the freeze blocked. */

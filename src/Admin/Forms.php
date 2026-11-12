@@ -111,6 +111,13 @@ final class Forms {
 				}
 				?>
 			</table>
+			<div class="axle-confirm" id="aro-freeze-confirm" role="group" aria-labelledby="aro-freeze-confirm-text" hidden>
+				<p id="aro-freeze-confirm-text"></p>
+				<div class="axle-actions">
+					<button type="button" class="button button-primary" data-aro-confirm-yes><?php esc_html_e( 'Freeze anyway', 'axle-read-only-mode' ); ?></button>
+					<button type="button" class="button" data-aro-confirm-no><?php esc_html_e( 'Go back', 'axle-read-only-mode' ); ?></button>
+				</div>
+			</div>
 			<?php submit_button( $title ); ?>
 		</form>
 		<?php

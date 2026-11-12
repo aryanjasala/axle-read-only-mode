@@ -16,7 +16,7 @@ When you move a site to a new server, or replace the live database with one from
 
 Maintenance mode hides the whole site from visitors. Axle Read-Only Mode keeps the site online but makes it **read-only**:
 
-* **Editors** can open and read everything in wp-admin, but cannot save. The block editor disables Save and Publish and shows why. People who already have the editor open are locked within a minute, through the WordPress heartbeat, and unlocked again when the freeze ends.
+* **Editors** can open and read everything in wp-admin, but cannot save. The block editor disables Save and Publish and shows why. People who already have the editor open are locked within a minute, through the WordPress heartbeat, keep what they typed, and are unlocked again, with their changes saved, when the freeze ends.
 * **Admin actions** that change data are refused: saving settings, uploading media, installing or updating plugins, trashing posts. Automatic updates are paused.
 * **The REST API and XML-RPC** refuse anything that writes, with HTTP status 423. Reading still works.
 * **Visitor submissions** (optional, on by default): comments, sign-ups, contact forms, checkouts and any other form post get a "back soon" page with HTTP 503 and a Retry-After header, which search engines understand.
@@ -39,6 +39,16 @@ The freeze screen has a "Before you freeze" card that shows what a freeze would 
 
 It informs and never blocks. If anyone else is editing, the freeze button asks first and says how many people. The admin bar freeze stays one click, and the notice afterwards says how many people were editing. Other plugins can add their own items with the `axle_read_only_mode_checks` filter. `wp axle-read-only-mode check` and the `check-freeze` ability give the same answer to scripts and AI agents.
 
+= Plan a freeze, with a heads-up =
+
+Plan a freeze for later on **Tools > Read-Only Mode > Planned**: a start time, a length, a scope and a reason. Repeat it every week on the days you choose, for a regular deploy window. It starts by itself on the first request after its time, even when WP-Cron is late, and the check before freezing runs again at the start, with its findings in the start email.
+
+From 15 minutes before (you can change it per plan), everyone who is writing sees a countdown: a notice in wp-admin and in the block editor, "The site goes read-only in 12 minutes. Save your work." It updates through the WordPress heartbeat, so a plan you cancel or move changes it within a minute, and screen readers hear it once. You can also email the people who have a post open when the heads-up starts. WP-CLI has `plan`, `plans` and `cancel`, and there are abilities for each. On multisite, Network Admin has its own list of planned freezes.
+
+= Nothing typed during a freeze is lost =
+
+If a freeze starts while you are writing in the block editor, your changes stay in the editor and a copy waits in your browser. One notice says when the freeze ends. When it ends, your changes are saved for you, unless the post changed on the server meanwhile. Then you see both versions and choose which one to keep. Nothing is overwritten without a choice. In the classic editor, Update does nothing during a freeze and the form keeps what you typed.
+
 = Freeze part of the site =
 
 A freeze has a scope:
@@ -57,7 +67,7 @@ Every blocked attempt is listed: who tried, when, and what (a post save, an uplo
 
 * Pick an end time and the freeze ends by itself. A deploy script that fails halfway cannot leave the site frozen for days.
 * Running late? Add 30 minutes or an hour from the freeze screen or the admin bar. A live countdown shows the time left.
-* Schedule a freeze for later, for example the start of a maintenance window.
+* Plan a freeze for later, once or every week, with a countdown for everyone who is writing.
 * Tick "Let me keep editing" to exempt yourself.
 * Write your own message for visitors, for example "We are moving servers. Back by 3 pm."
 * Freeze for an hour straight from the admin bar (under the site name), and unfreeze from the admin bar or the notice on every screen.
@@ -83,7 +93,7 @@ Off by default. Choose who gets it (the admin email if you leave it empty) and w
 
 = Site Health =
 
-Tools > Site Health has a read-only mode test. It is good when the site is not frozen, recommended while a freeze with an end time is running, and critical when a freeze ran 30 minutes past its end time, a freeze with no end time has lasted more than 6 hours, or `wp-config.php` forces the freeze. The Info tab lists the state, end time, allow-list counts and email settings.
+Tools > Site Health has a read-only mode test, and a second one that says when a planned freeze did not start. It is good when the site is not frozen, recommended while a freeze with an end time is running, and critical when a freeze ran 30 minutes past its end time, a freeze with no end time has lasted more than 6 hours, or `wp-config.php` forces the freeze. The Info tab lists the state, end time, allow-list counts and email settings.
 
 = From a deploy script =
 
@@ -91,6 +101,8 @@ Tools > Site Health has a read-only mode test. It is good when the site is not f
 `wp axle-read-only-mode off`
 `wp axle-read-only-mode status`
 `wp axle-read-only-mode extend 30`
+`wp axle-read-only-mode plan --start="2026-11-20 02:00" --minutes=45 --days=fri`
+`wp axle-read-only-mode plans`
 `wp axle-read-only-mode log`
 `wp axle-read-only-mode on --network` (a whole multisite network)
 `wp axle-read-only-mode allow rest /wc/v3/webhooks`
@@ -149,9 +161,17 @@ No. Editors, commenters and customers keep working. The "Before you freeze" card
 
 No. It only tells you what would be interrupted. If other people have a post open, the freeze button asks first and says how many.
 
+= Does a planned freeze need WP-Cron? =
+
+No. Every request checks the list of plans and starts the first one whose time has passed, so a plan starts on the first request after its time. On a site nobody visits that can be late, and Site Health says so. A cron job that opens the site a minute before the plan is enough.
+
+= What happens to my changes if the freeze starts while I am writing? =
+
+In the block editor they stay in the editor, and a copy waits in your browser. When the freeze ends they are saved, unless someone else changed the post meanwhile: then you choose between your version and the saved one. In the classic editor the form keeps what you typed, and you press Update again when the freeze ends.
+
 = Does it send email? =
 
-Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mail()` and sends at most one email per event per minute.
+Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mail()` and sends at most one email per event per minute. A planned freeze can also email the people who have a post open when its heads-up starts, if you tick that on the plan.
 
 == Screenshots ==
 

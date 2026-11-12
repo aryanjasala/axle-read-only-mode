@@ -10,6 +10,7 @@ namespace AryanX\Axle\ReadOnlyMode\Health;
 use AryanX\Axle\ReadOnlyMode\Admin\NetworkPage;
 use AryanX\Axle\ReadOnlyMode\Admin\ToolsPage;
 use AryanX\Axle\ReadOnlyMode\Network;
+use AryanX\Axle\ReadOnlyMode\Planner;
 use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 use AryanX\Axle\ReadOnlyMode\Settings;
@@ -51,13 +52,22 @@ final class SiteHealth implements Service {
 	private Settings $settings;
 
 	/**
+	 * This site's planned freezes.
+	 *
+	 * @var Planner|null
+	 */
+	private ?Planner $planner;
+
+	/**
 	 * Sets up the checks.
 	 *
 	 * @param State        $state    Saved freeze.
 	 * @param Network|null $network  The network's freeze, on multisite.
 	 * @param Settings     $settings This site's settings.
+	 * @param Planner|null $planner  This site's planned freezes.
 	 */
-	public function __construct( State $state, ?Network $network, Settings $settings ) {
+	public function __construct( State $state, ?Network $network, Settings $settings, ?Planner $planner = null ) {
+		$this->planner  = $planner;
 		$this->state    = $state;
 		$this->network  = $network;
 		$this->settings = $settings;
@@ -83,7 +93,64 @@ final class SiteHealth implements Service {
 			'test'  => array( $this, 'test' ),
 		);
 
+		if ( $this->planner ) {
+			$tests['direct'][ self::TEST . '_plans' ] = array(
+				'label' => __( 'Planned freezes', 'axle-read-only-mode' ),
+				'test'  => array( $this, 'test_plans' ),
+			);
+		}
+
 		return $tests;
+	}
+
+	/**
+	 * The Site Health test for planned freezes: recommended when one is past its start and did not begin.
+	 *
+	 * A plan starts on the first request after its time. Only a site nobody
+	 * visits, or a request that fails early, leaves one waiting.
+	 *
+	 * @return array Site Health result.
+	 */
+	public function test_plans(): array {
+		$plans = $this->planner ? $this->planner->all() : array();
+		/**
+		 * Filters how many minutes a planned freeze can be past its start before Site Health says it did not begin.
+		 *
+		 * @param int $minutes Default 10, at least 1.
+		 */
+		$grace   = (int) apply_filters( 'axle_read_only_mode_health_plan_grace_minutes', 10 ) * MINUTE_IN_SECONDS;
+		$waiting = array_filter(
+			$plans,
+			static function ( array $plan ) use ( $grace ): bool {
+				return $plan['start'] < time() - max( MINUTE_IN_SECONDS, $grace ) && $plan['start'] > $plan['last'];
+			}
+		);
+
+		$result = array(
+			'label'       => __( 'Planned freezes start on time', 'axle-read-only-mode' ),
+			'status'      => 'good',
+			'badge'       => array(
+				'label' => __( 'Read-only mode', 'axle-read-only-mode' ),
+				'color' => 'blue',
+			),
+			'description' => '<p>' . esc_html(
+				$plans
+					/* translators: %d: number of planned freezes. */
+					? sprintf( _n( '%d freeze is planned. It starts by itself at its time.', '%d freezes are planned. Each starts by itself at its time.', count( $plans ), 'axle-read-only-mode' ), count( $plans ) )
+					: __( 'No freeze is planned.', 'axle-read-only-mode' )
+			) . '</p>',
+			'actions'     => '',
+			'test'        => self::TEST . '_plans',
+		);
+
+		if ( $waiting ) {
+			$result['status']      = 'recommended';
+			$result['label']       = __( 'A planned freeze did not start', 'axle-read-only-mode' );
+			$result['description'] = '<p>' . esc_html__( 'A planned freeze is past its start time and has not begun. Plans start on the first request after their time, so this points at a request that fails early, such as a fatal error, or at a freeze that was already running. Open the Planned tab to check the plan.', 'axle-read-only-mode' ) . '</p>';
+			$result['actions']     = sprintf( '<p><a href="%s">%s</a></p>', esc_url( ToolsPage::page_url( 'plans' ) ), esc_html__( 'Open planned freezes', 'axle-read-only-mode' ) );
+		}
+
+		return $result;
 	}
 
 	/**

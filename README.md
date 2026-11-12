@@ -34,6 +34,8 @@ When you move a site to a new server, or replace the live database with one from
 ## Features
 
 - **Check before freezing**: a "Before you freeze" card shows who has a post open in the editor, scheduled posts and tasks due during the freeze, and WooCommerce orders waiting for payment. It updates as you change the length, start or scope, and it only informs
+- **Planned freezes with a heads-up**: plan a freeze for later, once or every week on chosen days. From 15 minutes before (you choose), everyone who is writing sees a countdown in wp-admin and in the block editor, and people with a post open can get an email. The plan starts on the first request after its time, even when WP-Cron is late, and the check before freezing runs again at the start
+- **Nothing typed during a freeze is lost**: in the block editor your changes wait in the browser, and are saved when the freeze ends, unless the post changed on the server meanwhile. Then you see both versions and choose. The classic editor keeps its form
 - **Freeze part of the site**: Everything (the default), Content only (settings, plugins, themes and updates keep working) or Settings and code only (editors and visitors keep working)
 - **wp-admin** still opens, but saves, uploads, settings and plugin changes are refused
 - **Block editor** disables Save and Publish and says why, including for people who already have it open
@@ -105,6 +107,8 @@ src/
 ├── Plugin.php           creates the services, guards load only while frozen
 ├── State.php            the saved freeze, its timing and messages, and the network freeze over it
 ├── Freezer.php          starts, extends and ends freezes
+├── Planner.php          planned freezes: the list, repeats, and starting each one on time
+├── HeadsUp.php          the countdown before a planned freeze
 ├── Scopes.php           the scopes and the rules that sort a request into content or code
 ├── Checks.php           the Before you freeze checks
 ├── BlockedLog.php       what the freeze stopped and what the allow-list let through
@@ -116,7 +120,7 @@ src/
 ├── Guards/              wp-admin, REST, front-end and cron guards
 ├── Admin/               freeze screen, settings tab, network screen, notice, admin bar
 ├── Health/SiteHealth.php  Site Health test and info section
-├── Editor/EditorLock.php  locks the block editor through the heartbeat
+├── Editor/EditorLock.php  locks the block editor, keeps your changes and saves them when the freeze ends
 └── Cli/Command.php      wp axle-read-only-mode
 assets/                  editor lock, screen script and shared styles
 tests/
@@ -134,7 +138,7 @@ Small plugins that each fill one gap in WordPress, all free with no pro version.
 | | Plugin | What it does |
 | --- | --- | --- |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-page-template-usage/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Page Template Usage](https://github.com/aryanjasala/axle-page-template-usage) | See which template every page uses, and fix the pages on a missing template |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-staging-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Staging Guard](https://github.com/aryanjasala/axle-staging-guard) | Stops staging copies from emailing real people or getting indexed |
+| <img src="https://raw.githubusercontent.com/aryanjasala/axle-staging-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Staging Guard](https://github.com/aryanjasala/axle-staging-guard) | Stops staging copies from emailing real people, calling live APIs or getting indexed |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-category-tag-trash/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Category & Tag Trash](https://github.com/aryanjasala/axle-category-tag-trash) | A trash for categories, tags and custom terms, with undo and full restore |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-block-restore/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Block Restore](https://github.com/aryanjasala/axle-block-restore) | Restore a single block from an old revision, not the whole post |
 | <img src="https://raw.githubusercontent.com/aryanjasala/activity-log-with-undo/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Activity Log with Undo](https://github.com/aryanjasala/activity-log-with-undo) | An activity log where every change you can reverse has an Undo button |
@@ -143,10 +147,10 @@ Small plugins that each fill one gap in WordPress, all free with no pro version.
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-config-sync/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Config Sync](https://github.com/aryanjasala/axle-config-sync) | Keep settings in git, diff them against the live site, apply with a preview and undo |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-leftovers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Leftovers](https://github.com/aryanjasala/axle-leftovers) | Find what deleted plugins left behind, see who owns it and why, and clean it up with undo |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-license-tracker/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle License Tracker](https://github.com/aryanjasala/axle-license-tracker) | See which premium plugins are licensed, which lapsed and stopped getting updates, and what renews when |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-review/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Review](https://github.com/aryanjasala/axle-review) | Share drafts through private links and collect outside feedback as block Notes |
+| <img src="https://raw.githubusercontent.com/aryanjasala/axle-review/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Review](https://github.com/aryanjasala/axle-review) | Share drafts through private links, collect outside feedback as block Notes, and know when an approval is out of date |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-runtime-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Runtime Doctor](https://github.com/aryanjasala/axle-runtime-doctor) | Check OPcache coverage, the object cache, PHP support and limits, cron and more, with the fix for your host |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-smoke-test/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Smoke Test](https://github.com/aryanjasala/axle-smoke-test) | Check key pages after every update or deploy, see what broke and roll it back |
-| <img src="https://raw.githubusercontent.com/aryanjasala/block-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Doctor](https://github.com/aryanjasala/block-doctor) | Scan the whole site for invalid and broken blocks and fix them in bulk, with undo |
+| <img src="https://raw.githubusercontent.com/aryanjasala/block-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Doctor](https://github.com/aryanjasala/block-doctor) | Scan the site for broken blocks and fix them in bulk, with undo. See which posts use each block before you switch a plugin off |
 | <img src="https://raw.githubusercontent.com/aryanjasala/block-theme-ops/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Theme Ops](https://github.com/aryanjasala/block-theme-ops) | Find Site Editor changes that override your theme files, see the diff, reset them or send them to Git |
 | <img src="https://raw.githubusercontent.com/aryanjasala/role-right-sizer/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Role Right-Sizer](https://github.com/aryanjasala/role-right-sizer) | Recommends the smallest role each user needs, from what they actually do |
 | <img src="https://raw.githubusercontent.com/aryanjasala/update-rehearsal/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Update Rehearsal](https://github.com/aryanjasala/update-rehearsal) | Try plugin, theme, core and PHP updates on a disposable copy of your site in WordPress Playground first |

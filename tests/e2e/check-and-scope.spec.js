@@ -105,27 +105,29 @@ test.describe( 'Before you freeze, and freezing part of the site', () => {
 		await page.goto( PAGE );
 		await expect( page.locator( '.aro-before .aro-check--editing .axle-badge' ) ).toHaveText( 'Editing now' );
 
-		let asked = '';
-		page.once( 'dialog', ( dialog ) => {
-			asked = dialog.message();
+		let dialogs = 0;
+		page.on( 'dialog', ( dialog ) => {
+			dialogs++;
 			dialog.dismiss();
 		} );
+
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();
-		await expect.poll( () => asked ).toContain( '1 other person has a post open in the editor' );
-		expect( asked ).toContain( 'You can unfreeze at any time' );
+		const confirm = page.locator( '#aro-freeze-confirm' );
+		await expect( confirm ).toBeVisible();
+		await expect( confirm ).toContainText( '1 other person has a post open in the editor' );
+		await expect( confirm ).toContainText( 'You can unfreeze at any time' );
 		expect( wp( 'axle-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
 
-		page.once( 'dialog', ( dialog ) => dialog.accept() );
+		await confirm.getByRole( 'button', { name: 'Go back' } ).click();
+		await expect( confirm ).toBeHidden();
+		expect( wp( 'axle-read-only-mode', 'status' ) ).toBe( 'Not frozen.' );
+
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();
+		await confirm.getByRole( 'button', { name: 'Freeze anyway' } ).click();
 		await expect( page.locator( '.aro-status .axle-card__title' ) ).toHaveText( 'The site is frozen' );
 		wp( 'axle-read-only-mode', 'off' );
 
 		wp( 'post', 'meta', 'delete', String( postId ), '_edit_lock' );
-		let dialogs = 0;
-		page.on( 'dialog', ( dialog ) => {
-			dialogs++;
-			dialog.accept();
-		} );
 		await page.goto( PAGE );
 		await expect( page.locator( '.aro-before .aro-check--editing .axle-badge' ) ).toHaveText( 'Clear' );
 		await page.getByRole( 'button', { name: 'Freeze the site' } ).click();

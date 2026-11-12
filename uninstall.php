@@ -15,7 +15,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 function axle_read_only_mode_uninstall_site(): void {
 	global $wpdb;
 
-	foreach ( array( 'state', 'log', 'history', 'settings' ) as $name ) {
+	foreach ( array( 'state', 'log', 'history', 'settings', 'plans', 'start_findings' ) as $name ) {
 		delete_option( 'axle_read_only_mode_' . $name );
 	}
 
@@ -32,7 +32,7 @@ function axle_read_only_mode_uninstall_site(): void {
 function axle_read_only_mode_uninstall_network(): void {
 	global $wpdb;
 
-	foreach ( array( 'network_state', 'network_history', 'network_settings' ) as $name ) {
+	foreach ( array( 'network_state', 'network_history', 'network_settings', 'network_plans' ) as $name ) {
 		delete_site_option( 'axle_read_only_mode_' . $name );
 	}
 
@@ -42,6 +42,9 @@ function axle_read_only_mode_uninstall_network(): void {
 	}
 	// phpcs:enable
 }
+
+// Who dismissed the "Get started" card. User meta is shared across a network.
+delete_metadata( 'user', 0, 'axle_read_only_mode_dismissed_start', '', true );
 
 if ( is_multisite() ) {
 	$axle_read_only_mode_offset = 0;

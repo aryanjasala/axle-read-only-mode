@@ -14,6 +14,7 @@ use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\Health\SiteHealth;
 use AryanX\Axle\ReadOnlyMode\Network;
 use AryanX\Axle\ReadOnlyMode\Notifier;
+use AryanX\Axle\ReadOnlyMode\Planner;
 use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
@@ -61,6 +62,13 @@ final class Command {
 	private BlockedLog $log;
 
 	/**
+	 * This site's planned freezes.
+	 *
+	 * @var Planner|null
+	 */
+	private ?Planner $planner;
+
+	/**
 	 * The network's freeze, on multisite.
 	 *
 	 * @var Network|null
@@ -98,8 +106,10 @@ final class Command {
 	 * @param Settings|null   $settings This site's settings.
 	 * @param SiteHealth|null $health The Site Health check.
 	 * @param Checks|null     $checks The "Before you freeze" checks.
+	 * @param Planner|null    $planner This site's planned freezes.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null, ?Checks $checks = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null, ?Checks $checks = null, ?Planner $planner = null ) {
+		$this->planner  = $planner;
 		$this->checks   = $checks ?? new Checks();
 		$this->state    = $state;
 		$this->freezer  = $freezer;
@@ -295,6 +305,183 @@ final class Command {
 		}
 
 		\WP_CLI::line( $result['attention'] ? sprintf( '%d check(s) need a look before you freeze.', $result['attention'] ) : 'Nothing would be interrupted.' );
+	}
+
+	/**
+	 * The planner the command works on: the site's, or with --network the network's.
+	 *
+	 * @param array $assoc_args Named arguments.
+	 * @return Planner
+	 */
+	private function planner_for( array $assoc_args ): Planner {
+		$network = $this->network_target( $assoc_args );
+		$planner = $network ? $network->planner : $this->planner;
+
+		if ( ! $planner ) {
+			\WP_CLI::error( 'Planned freezes are not available.' );
+		}
+
+		return $planner;
+	}
+
+	/**
+	 * Plans a freeze for later, with a countdown for everyone who is writing before it starts.
+	 *
+	 * The freeze starts by itself on the first request after its time, with or
+	 * without WP-Cron. Repeat it every week with --days.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --start=<datetime>
+	 * : When it starts, in the site time zone, such as "2026-11-20 02:00". Must be in the future. For a repeating plan this sets the time of day.
+	 *
+	 * [--minutes=<minutes>]
+	 * : Length in minutes. 0 means until someone unfreezes. Default 60, or the axle_read_only_mode_default_duration filter.
+	 *
+	 * [--reason=<reason>]
+	 * : Shown in the countdown and to people who try to save.
+	 *
+	 * [--scope=<scope>]
+	 * : all, content or code. Default all.
+	 *
+	 * [--days=<days>]
+	 * : Repeat every week on these days, comma-separated: sun,mon,tue,wed,thu,fri,sat. Default: freeze once.
+	 *
+	 * [--lead=<minutes>]
+	 * : Minutes of heads-up before it starts. Default 15, or the axle_read_only_mode_heads_up_minutes filter.
+	 *
+	 * [--email-editors]
+	 * : Email people who have a post open when the heads-up starts.
+	 *
+	 * [--[no-]visitors]
+	 * : Pause visitor submissions. On by default.
+	 *
+	 * [--[no-]cron]
+	 * : Pause scheduled tasks. On by default.
+	 *
+	 * [--id=<id>]
+	 * : Change this plan instead of adding one.
+	 *
+	 * [--network]
+	 * : Plan a freeze of the whole network (every site).
+	 *
+	 * [--sites=<ids>]
+	 * : With --network, only these sites. Comma-separated site IDs.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode plan --start="2026-11-20 02:00" --minutes=45 --reason="Release night"
+	 *     wp axle-read-only-mode plan --start="2026-11-22 02:00" --days=sun --minutes=60 --scope=content
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function plan( array $args, array $assoc_args ): void {
+		$planner = $this->planner_for( $assoc_args );
+		$start   = \AryanX\Axle\ReadOnlyMode\Admin\ToolsPage::parse_start( (string) ( $assoc_args['start'] ?? '' ) );
+		$days    = array();
+		$names   = array( 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat' );
+
+		foreach ( array_filter( array_map( 'trim', explode( ',', strtolower( (string) ( $assoc_args['days'] ?? '' ) ) ) ) ) as $name ) {
+			$day = array_search( substr( $name, 0, 3 ), $names, true );
+			if ( false === $day ) {
+				\WP_CLI::error( sprintf( 'Unknown day "%s". Use sun, mon, tue, wed, thu, fri or sat.', $name ) );
+			}
+			$days[] = (int) $day;
+		}
+
+		$input = array(
+			'start'    => $start,
+			'minutes'  => isset( $assoc_args['minutes'] ) ? (int) $assoc_args['minutes'] : Freezer::default_duration(),
+			'reason'   => (string) ( $assoc_args['reason'] ?? '' ),
+			'area'     => $this->scope_arg( $assoc_args ),
+			'days'     => $days,
+			'lead'     => (int) ( $assoc_args['lead'] ?? 0 ),
+			'email'    => \WP_CLI\Utils\get_flag_value( $assoc_args, 'email-editors', false ),
+			'visitors' => \WP_CLI\Utils\get_flag_value( $assoc_args, 'visitors', true ),
+			'cron'     => \WP_CLI\Utils\get_flag_value( $assoc_args, 'cron', true ),
+		);
+
+		if ( isset( $assoc_args['sites'] ) ) {
+			if ( ! $planner->is_network() ) {
+				\WP_CLI::error( '--sites needs --network.' );
+			}
+			$input['scope'] = 'sites';
+			$input['sites'] = array_values( array_filter( array_map( 'absint', explode( ',', (string) $assoc_args['sites'] ) ) ) );
+		}
+
+		$plan = $planner->save( $input, (string) ( $assoc_args['id'] ?? '' ) );
+		if ( is_wp_error( $plan ) ) {
+			\WP_CLI::error( $plan->get_error_message() );
+		}
+
+		\WP_CLI::success( sprintf( 'Planned freeze %s starts %s (%s).', $plan['id'], wp_date( 'Y-m-d H:i', $plan['start'] ), wp_timezone_string() ) );
+	}
+
+	/**
+	 * Lists planned freezes.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--network]
+	 * : List the network's planned freezes.
+	 *
+	 * [--format=<format>]
+	 * : table, json, csv or yaml.
+	 * ---
+	 * default: table
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode plans
+	 *     wp axle-read-only-mode plans --format=json
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function plans( array $args, array $assoc_args ): void {
+		$names = array( 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' );
+		$rows  = array();
+
+		foreach ( $this->planner_for( $assoc_args )->all() as $plan ) {
+			$rows[] = array(
+				'id'      => $plan['id'],
+				'starts'  => wp_date( 'Y-m-d H:i', $plan['start'] ),
+				'minutes' => $plan['minutes'],
+				'scope'   => $plan['area'],
+				'repeat'  => $plan['days'] ? implode( ',', array_map( static fn( int $day ): string => $names[ $day ], $plan['days'] ) ) : '',
+				'reason'  => $plan['reason'],
+			);
+		}
+
+		\WP_CLI\Utils\format_items( (string) ( $assoc_args['format'] ?? 'table' ), $rows, array( 'id', 'starts', 'minutes', 'scope', 'repeat', 'reason' ) );
+	}
+
+	/**
+	 * Cancels a planned freeze. A weekly plan stops repeating. A freeze it already started keeps running.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <id>
+	 * : The plan's ID, from `wp axle-read-only-mode plans`.
+	 *
+	 * [--network]
+	 * : Cancel a network plan.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode cancel k3Jx9aQz
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function cancel( array $args, array $assoc_args ): void {
+		if ( ! $this->planner_for( $assoc_args )->cancel( (string) ( $args[0] ?? '' ) ) ) {
+			\WP_CLI::error( 'There is no planned freeze with that ID.' );
+		}
+
+		\WP_CLI::success( 'Planned freeze cancelled.' );
 	}
 
 	/**

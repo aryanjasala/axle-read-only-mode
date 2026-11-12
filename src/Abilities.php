@@ -59,14 +59,23 @@ final class Abilities implements Service {
 	private Checks $checks;
 
 	/**
+	 * Planned freezes.
+	 *
+	 * @var Planner|null
+	 */
+	private ?Planner $planner;
+
+	/**
 	 * Sets up the abilities.
 	 *
-	 * @param State       $state   The freeze state.
-	 * @param Freezer     $freezer Freeze controls.
-	 * @param BlockedLog  $log     What the freeze stopped.
-	 * @param Checks|null $checks  The "Before you freeze" checks.
+	 * @param State        $state   The freeze state.
+	 * @param Freezer      $freezer Freeze controls.
+	 * @param BlockedLog   $log     What the freeze stopped.
+	 * @param Checks|null  $checks  The "Before you freeze" checks.
+	 * @param Planner|null $planner Planned freezes.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Checks $checks = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Checks $checks = null, ?Planner $planner = null ) {
+		$this->planner = $planner;
 		$this->checks  = $checks ?? new Checks();
 		$this->state   = $state;
 		$this->freezer = $freezer;
@@ -290,6 +299,120 @@ final class Abilities implements Service {
 			)
 		);
 
+		if ( $this->planner ) {
+			$plan_schema = $this->plan_schema();
+
+			$this->ability(
+				'list-plans',
+				__( 'List planned freezes', 'axle-read-only-mode' ),
+				__( 'The freezes planned for later: when each starts, how long it lasts, what it covers, and whether it repeats every week.', 'axle-read-only-mode' ),
+				array(),
+				array(
+					'type'  => 'array',
+					'items' => $plan_schema,
+				),
+				array( $this, 'list_plans' ),
+				$can_manage,
+				array(
+					'readonly'   => true,
+					'idempotent' => true,
+				)
+			);
+
+			$this->ability(
+				'plan-freeze',
+				__( 'Plan a freeze', 'axle-read-only-mode' ),
+				__( 'Plans a freeze for a time in the future. Everyone who is writing gets a countdown before it starts, and it starts by itself even when WP-Cron is late. It can repeat every week on chosen days. Check what it would interrupt first with check-freeze.', 'axle-read-only-mode' ),
+				array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'start'    => array(
+							'type'        => 'string',
+							'description' => __( 'When it starts, as a date and time in the site time zone, such as 2026-11-20 02:00. Must be in the future. For a repeating plan this sets the time of day.', 'axle-read-only-mode' ),
+						),
+						'minutes'  => array(
+							'type'        => 'integer',
+							'minimum'     => 0,
+							'default'     => Freezer::default_duration(),
+							'description' => __( 'Length in minutes. 0 means until someone unfreezes it.', 'axle-read-only-mode' ),
+						),
+						'reason'   => array(
+							'type'      => 'string',
+							'maxLength' => 200,
+						),
+						'scope'    => $this->scope_schema(),
+						'days'     => array(
+							'type'        => 'array',
+							'items'       => array(
+								'type'    => 'integer',
+								'minimum' => 0,
+								'maximum' => 6,
+							),
+							'description' => __( 'Repeat every week on these weekdays, 0 for Sunday to 6 for Saturday. Empty for a freeze that happens once.', 'axle-read-only-mode' ),
+						),
+						'lead'     => array(
+							'type'        => 'integer',
+							'minimum'     => 0,
+							'maximum'     => 1440,
+							'description' => __( 'Minutes of heads-up before it starts. 0 for the default.', 'axle-read-only-mode' ),
+						),
+						'email'    => array(
+							'type'        => 'boolean',
+							'description' => __( 'Email people who have a post open when the heads-up starts.', 'axle-read-only-mode' ),
+						),
+						'visitors' => array(
+							'type'    => 'boolean',
+							'default' => true,
+						),
+						'cron'     => array(
+							'type'    => 'boolean',
+							'default' => true,
+						),
+					),
+					'required'             => array( 'start' ),
+					'additionalProperties' => false,
+				),
+				$plan_schema,
+				array( $this, 'plan_freeze' ),
+				$can_manage,
+				array(
+					'readonly'    => false,
+					'destructive' => false,
+					'idempotent'  => false,
+				)
+			);
+
+			$this->ability(
+				'cancel-plan',
+				__( 'Cancel a planned freeze', 'axle-read-only-mode' ),
+				__( 'Cancels a planned freeze so it does not start. A plan that repeats stops repeating. A freeze it already started keeps running: use unfreeze for that.', 'axle-read-only-mode' ),
+				array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'id' => array(
+							'type'        => 'string',
+							'description' => __( 'The plan ID, from list-plans.', 'axle-read-only-mode' ),
+						),
+					),
+					'required'             => array( 'id' ),
+					'additionalProperties' => false,
+				),
+				array(
+					'type'       => 'object',
+					'properties' => array(
+						'cancelled' => array( 'type' => 'boolean' ),
+					),
+				),
+				array( $this, 'cancel_plan' ),
+				$can_manage,
+				array(
+					'readonly'    => false,
+					'destructive' => true,
+					'idempotent'  => true,
+				)
+			);
+		}
+
 		$this->ability(
 			'get-blocked',
 			__( 'List blocked changes', 'axle-read-only-mode' ),
@@ -419,6 +542,100 @@ final class Abilities implements Service {
 			'attention' => $result['attention'],
 			'items'     => $result['items'],
 		);
+	}
+
+	/**
+	 * The output schema of one planned freeze.
+	 *
+	 * @return array
+	 */
+	private function plan_schema(): array {
+		return array(
+			'type'       => 'object',
+			'properties' => array(
+				'id'      => array( 'type' => 'string' ),
+				'start'   => array(
+					'type'        => 'string',
+					'description' => 'ISO 8601, UTC. The next time it starts.',
+				),
+				'minutes' => array( 'type' => 'integer' ),
+				'scope'   => array( 'type' => 'string' ),
+				'reason'  => array( 'type' => 'string' ),
+				'days'    => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'integer' ),
+				),
+				'lead'    => array( 'type' => 'integer' ),
+				'email'   => array( 'type' => 'boolean' ),
+			),
+		);
+	}
+
+	/**
+	 * One plan, as the abilities return it.
+	 *
+	 * @param array $plan Plan.
+	 * @return array
+	 */
+	private function plan_output( array $plan ): array {
+		return array(
+			'id'      => (string) $plan['id'],
+			'start'   => gmdate( 'c', (int) $plan['start'] ),
+			'minutes' => (int) $plan['minutes'],
+			'scope'   => (string) $plan['area'],
+			'reason'  => (string) $plan['reason'],
+			'days'    => array_map( 'intval', (array) $plan['days'] ),
+			'lead'    => Planner::lead_minutes( $plan ),
+			'email'   => (bool) $plan['email'],
+		);
+	}
+
+	/**
+	 * Ability: the planned freezes.
+	 *
+	 * @return array
+	 */
+	public function list_plans(): array {
+		return $this->planner ? array_values( array_map( array( $this, 'plan_output' ), $this->planner->all() ) ) : array();
+	}
+
+	/**
+	 * Ability: plans a freeze.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array|\WP_Error
+	 */
+	public function plan_freeze( $input = null ) {
+		if ( ! $this->planner ) {
+			return new \WP_Error( 'axle_read_only_mode_no_planner', __( 'Planned freezes are not available.', 'axle-read-only-mode' ) );
+		}
+
+		$input = (array) $input;
+		$plan  = $this->planner->save(
+			array(
+				'start'    => ToolsPage::parse_start( (string) ( $input['start'] ?? '' ) ),
+				'minutes'  => isset( $input['minutes'] ) ? (int) $input['minutes'] : Freezer::default_duration(),
+				'reason'   => (string) ( $input['reason'] ?? '' ),
+				'area'     => isset( $input['scope'] ) ? (string) $input['scope'] : Scopes::default_scope(),
+				'days'     => (array) ( $input['days'] ?? array() ),
+				'lead'     => (int) ( $input['lead'] ?? 0 ),
+				'email'    => ! empty( $input['email'] ),
+				'visitors' => ! isset( $input['visitors'] ) || (bool) $input['visitors'],
+				'cron'     => ! isset( $input['cron'] ) || (bool) $input['cron'],
+			)
+		);
+
+		return is_wp_error( $plan ) ? $plan : $this->plan_output( $plan );
+	}
+
+	/**
+	 * Ability: cancels a planned freeze.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array
+	 */
+	public function cancel_plan( $input = null ): array {
+		return array( 'cancelled' => $this->planner && null !== $this->planner->cancel( sanitize_key( (string) ( ( (array) $input )['id'] ?? '' ) ) ) );
 	}
 
 	/**
