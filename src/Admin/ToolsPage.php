@@ -7,10 +7,12 @@
 
 namespace AryanX\Axle\ReadOnlyMode\Admin;
 
+use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Checks;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\History;
+use AryanX\Axle\ReadOnlyMode\Planner;
 use AryanX\Axle\ReadOnlyMode\Scopes;
 use AryanX\Axle\ReadOnlyMode\Service;
 use AryanX\Axle\ReadOnlyMode\Settings;
@@ -32,6 +34,11 @@ final class ToolsPage implements Service {
 	 * The admin-ajax action that refreshes the "Before you freeze" card.
 	 */
 	public const CHECK_ACTION = 'axle_read_only_mode_check';
+
+	/**
+	 * User meta that remembers the "Get started" card was dismissed.
+	 */
+	public const DISMISSED_META = 'axle_read_only_mode_dismissed_start';
 
 	/**
 	 * Saved freeze.
@@ -76,16 +83,25 @@ final class ToolsPage implements Service {
 	private Checks $checks;
 
 	/**
+	 * Planned freezes.
+	 *
+	 * @var Planner|null
+	 */
+	private ?Planner $planner;
+
+	/**
 	 * Sets up the screen.
 	 *
-	 * @param State      $state    Saved freeze.
-	 * @param Freezer    $freezer  Starts, extends and ends freezes.
-	 * @param BlockedLog $log      Blocked attempts.
-	 * @param History    $history  Past freezes.
-	 * @param Settings   $settings This site's settings.
-	 * @param Checks     $checks   The "Before you freeze" checks.
+	 * @param State        $state    Saved freeze.
+	 * @param Freezer      $freezer  Starts, extends and ends freezes.
+	 * @param BlockedLog   $log      Blocked attempts.
+	 * @param History      $history  Past freezes.
+	 * @param Settings     $settings This site's settings.
+	 * @param Checks       $checks   The "Before you freeze" checks.
+	 * @param Planner|null $planner  Planned freezes.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, History $history, Settings $settings, Checks $checks ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, History $history, Settings $settings, Checks $checks, ?Planner $planner = null ) {
+		$this->planner  = $planner;
 		$this->checks   = $checks;
 		$this->state    = $state;
 		$this->freezer  = $freezer;
@@ -101,6 +117,21 @@ final class ToolsPage implements Service {
 		add_action( 'admin_menu', array( $this, 'add_page' ) );
 		add_action( 'admin_post_' . self::ACTION, array( $this, 'handle_action' ) );
 		add_action( 'wp_ajax_' . self::CHECK_ACTION, array( $this, 'ajax_check' ) );
+		add_filter( 'plugin_action_links_' . plugin_basename( PLUGIN_FILE ), array( $this, 'action_links' ) );
+	}
+
+	/**
+	 * Adds a link to the screen in the plugin's row on the Plugins screen.
+	 *
+	 * @param array $links Links.
+	 * @return array
+	 */
+	public function action_links( $links ): array {
+		if ( ! current_user_can( self::capability() ) ) {
+			return (array) $links;
+		}
+
+		return array_merge( array( '<a href="' . esc_url( self::page_url() ) . '">' . esc_html__( 'Read-only mode', 'axle-read-only-mode' ) . '</a>' ), (array) $links );
 	}
 
 	/**
@@ -242,7 +273,43 @@ final class ToolsPage implements Service {
 
 		if ( $hook ) {
 			add_action( "admin_print_styles-{$hook}", array( $this, 'enqueue_assets' ) );
+			add_action( "load-{$hook}", array( $this, 'add_help' ) );
 		}
+	}
+
+	/**
+	 * Adds the Help tabs: an overview, and one tab for each job the screen does.
+	 */
+	public function add_help(): void {
+		AxleUi::help_tabs(
+			array(
+				array(
+					'id'      => 'overview',
+					'title'   => __( 'Overview', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'Read-only mode stops anything from being saved while you migrate or deploy. Visitors can still read the site. Pick what to freeze, how long it lasts and who can keep working, then start it now or plan it for later.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'freeze',
+					'title'   => __( 'Freezing the site', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'The card called Before you freeze lists who has a post open, posts due to publish and scheduled tasks that the freeze would interrupt. It only informs you. Every freeze can have an end time, so a deploy that fails cannot leave the site frozen. You can freeze everything, only content, or only settings and code.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'planned',
+					'title'   => __( 'Planned freezes', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'On the Planned tab you choose a start time, a length and a scope. The freeze starts by itself, even when WP-Cron is slow. From a few minutes before, everyone who is writing sees a countdown. A planned freeze can repeat every week on the days you choose. The check before freezing runs again at the start, and its findings go in the start email.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'editing',
+					'title'   => __( 'While you write', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'If a freeze starts while you are in the block editor, your changes wait in your browser. When the freeze ends they are saved for you, unless someone else changed the post meanwhile. Then you see both versions and choose. In the classic editor the form stays as it is.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'allow',
+					'title'   => __( 'What keeps working', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'On the Settings tab, the allow-list names requests, ajax actions, paths and users that keep working during a freeze, such as a payment webhook. Emails tell you when a freeze starts, ends or is extended.', 'axle-read-only-mode' ) . '</p>',
+				),
+			)
+		);
 	}
 
 	/**
@@ -300,6 +367,8 @@ final class ToolsPage implements Service {
 			<?php
 			if ( 'settings' === self::current_tab() ) {
 				$this->render_settings_tab();
+			} elseif ( 'plans' === self::current_tab() && $this->planner ) {
+				$this->render_plans_tab();
 			} else {
 				$this->render_freeze_tab();
 			}
@@ -307,6 +376,84 @@ final class ToolsPage implements Service {
 			AxleUi::footer();
 			?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Prints the planned freezes tab.
+	 */
+	private function render_plans_tab(): void {
+		$this->render_notices();
+
+		if ( $this->planner ) {
+			PlansView::render(
+				$this->planner,
+				admin_url( 'admin-post.php' ),
+				self::ACTION,
+				self::page_url( 'plans' ),
+				__( 'Plan a freeze ahead. It starts by itself, and everyone who is writing gets a countdown before it does.', 'axle-read-only-mode' )
+			);
+		}
+	}
+
+	/**
+	 * Prints the "Get started" card until its steps are done or it is dismissed.
+	 */
+	private function render_get_started(): void {
+		if ( get_user_meta( get_current_user_id(), self::DISMISSED_META, true ) ) {
+			return;
+		}
+
+		$notify = $this->settings->notify();
+		$steps  = array(
+			array(
+				'title' => __( 'Choose what keeps working', 'axle-read-only-mode' ),
+				'text'  => __( 'Add a payment webhook, a login callback or a user to the allow-list, so a freeze does not break them.', 'axle-read-only-mode' ),
+				'done'  => array_sum( ( new AllowList( $this->settings ) )->counts() ) > 0,
+				'url'   => self::page_url( 'settings' ),
+				'label' => __( 'Open settings', 'axle-read-only-mode' ),
+			),
+			array(
+				'title' => __( 'Get an email when a freeze starts or ends', 'axle-read-only-mode' ),
+				'text'  => __( 'Useful when a freeze starts at night and you are not watching.', 'axle-read-only-mode' ),
+				'done'  => ! empty( $notify['enabled'] ),
+				'url'   => self::page_url( 'settings' ),
+				'label' => __( 'Turn on emails', 'axle-read-only-mode' ),
+			),
+			array(
+				'title' => __( 'Plan your first freeze', 'axle-read-only-mode' ),
+				'text'  => __( 'Pick a start time. Everyone who is writing gets a countdown first.', 'axle-read-only-mode' ),
+				'done'  => (bool) $this->history->all() || ( $this->planner && (bool) $this->planner->all() ),
+				'url'   => self::page_url( 'plans' ),
+				'label' => __( 'Plan a freeze', 'axle-read-only-mode' ),
+			),
+		);
+
+		if ( ! in_array( false, wp_list_pluck( $steps, 'done' ), true ) ) {
+			return;
+		}
+		?>
+		<section class="axle-card aro-start" aria-labelledby="aro-start-title">
+			<div class="axle-card__head">
+				<h2 class="axle-card__title" id="aro-start-title"><?php esc_html_e( 'Get started', 'axle-read-only-mode' ); ?></h2>
+				<?php Forms::button( admin_url( 'admin-post.php' ), self::ACTION, 'dismiss_start', __( 'Dismiss this card', 'axle-read-only-mode' ), 'link' ); ?>
+			</div>
+			<ol class="axle-steps">
+				<?php foreach ( $steps as $step ) : ?>
+					<li class="axle-step">
+						<div class="axle-step__body">
+							<strong class="axle-step__title"><?php echo esc_html( $step['title'] ); ?></strong>
+							<p><?php echo esc_html( $step['text'] ); ?></p>
+						</div>
+						<?php if ( $step['done'] ) : ?>
+							<?php self::badge( 'good', __( 'Done', 'axle-read-only-mode' ) ); ?>
+						<?php else : ?>
+							<a class="button" href="<?php echo esc_url( $step['url'] ); ?>"><?php echo esc_html( $step['label'] ); ?></a>
+						<?php endif; ?>
+					</li>
+				<?php endforeach; ?>
+			</ol>
+		</section>
 		<?php
 	}
 
@@ -343,6 +490,7 @@ final class ToolsPage implements Service {
 			} elseif ( $this->state->is_scheduled() ) {
 				$this->render_scheduled();
 			} else {
+				$this->render_get_started();
 				$this->render_form();
 			}
 		}
@@ -375,18 +523,21 @@ final class ToolsPage implements Service {
 	 */
 	public static function current_tab(): string {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only value.
-		return isset( $_GET['tab'] ) && 'settings' === sanitize_key( wp_unslash( $_GET['tab'] ) ) ? 'settings' : 'freeze';
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+
+		return in_array( $tab, array( 'settings', 'plans' ), true ) ? $tab : 'freeze';
 	}
 
 	/**
 	 * Prints the tabs shared by the site and network screens.
 	 *
 	 * @param string $url Screen address without a tab.
-	 * @param string $current freeze or settings.
+	 * @param string $current freeze, plans or settings.
 	 */
 	public static function render_tabs( string $url, string $current ): void {
 		$tabs = array(
 			'freeze'   => __( 'Freeze', 'axle-read-only-mode' ),
+			'plans'    => __( 'Planned', 'axle-read-only-mode' ),
 			'settings' => __( 'Settings', 'axle-read-only-mode' ),
 		);
 		?>
@@ -412,21 +563,11 @@ final class ToolsPage implements Service {
 	 * A relative time with the exact time in the title.
 	 *
 	 * @param int    $timestamp Unix time.
-	 * @param string $format    Date format for the exact time.
+	 * @param string $format    Not used. Kept for callers that pass one: the exact time is always in the title.
 	 * @return string HTML, already escaped.
 	 */
 	public static function time_tag( int $timestamp, string $format = '' ): string {
-		$format = '' !== $format ? $format : get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
-		$past   = $timestamp <= time();
-		$diff   = human_time_diff( $timestamp );
-
-		return sprintf(
-			'<time datetime="%1$s" title="%2$s">%3$s</time>',
-			esc_attr( gmdate( 'c', $timestamp ) ),
-			esc_attr( wp_date( $format, $timestamp ) ),
-			/* translators: %s: time span, e.g. "5 minutes". */
-			esc_html( sprintf( $past ? __( '%s ago', 'axle-read-only-mode' ) : __( 'in %s', 'axle-read-only-mode' ), $diff ) )
-		);
+		return AxleUi::relative_time( $timestamp );
 	}
 
 	/**
@@ -457,8 +598,7 @@ final class ToolsPage implements Service {
 	 * Prints the network freeze that covers this site.
 	 */
 	private function render_network(): void {
-		$state  = $this->state->all();
-		$format = get_option( 'time_format' );
+		$state = $this->state->all();
 		?>
 		<section class="axle-card aro-network">
 			<div class="axle-card__head">
@@ -466,8 +606,8 @@ final class ToolsPage implements Service {
 				<?php if ( $state['end'] ) : ?>
 					<span class="axle-badge axle-badge--info aro-countdown" role="timer" data-aro-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-aro-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'axle-read-only-mode' ); ?>">
 						<?php
-						/* translators: %s: time the freeze ends. */
-						echo esc_html( sprintf( __( 'Ends at %s', 'axle-read-only-mode' ), wp_date( $format, (int) $state['end'] ) ) );
+						/* translators: %s: time left, e.g. "2 hours". */
+						echo esc_html( sprintf( __( 'Ends in %s', 'axle-read-only-mode' ), human_time_diff( time(), (int) $state['end'] ) ) );
 						?>
 					</span>
 				<?php endif; ?>
@@ -495,7 +635,6 @@ final class ToolsPage implements Service {
 	private function render_status(): void {
 		$state  = $this->state->own();
 		$by     = get_userdata( (int) $state['by'] );
-		$format = get_option( 'time_format' );
 		$exempt = array_filter( array_map( 'get_userdata', array_map( 'intval', $state['exempt'] ) ) );
 		?>
 		<section class="axle-card aro-status">
@@ -504,8 +643,8 @@ final class ToolsPage implements Service {
 				<?php if ( $state['end'] ) : ?>
 					<span class="axle-badge axle-badge--info aro-countdown" role="timer" data-aro-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-aro-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'axle-read-only-mode' ); ?>">
 						<?php
-						/* translators: %s: time the freeze ends. */
-						echo esc_html( sprintf( __( 'Ends at %s', 'axle-read-only-mode' ), wp_date( $format, (int) $state['end'] ) ) );
+						/* translators: %s: time left, e.g. "2 hours". */
+						echo esc_html( sprintf( __( 'Ends in %s', 'axle-read-only-mode' ), human_time_diff( time(), (int) $state['end'] ) ) );
 						?>
 					</span>
 				<?php endif; ?>
@@ -519,18 +658,16 @@ final class ToolsPage implements Service {
 				<dt><?php esc_html_e( 'Started', 'axle-read-only-mode' ); ?></dt>
 				<dd>
 					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: 1: start time, 2: user name. */
-							__( '%1$s by %2$s', 'axle-read-only-mode' ),
-							wp_date( $format, (int) $state['start'] ),
-							$by ? $by->display_name : __( 'WP-CLI', 'axle-read-only-mode' )
-						)
-					);
+					printf(
+						/* translators: 1: start time, such as "5 minutes ago", 2: user name. */
+						esc_html__( '%1$s by %2$s', 'axle-read-only-mode' ),
+						AxleUi::relative_time( (int) $state['start'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
+						esc_html( $by ? $by->display_name : __( 'WP-CLI', 'axle-read-only-mode' ) )
+					); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Every part is escaped.
 					?>
 				</dd>
 				<dt><?php esc_html_e( 'Ends', 'axle-read-only-mode' ); ?></dt>
-				<dd><?php echo esc_html( $state['end'] ? wp_date( $format, (int) $state['end'] ) : __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); ?></dd>
+				<dd><?php echo AxleUi::relative_time( (int) $state['end'], __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi. ?></dd>
 				<dt><?php esc_html_e( 'Scope', 'axle-read-only-mode' ); ?></dt>
 				<dd><?php echo esc_html( Scopes::label( $this->state->scope() ) ); ?></dd>
 				<dt><?php esc_html_e( 'Visitor submissions', 'axle-read-only-mode' ); ?></dt>
@@ -568,8 +705,7 @@ final class ToolsPage implements Service {
 			<div class="axle-card__head">
 				<h2 class="axle-card__title">
 					<?php
-					/* translators: %s: date and time the freeze starts. */
-					echo esc_html( sprintf( __( 'Freeze scheduled for %s', 'axle-read-only-mode' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $state['start'] ) ) );
+					esc_html_e( 'Freeze scheduled', 'axle-read-only-mode' );
 					?>
 				</h2>
 				<?php self::badge( 'info', __( 'Scheduled', 'axle-read-only-mode' ) ); ?>
@@ -579,6 +715,12 @@ final class ToolsPage implements Service {
 			<?php endif; ?>
 			<p>
 				<?php
+				printf(
+					/* translators: %s: when the freeze starts, such as "in 2 hours". */
+					esc_html__( 'Starts %s.', 'axle-read-only-mode' ),
+					AxleUi::relative_time( (int) $state['start'] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
+				);
+				echo ' ';
 				/* translators: %s: scope of the freeze, e.g. "Content only". */
 				echo esc_html( sprintf( __( 'Scope: %s', 'axle-read-only-mode' ), Scopes::label( (string) $state['area'] ) ) );
 				?>
@@ -713,6 +855,7 @@ final class ToolsPage implements Service {
 			<?php if ( ! $entries ) : ?>
 				<div class="axle-empty"><p><?php esc_html_e( 'Nothing yet. Attempts to save, upload, comment or submit a form will be listed here, so you know what to redo on the new server.', 'axle-read-only-mode' ); ?></p></div>
 			<?php else : ?>
+				<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php esc_attr_e( 'Blocked requests', 'axle-read-only-mode' ); ?>">
 				<table class="widefat striped">
 					<thead>
 						<tr>
@@ -737,6 +880,7 @@ final class ToolsPage implements Service {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 			<?php endif; ?>
 		</section>
 		<?php
@@ -785,13 +929,16 @@ final class ToolsPage implements Service {
 			'expired' => __( 'Ended on time', 'axle-read-only-mode' ),
 			'ability' => __( 'Unfrozen by an AI agent or app', 'axle-read-only-mode' ),
 		);
-		$format  = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
 		<section class="axle-card aro-history">
 			<h2 class="axle-card__title"><?php esc_html_e( 'Recent freezes', 'axle-read-only-mode' ); ?></h2>
 			<?php if ( ! $entries ) : ?>
-				<div class="axle-empty"><p><?php esc_html_e( 'No freezes yet. Each freeze is listed here once it ends, with how many attempts it blocked.', 'axle-read-only-mode' ); ?></p></div>
+				<div class="axle-empty">
+					<p><?php esc_html_e( 'No freezes yet. Each freeze is listed here once it ends, with how many attempts it blocked.', 'axle-read-only-mode' ); ?></p>
+					<a class="button" href="<?php echo esc_url( self::page_url( 'plans' ) ); ?>"><?php esc_html_e( 'Plan a freeze', 'axle-read-only-mode' ); ?></a>
+				</div>
 			<?php else : ?>
+				<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php esc_attr_e( 'Recent freezes', 'axle-read-only-mode' ); ?>">
 				<table class="widefat striped">
 					<thead>
 						<tr>
@@ -808,7 +955,7 @@ final class ToolsPage implements Service {
 							<?php $by = get_userdata( (int) $entry['by'] ); ?>
 							<tr>
 								<td>
-									<?php echo esc_html( wp_date( $format, (int) $entry['start'] ) ); ?><br>
+									<?php echo AxleUi::relative_time( (int) $entry['start'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi. ?><br>
 									<span class="axle-muted"><?php echo esc_html( $by ? $by->display_name : ( BlockedLog::ERASED === (int) $entry['by'] ? __( '(removed)', 'axle-read-only-mode' ) : __( 'WP-CLI', 'axle-read-only-mode' ) ) ); ?></span>
 								</td>
 								<td><?php echo esc_html( human_time_diff( (int) $entry['start'], (int) $entry['end'] ) ); ?></td>
@@ -820,6 +967,7 @@ final class ToolsPage implements Service {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 			<?php endif; ?>
 		</section>
 		<?php
@@ -880,10 +1028,23 @@ final class ToolsPage implements Service {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only value set by our own redirect.
 		$editing = isset( $_GET['aro_editing'] ) ? absint( $_GET['aro_editing'] ) : 0;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only value set by our own redirect.
+		$error    = isset( $_GET['aro_error'] ) ? sanitize_key( wp_unslash( $_GET['aro_error'] ) ) : '';
+		$plan_say = PlansView::messages();
+
+		if ( isset( $plan_say['error'][ $error ] ) ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $plan_say['error'][ $error ] ) );
+		}
+		if ( isset( $plan_say['done'][ $done ] ) ) {
+			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $plan_say['done'][ $done ] ) );
+			return;
+		}
 
 		if ( 'frozen' === $done && $editing ) {
-			// The one-click freeze in the admin bar does not ask first, so it says afterwards who it interrupted.
-			printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', esc_html( $messages['frozen'] . ' ' . Checks::editing_sentence( $editing ) ) );
+			// The one-click freeze in the admin bar does not ask first, so it says afterwards who it interrupted, and how to take it back.
+			printf( '<div class="notice notice-warning is-dismissible"><p>%1$s <a href="%2$s">%3$s</a></p></div>', esc_html( $messages['frozen'] . ' ' . Checks::editing_sentence( $editing ) ), esc_url( self::action_url( 'unfreeze' ) ), esc_html__( 'Undo', 'axle-read-only-mode' ) );
+		} elseif ( 'frozen' === $done ) {
+			printf( '<div class="notice notice-success is-dismissible"><p>%1$s <a href="%2$s">%3$s</a></p></div>', esc_html( $messages['frozen'] ), esc_url( self::action_url( 'unfreeze' ) ), esc_html__( 'Undo', 'axle-read-only-mode' ) );
 		} elseif ( isset( $messages[ $done ] ) ) {
 			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $messages[ $done ] ) );
 		} elseif ( 'saved_with_errors' === $done ) {
@@ -934,6 +1095,7 @@ final class ToolsPage implements Service {
 		$minutes = isset( $_REQUEST['minutes'] ) ? absint( $_REQUEST['minutes'] ) : 0;
 		$done    = '';
 		$tab     = '';
+		$error   = '';
 		$editing = 0;
 
 		switch ( $task ) {
@@ -941,6 +1103,21 @@ final class ToolsPage implements Service {
 			case 'add_allow':
 				$done = SettingsView::handle( $this->settings );
 				$tab  = 'settings';
+				break;
+
+			case 'plan_save':
+			case 'plan_cancel':
+				$tab = 'plans';
+				if ( $this->planner ) {
+					$result = PlansView::handle( $this->planner, $task );
+					$done   = $result['done'];
+					$error  = $result['error'];
+				}
+				break;
+
+			case 'dismiss_start':
+				update_user_meta( get_current_user_id(), self::DISMISSED_META, 1 );
+				$done = '';
 				break;
 
 			case 'unfreeze':
@@ -987,6 +1164,7 @@ final class ToolsPage implements Service {
 				array_filter(
 					array(
 						'aro_done'    => $done,
+						'aro_error'   => $error,
 						'aro_editing' => $editing,
 					) 
 				),

@@ -148,11 +148,11 @@ final class AdminBar implements Service {
 	}
 
 	/**
-	 * Colours the freeze label in the shared warning tone (see _dev/DESIGN.md).
+	 * Makes the freeze label bold. The colours stay core's own, so it follows the admin colour scheme.
 	 */
 	public function add_style(): void {
 		if ( is_admin_bar_showing() && $this->state->is_frozen() ) {
-			wp_add_inline_style( 'admin-bar', '#wpadminbar #wp-admin-bar-axle-read-only-mode>.ab-item,#wpadminbar #wp-admin-bar-axle-read-only-mode:hover>.ab-item,#wpadminbar #wp-admin-bar-axle-read-only-mode.hover>.ab-item{background:#fcf9e8;color:#614200;font-weight:600;box-shadow:inset 0 -3px 0 #dba617}' );
+			wp_add_inline_style( 'admin-bar', '#wpadminbar #wp-admin-bar-axle-read-only-mode>.ab-item{font-weight:600}' );
 		}
 	}
 }

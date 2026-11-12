@@ -12,6 +12,7 @@ use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\History;
 use AryanX\Axle\ReadOnlyMode\Network;
 use AryanX\Axle\ReadOnlyMode\Notifier;
+use AryanX\Axle\ReadOnlyMode\Planner;
 use AryanX\Axle\ReadOnlyMode\Settings;
 use AryanX\Axle\ReadOnlyMode\State;
 use Brain\Monkey\Actions;
@@ -128,6 +129,32 @@ final class NotifierTest extends TestCase {
 		$this->transients = array();
 		$this->notifier()->send( 'started', $this->freeze() );
 		$this->assertStringContainsString( 'Scope: Everything', $this->mail[2]['body'], 'A freeze with no stored scope covers everything.' );
+	}
+
+	public function test_the_start_email_of_a_planned_freeze_lists_what_the_check_found(): void {
+		$this->enable();
+		$freeze                                   = $this->freeze();
+		$this->options[ Planner::FINDINGS ]       = array(
+			'start' => $freeze['start'],
+			'lines' => array( '- 2 people have a post open', '  Spring launch (Priya)' ),
+		);
+
+		$this->notifier()->send( 'started', $freeze );
+
+		$this->assertStringContainsString( 'The check before freezing found:', $this->mail[0]['body'] );
+		$this->assertStringContainsString( '- 2 people have a post open', $this->mail[0]['body'] );
+	}
+
+	public function test_nothing_is_added_when_the_check_found_nothing_for_this_freeze(): void {
+		$this->enable();
+		$this->options[ Planner::FINDINGS ] = array(
+			'start' => 1,
+			'lines' => array( '- stale' ),
+		);
+
+		$this->notifier()->send( 'started', $this->freeze() );
+
+		$this->assertStringNotContainsString( 'The check before freezing found', $this->mail[0]['body'] );
 	}
 
 	public function test_nothing_is_sent_until_emails_are_turned_on(): void {

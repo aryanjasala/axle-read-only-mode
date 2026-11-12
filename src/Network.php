@@ -50,6 +50,13 @@ final class Network {
 	public Settings $settings;
 
 	/**
+	 * The network's planned freezes.
+	 *
+	 * @var Planner
+	 */
+	public Planner $planner;
+
+	/**
 	 * Builds the network's objects.
 	 */
 	public function __construct() {
@@ -58,5 +65,6 @@ final class Network {
 		$this->history  = new History( new Store( History::NETWORK_OPTION, true ) );
 		$this->log      = new NetworkLog( $this->state );
 		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
+		$this->planner  = Planner::for_network( $this->freezer, $this->state );
 	}
 }

@@ -63,7 +63,7 @@
 	align-items: baseline;
 	margin: 0;
 	padding: 12px 0;
-	border-top: 1px solid #dcdcde;
+	border-top: 1px solid var(--axle-neutral-bg);
 }
 
 .aro-check:first-child {
@@ -92,4 +92,33 @@
 .aro-before__spinner {
 	float: none;
 	margin: 0;
+}
+
+/* Planned freezes */
+
+.aro-day {
+	display: inline-block;
+	margin: 0 16px 8px 0;
+}
+
+.aro-cancel {
+	display: inline-block;
+	margin-top: 8px;
+}
+
+.aro-cancel summary {
+	cursor: pointer;
+	list-style: none;
+}
+
+.aro-cancel summary::-webkit-details-marker {
+	display: none;
+}
+
+.aro-cancel[open] {
+	display: block;
+}
+
+.axle-heads-up .dashicons {
+	vertical-align: text-bottom;
 }

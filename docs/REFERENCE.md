@@ -93,6 +93,20 @@ add_filter( 'axle_read_only_mode_checks', function ( $checks ) {
 | --- | --- | --- |
 | `axle_read_only_mode_default_duration` | filter | `( int $minutes )`. Length when none is given: the admin bar quick freeze, `wp axle-read-only-mode on` and the PHP API. Also preselected on the screen. Default 60, `0` for no end |
 | `axle_read_only_mode_durations` | filter | `( int[] $minutes )`. Lengths offered on Tools > Read-Only Mode. Default 30, 60, 120, 240, 480 and 0 |
+| `axle_read_only_mode_heads_up_minutes` | filter | `( int $minutes, array $plan )`. Minutes before a planned freeze that the countdown starts. Default 15, or the lead set on the plan. Clamped to 1 to 1440. `$plan` is empty for a freeze scheduled without a plan |
+| `axle_read_only_mode_heads_up` | filter | `( ?array $upcoming )`. The countdown people see: `start`, `seconds`, `area`, `reason`, `message`, `now`. Return `null` to show none |
+| `axle_read_only_mode_heads_up_message` | filter | `( string $message, string $area, int $seconds )`. The first words of the countdown, and what the Heartbeat sends |
+| `axle_read_only_mode_heads_up_recipients` | filter | `( string[] $emails, array $plan )`. Who gets the heads-up email: the people with a post open when it starts |
+| `axle_read_only_mode_heads_up_subject`, `axle_read_only_mode_heads_up_body` | filter | `( string $text, array $plan )`. The heads-up email |
+| `axle_read_only_mode_plans_limit` | filter | `( int $limit )`. How many planned freezes the list holds. Default 50 |
+| `axle_read_only_mode_health_plan_grace_minutes` | filter | `( int $minutes )`. How late a planned freeze can be before Site Health says it did not begin. Default 10 |
+| `axle_read_only_mode_editor_strings` | filter | `( array $strings )`. The words the block and classic editors show during a freeze and when it ends |
+| `axle_read_only_mode_planned` | action | `( array $plan, bool $network )`. A freeze was planned |
+| `axle_read_only_mode_plan_updated` | action | `( array $plan, array $before, bool $network )`. A planned freeze was changed |
+| `axle_read_only_mode_plan_cancelled` | action | `( array $plan, bool $network )`. A planned freeze was cancelled |
+| `axle_read_only_mode_plan_started` | action | `( array $plan, bool $network )`. A planned freeze started. `axle_read_only_mode_started` fires too |
+| `axle_read_only_mode_plan_skipped` | action | `( array $plan, string $reason, bool $network )`. A plan was passed over: `missed` (its whole window went by) or `busy` (a freeze was already running) |
+| `axle_read_only_mode_heads_up_emailed` | action | `( string[] $emails, array $plan )`. The heads-up email was sent |
 | `axle_read_only_mode_scopes` | filter | `( array $scopes )`. The scopes a freeze can have. Each: `label`, `status`, `description`, `covers` (the areas it freezes, `content` and `code`). Keep `all` first |
 | `axle_read_only_mode_default_scope` | filter | `( string $scope )`. Scope when none is chosen: the admin bar quick freeze, WP-CLI, abilities, the PHP API. Also preselected on the screen. Default `all` |
 | `axle_read_only_mode_scope` | filter | `( string $scope, array $state )`. The scope of the freeze in force |
@@ -215,6 +229,25 @@ The email is plain text, sent with `wp_mail()`. It says who, why and until when.
 
 A network freeze emails the network admin (or the recipients on the network's Settings tab) and says which sites it covers.
 
+## Planned freezes
+
+Plan a freeze on **Tools > Read-Only Mode > Planned**, with `wp axle-read-only-mode plan`, or with the `plan-freeze` ability. A plan has a start, a length, a scope, a reason and a heads-up. It runs once, or every week on the days you tick, at the time of day of its start.
+
+- **It starts by itself.** WP-Cron is not used. Every request reads the (autoloaded) list of plans and starts the first one whose time has passed, so a plan starts on the first request after its time. The end works the same way. A plan whose whole window went by before any request, or that comes due while another freeze is running, is skipped and fires `axle_read_only_mode_plan_skipped`.
+- **The check runs again at the start.** The "Before you freeze" check runs when the plan starts, and what it finds (people with a post open, posts due, orders waiting) goes into the start email, if emails are on for starts.
+- **The heads-up.** From 15 minutes before (the lead on the plan, or `axle_read_only_mode_heads_up_minutes`), everyone who can write content sees "The site goes read-only in 12 minutes. Save your work." on every admin screen, and in the block editor as an editor notice. A plan for settings and code tells people who can change settings. The countdown updates through the Heartbeat, so a cancelled or moved plan changes it within a minute, and screen readers hear it once through `wp.a11y.speak`. A freeze scheduled from the freeze form gets the same countdown.
+- **The email.** Tick "Also email people who have a post open" and each of them gets one email when the heads-up starts.
+- **Multisite.** Network Admin has its own Planned tab. A network plan can cover every site or chosen sites (set the sites with WP-CLI `--sites`).
+- **Cancel.** A cancelled plan does not start, and a plan that repeats stops repeating. A freeze it already started keeps running.
+
+## While you write
+
+If a freeze that covers content starts while you have the block editor open, saving is locked and one notice says when it ends. Your changes stay in the editor and a copy waits in the browser (local storage, key `axle-read-only-mode:post:<id>`). When the freeze ends:
+
+- If the post has not changed on the server, your changes are saved for you, and a notice says so. This also works after a reload during the freeze.
+- If someone changed it meanwhile, both versions are offered: **Save my version** or **Use the saved version**. Nothing is overwritten without a choice.
+- In the classic editor, Update does nothing while the freeze runs, the form keeps what you typed, and a notice says so. Quick edit and other screens show the freeze message and a Back link.
+
 ## Site Health
 
 Tools > Site Health has a **Read-only mode** test:
@@ -224,6 +257,8 @@ Tools > Site Health has a **Read-only mode** test:
 | Good | The site is not frozen. A scheduled freeze is mentioned |
 | Recommended | A freeze with an end time is running, or a freeze with no end time is less than 6 hours old |
 | Critical | A freeze ran more than 30 minutes past its end time, a freeze with no end time has lasted more than 6 hours, or `AXLE_READ_ONLY_MODE` in wp-config.php forces the freeze |
+
+A second test, **Planned freezes**, is recommended when a plan is more than 10 minutes past its start and has not begun (`axle_read_only_mode_health_plan_grace_minutes`).
 
 A freeze ends on the first request after its end time, so one that runs well past it means something is holding it on, such as a filter. On multisite the network freeze counts the same way for each site it covers. Both limits have filters, and `wp axle-read-only-mode health` runs the check from the command line. The Info tab has an Axle Read-Only Mode section with the state, end time, allow-list counts and email settings.
 
@@ -236,6 +271,9 @@ On WordPress 6.9 and later, Axle Read-Only Mode registers [abilities](https://de
 | `axle-read-only-mode/get-status` | Read-only. Whether the site is frozen, until when and why, what holds it (`source`: `site`, `network` or `constant`), and its `scope` | `edit_posts` |
 | `axle-read-only-mode/check-freeze` | Read-only. What a freeze would interrupt right now: people editing, scheduled posts and tasks due, orders waiting for payment. Input: `minutes`, `start`, `scope`, `cron`, `visitors`. Run it before `freeze` | the freeze capability |
 | `axle-read-only-mode/freeze` | Freezes the site. Input: `minutes`, `reason`, `visitor_message`, `visitors`, `cron`, `scope` (`all`, `content` or `code`) | the freeze capability |
+| `axle-read-only-mode/list-plans` | Read-only. The planned freezes: next start, length, scope, repeat days and lead | the freeze capability |
+| `axle-read-only-mode/plan-freeze` | Plans a freeze for later. Input: `start` (required, in the future), `minutes`, `reason`, `scope`, `days` (0 Sunday to 6 Saturday, to repeat every week), `lead`, `email`, `visitors`, `cron` | the freeze capability |
+| `axle-read-only-mode/cancel-plan` | Destructive, idempotent. Cancels a planned freeze by `id`. A freeze it already started keeps running | the freeze capability |
 | `axle-read-only-mode/extend` | Adds `minutes` to the running freeze | the freeze capability |
 | `axle-read-only-mode/unfreeze` | Ends the freeze now | the freeze capability |
 | `axle-read-only-mode/get-blocked` | Read-only. What the freeze blocked, and the requests the allow-list let through (`result`), newest first. Input: `limit` | the freeze capability |
@@ -257,6 +295,9 @@ There is no ability that changes the allow-list. It loosens the freeze, so only 
 wp axle-read-only-mode check [--minutes=<n>] [--start=<datetime>] [--scope=<all|content|code>] [--no-cron] [--no-visitors] [--format=table|json]
 wp axle-read-only-mode on [--minutes=<n>] [--reason=<text>] [--visitor-message=<text>] [--scope=<all|content|code>] [--no-visitors] [--no-cron] [--network] [--sites=<ids>]
 wp axle-read-only-mode off [--network]
+wp axle-read-only-mode plan --start=<datetime> [--minutes=<n>] [--reason=<text>] [--scope=<all|content|code>] [--days=<sun,mon,...>] [--lead=<minutes>] [--email-editors] [--no-visitors] [--no-cron] [--id=<id>] [--network] [--sites=<ids>]
+wp axle-read-only-mode plans [--network] [--format=table|csv|json|yaml]
+wp axle-read-only-mode cancel <id> [--network]
 wp axle-read-only-mode extend <minutes> [--network]
 wp axle-read-only-mode status [--network]
 wp axle-read-only-mode log [--network] [--format=table|csv|json|count]
@@ -270,6 +311,8 @@ wp axle-read-only-mode health [--format=table|json]
 `--minutes=0` freezes until `wp axle-read-only-mode off`. The default is 60.
 
 `check` shows what a freeze would interrupt and always exits 0, so a script can read it and decide. `--scope=content` freezes only content, `--scope=code` only settings and code; the default is `all`.
+
+`plan` sets a freeze for later: `--start` is in the site time zone, such as `"2026-11-20 02:00"`. `--days=mon,thu` repeats it every week at that time of day. `plans` lists them and `cancel` removes one. `--id` changes an existing plan.
 
 `health` prints the Site Health result and exits with status 2 when it is critical, so a monitor can alert on it.
 
@@ -303,16 +346,21 @@ $freezer->unfreeze();
 | `axle_read_only_mode_log` | Blocked attempts, and the first few requests the allow-list let through, during the current or last freeze (up to 100): time, user ID, the address without its query string, where it came from, whether it was allowed, and `area` (what it would have changed: `content` or `code`) |
 | `axle_read_only_mode_history` | The last ten freezes, with the ID of the user who started each one and each one's `scope` |
 | `axle_read_only_mode_settings` | The allow-list and the email settings |
+| `axle_read_only_mode_plans` | The planned freezes: next start, length, scope, repeat days, lead, who planned it. Small, and loaded with every request so a plan starts on time |
+| `axle_read_only_mode_plan_run_<id>_<start>`, `axle_read_only_mode_plan_mail_<id>_<start>` | Mark a plan occurrence as started, or its heads-up email as sent, so busy sites do each once |
+| `axle_read_only_mode_start_findings` | What the check before freezing found when the last planned freeze started, for the start email |
+| `axle_read_only_mode_dismissed_start` (user meta) | Set when someone dismisses the "Get started" card |
+| `axle-read-only-mode:post:<id>` (browser local storage) | Your unsaved changes in the block editor, kept while the site is read-only. Removed when they are saved |
 | `axle_read_only_mode_expired_<start>`, `axle_read_only_mode_started_<start>` | Mark a freeze as expired, or a scheduled one as started, so busy sites record each once |
 | `axle_read_only_mode_mail_<event>` (transient) | One minute, so an event sends at most one email a minute |
 
-On a multisite network the network keeps its own, as network (site) options: `axle_read_only_mode_network_state`, `axle_read_only_mode_network_history`, `axle_read_only_mode_network_settings`, and the same markers with `network_` in the name.
+On a multisite network the network keeps its own, as network (site) options: `axle_read_only_mode_network_state`, `axle_read_only_mode_network_history`, `axle_read_only_mode_network_settings`, `axle_read_only_mode_network_plans`, and the same markers with `network_` in the name.
 
 Every logged-in attempt is logged. Anonymous attempts stop being written after the first 10 per freeze, so bots posting forms cannot turn every blocked request into a database write. Uninstalling removes all of it on every site of a multisite network, and the network options.
 
 ## Privacy
 
-The log and history hold user IDs, and the log holds the addresses people tried to post to or that the allow-list let through. If you turn on emails, the recipients are kept in the settings. Query strings are never stored, because they can hold email addresses or tokens. Both take part in **Tools > Export Personal Data** and **Tools > Erase Personal Data**: erasing keeps the entry and removes the person from it. **Settings > Privacy** gets suggested text for your privacy policy.
+The log, the history and the planned freezes hold user IDs (who started or planned a freeze), and the log holds the addresses people tried to post to or that the allow-list let through. If you turn on emails, the recipients are kept in the settings. Query strings are never stored, because they can hold email addresses or tokens. Both take part in **Tools > Export Personal Data** and **Tools > Erase Personal Data**: erasing keeps the entry and removes the person from it. **Settings > Privacy** gets suggested text for your privacy policy.
 
 ## Multisite
 

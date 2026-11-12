@@ -301,4 +301,30 @@ final class FreezeTest extends TestCase {
 
 		$this->assertArrayNotHasKey( History::OPTION, $this->options );
 	}
+
+	public function test_an_end_on_another_day_says_which_day(): void {
+		Functions\when( 'wp_date' )->alias( static fn( $format, $time = null ) => gmdate( $format, $time ?? time() ) );
+		$this->options['date_format'] = 'j M';
+		$this->options['time_format'] = 'H:i';
+
+		$this->store(
+			array(
+				'start' => time() - 60,
+				'end'   => time() + 3 * DAY_IN_SECONDS,
+			)
+		);
+		$state = new State();
+
+		$this->assertSame( gmdate( 'j M H:i', time() + 3 * DAY_IN_SECONDS ), $state->end_time() );
+
+		$this->store(
+			array(
+				'start' => time() - 60,
+				'end'   => time() + 30,
+			)
+		);
+		if ( gmdate( 'Y-m-d' ) === gmdate( 'Y-m-d', time() + 30 ) ) {
+			$this->assertSame( gmdate( 'H:i', time() + 30 ), ( new State() )->end_time() );
+		}
+	}
 }

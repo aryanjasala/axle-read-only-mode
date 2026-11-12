@@ -12,5 +12,5 @@ module.exports = {
 	// This plugin's own Docker site by default. A shared site can be used by pointing WP_COMPOSE_DIR at its compose folder.
 	COMPOSE_DIR: process.env.WP_COMPOSE_DIR || path.join( __dirname, '..', 'env' ),
 	// Options the plugin stores, cleared before each run.
-	OPTIONS: ['axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history'],
+	OPTIONS: ['axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings', 'axle_read_only_mode_network_state', 'axle_read_only_mode_network_history', 'axle_read_only_mode_network_settings'],
 };

@@ -145,7 +145,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 
 		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=axle-read-only-mode' );
 		expect( listed.status ).toBe( 200 );
-		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/check-freeze', 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-allow-list', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/unfreeze' ] );
+		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-read-only-mode/cancel-plan', 'axle-read-only-mode/check-freeze', 'axle-read-only-mode/extend', 'axle-read-only-mode/freeze', 'axle-read-only-mode/get-allow-list', 'axle-read-only-mode/get-blocked', 'axle-read-only-mode/get-status', 'axle-read-only-mode/list-plans', 'axle-read-only-mode/plan-freeze', 'axle-read-only-mode/unfreeze' ] );
 		// MCP clients only list abilities marked public.
 		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'axle-read-only-mode/' ); } ) ) );` ) ) ).toEqual( [] );
 
@@ -269,7 +269,7 @@ test.describe( 'Axle Read-Only Mode', () => {
 		const later = Math.floor( Date.now() / 1000 ) + 3600;
 		wpEval( `AryanX\\Axle\\ReadOnlyMode\\Plugin::instance()->freezer()->freeze( array( 'start' => ${ later }, 'minutes' => 30, 'reason' => 'Night deploy' ) );` );
 		await page.goto( PAGE );
-		await expect( page.locator( '.aro-status.is-scheduled .axle-card__title' ) ).toContainText( 'Freeze scheduled for' );
+		await expect( page.locator( '.aro-status.is-scheduled .axle-card__title' ) ).toContainText( 'Freeze scheduled' );
 		expect( wp( 'axle-read-only-mode', 'status' ) ).toContain( 'Scheduled to freeze at' );
 		await page.getByRole( 'button', { name: 'Cancel scheduled freeze' } ).click();
 		await expect( page.locator( '.aro-form' ) ).toBeVisible();

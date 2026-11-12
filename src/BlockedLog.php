@@ -394,7 +394,7 @@ final class BlockedLog implements Service, LogCounter {
 
 		wp_add_privacy_policy_content(
 			__( 'Axle Read-Only Mode', 'axle-read-only-mode' ),
-			'<p>' . esc_html__( 'While the site is frozen for maintenance, Axle Read-Only Mode keeps a list of the changes it blocked, and the first few requests your allow-list let through: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes, and on a multisite network the network freeze history does the same for network freezes. If you turn on email notices, the addresses you choose are kept in the plugin settings and get a short message when a freeze starts or ends.', 'axle-read-only-mode' ) . '</p>'
+			'<p>' . esc_html__( 'While the site is frozen for maintenance, Axle Read-Only Mode keeps a list of the changes it blocked, and the first few requests your allow-list let through: when, the account of a logged-in user, and the address without its query string. The list is replaced when the next freeze starts. The freeze history keeps who started each of the last 10 freezes, and each planned freeze keeps who planned it, and on a multisite network the network freeze history does the same for network freezes. If you turn on email notices, the addresses you choose are kept in the plugin settings and get a short message when a freeze starts or ends.', 'axle-read-only-mode' ) . '</p>'
 		);
 	}
 

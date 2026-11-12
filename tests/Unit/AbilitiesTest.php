@@ -11,6 +11,7 @@ use AryanX\Axle\ReadOnlyMode\Abilities;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Freezer;
 use AryanX\Axle\ReadOnlyMode\History;
+use AryanX\Axle\ReadOnlyMode\Planner;
 use AryanX\Axle\ReadOnlyMode\State;
 use Brain\Monkey\Functions;
 
@@ -94,5 +95,47 @@ final class AbilitiesTest extends TestCase {
 
 	public function test_abilities_that_write_run_when_the_site_is_not_frozen(): void {
 		$this->assertSame( 'ran with 7', $this->register( 'e2e/write', false )( array( 'id' => 7 ) ) );
+	}
+
+	private function plan_abilities(): Abilities {
+		$history = new History();
+		$state   = new State();
+		$log     = new BlockedLog( $history );
+		$freezer = new Freezer( $state, $log, $history );
+
+		return new Abilities( $state, $freezer, $log, null, Planner::for_site( $freezer, $state ) );
+	}
+
+	public function test_plan_freeze_saves_a_plan_and_list_plans_and_cancel_plan_work_on_it(): void {
+		Functions\when( 'sanitize_text_field' )->alias( 'trim' );
+		Functions\when( 'sanitize_key' )->alias( 'strtolower' );
+		Functions\when( 'wp_timezone' )->alias( static fn() => new \DateTimeZone( 'UTC' ) );
+		Functions\when( 'wp_generate_password' )->justReturn( 'plan0001' );
+		$abilities = $this->plan_abilities();
+
+		$plan = $abilities->plan_freeze(
+			array(
+				'start'   => gmdate( 'Y-m-d H:i', time() + 2 * HOUR_IN_SECONDS ),
+				'minutes' => 30,
+				'scope'   => 'content',
+				'days'    => array( 1, 4 ),
+			)
+		);
+
+		$this->assertSame( 'plan0001', $plan['id'] );
+		$this->assertSame( 'content', $plan['scope'] );
+		$this->assertSame( array( 1, 4 ), $plan['days'] );
+		$this->assertCount( 1, $abilities->list_plans() );
+		$this->assertSame( array( 'cancelled' => true ), $abilities->cancel_plan( array( 'id' => 'plan0001' ) ) );
+		$this->assertSame( array( 'cancelled' => false ), $abilities->cancel_plan( array( 'id' => 'plan0001' ) ) );
+	}
+
+	public function test_plan_freeze_refuses_a_start_in_the_past(): void {
+		Functions\when( 'sanitize_text_field' )->alias( 'trim' );
+		Functions\when( 'wp_timezone' )->alias( static fn() => new \DateTimeZone( 'UTC' ) );
+
+		$result = $this->plan_abilities()->plan_freeze( array( 'start' => '2020-01-01 10:00' ) );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
 	}
 }

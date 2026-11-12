@@ -133,12 +133,43 @@
 			timer = window.setTimeout( refresh, 250 );
 		} );
 
-		form.addEventListener( 'submit', function ( event ) {
-			var message = card.getAttribute( 'data-aro-confirm' );
+		var confirmBox = form.querySelector( '#aro-freeze-confirm' );
+		var confirmed = false;
 
-			if ( message && ! window.confirm( message ) ) {
+		if ( confirmBox ) {
+			var yes = confirmBox.querySelector( '[data-aro-confirm-yes]' );
+			var no = confirmBox.querySelector( '[data-aro-confirm-no]' );
+			var text = confirmBox.querySelector( 'p' );
+			var submit = form.querySelector( '#submit' );
+
+			// Asks in place, not in a browser dialog, before freezing while other people are editing.
+			form.addEventListener( 'submit', function ( event ) {
+				var message = card.getAttribute( 'data-aro-confirm' );
+
+				if ( confirmed || ! message ) {
+					return;
+				}
+
 				event.preventDefault();
-			}
-		} );
+				text.textContent = message;
+				confirmBox.hidden = false;
+				yes.focus();
+				if ( window.wp && window.wp.a11y ) {
+					window.wp.a11y.speak( message, 'assertive' );
+				}
+			} );
+
+			yes.addEventListener( 'click', function () {
+				confirmed = true;
+				form.requestSubmit ? form.requestSubmit() : form.submit();
+			} );
+
+			no.addEventListener( 'click', function () {
+				confirmBox.hidden = true;
+				if ( submit ) {
+					submit.focus();
+				}
+			} );
+		}
 	}
 } )();

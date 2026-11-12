@@ -51,6 +51,21 @@ final class NetworkPage implements Service {
 	public function register(): void {
 		add_action( 'network_admin_menu', array( $this, 'add_page' ) );
 		add_action( 'network_admin_edit_' . self::ACTION, array( $this, 'handle_action' ) );
+		add_filter( 'network_admin_plugin_action_links_' . plugin_basename( PLUGIN_FILE ), array( $this, 'action_links' ) );
+	}
+
+	/**
+	 * Adds a link to the screen in the plugin's row on the network Plugins screen.
+	 *
+	 * @param array $links Links.
+	 * @return array
+	 */
+	public function action_links( $links ): array {
+		if ( ! current_user_can( self::capability() ) ) {
+			return (array) $links;
+		}
+
+		return array_merge( array( '<a href="' . esc_url( self::page_url() ) . '">' . esc_html__( 'Network read-only mode', 'axle-read-only-mode' ) . '</a>' ), (array) $links );
 	}
 
 	/**
@@ -122,7 +137,38 @@ final class NetworkPage implements Service {
 
 		if ( $hook ) {
 			add_action( "admin_print_styles-{$hook}", array( $this, 'enqueue_assets' ) );
+			add_action( "load-{$hook}", array( $this, 'add_help' ) );
 		}
+	}
+
+	/**
+	 * Adds the Help tabs.
+	 */
+	public function add_help(): void {
+		AxleUi::help_tabs(
+			array(
+				array(
+					'id'      => 'overview',
+					'title'   => __( 'Overview', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'A network freeze makes every site on the network, or the sites you choose, read-only. It applies on each site it covers and cannot be lifted from a site. Site admins can still freeze their own site from Tools.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'freeze',
+					'title'   => __( 'Freezing the network', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'Choose what to freeze, how long it lasts and which sites it covers, then start it now or at a set time. A freeze with an end time cannot be left on by mistake.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'planned',
+					'title'   => __( 'Planned freezes', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'On the Planned tab you set a start time and, if you like, a weekly repeat. The freeze starts by itself on the first request after that time, and people who are writing on the covered sites see a countdown first.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
+					'id'      => 'allow',
+					'title'   => __( 'What keeps working', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'On the Settings tab, the allow-list names requests, ajax actions, paths and users that keep working during a network freeze, on every site.', 'axle-read-only-mode' ) . '</p>',
+				),
+			)
+		);
 	}
 
 	/**
@@ -159,6 +205,16 @@ final class NetworkPage implements Service {
 			<?php
 			if ( 'settings' === ToolsPage::current_tab() ) {
 				$this->render_settings_tab();
+			} elseif ( 'plans' === ToolsPage::current_tab() ) {
+				$this->render_notices();
+				PlansView::render(
+					$this->network->planner,
+					self::post_url(),
+					self::ACTION,
+					add_query_arg( 'tab', 'plans', self::page_url() ),
+					__( 'Plan a network freeze ahead. It starts by itself, and people who are writing on the sites it covers get a countdown first.', 'axle-read-only-mode' ),
+					array( $this, 'render_scope_rows' )
+				);
 			} else {
 				$this->render_freeze_tab( $frozen, $scheduled );
 			}
@@ -247,7 +303,6 @@ final class NetworkPage implements Service {
 	private function render_status(): void {
 		$state  = $this->network->state->own();
 		$by     = get_userdata( (int) $state['by'] );
-		$format = get_option( 'time_format' );
 		$exempt = array_filter( array_map( 'get_userdata', array_map( 'intval', $state['exempt'] ) ) );
 		?>
 		<section class="axle-card aro-status">
@@ -256,8 +311,8 @@ final class NetworkPage implements Service {
 				<?php if ( $state['end'] ) : ?>
 					<span class="axle-badge axle-badge--info aro-countdown" role="timer" data-aro-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-aro-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'axle-read-only-mode' ); ?>">
 						<?php
-						/* translators: %s: time the freeze ends. */
-						echo esc_html( sprintf( __( 'Ends at %s', 'axle-read-only-mode' ), wp_date( $format, (int) $state['end'] ) ) );
+						/* translators: %s: time left, e.g. "2 hours". */
+						echo esc_html( sprintf( __( 'Ends in %s', 'axle-read-only-mode' ), human_time_diff( time(), (int) $state['end'] ) ) );
 						?>
 					</span>
 				<?php endif; ?>
@@ -275,18 +330,16 @@ final class NetworkPage implements Service {
 				<dt><?php esc_html_e( 'Started', 'axle-read-only-mode' ); ?></dt>
 				<dd>
 					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: 1: start time, 2: user name. */
-							__( '%1$s by %2$s', 'axle-read-only-mode' ),
-							wp_date( $format, (int) $state['start'] ),
-							$by ? $by->display_name : __( 'WP-CLI', 'axle-read-only-mode' )
-						)
-					);
+					printf(
+						/* translators: 1: start time, such as "5 minutes ago", 2: user name. */
+						esc_html__( '%1$s by %2$s', 'axle-read-only-mode' ),
+						AxleUi::relative_time( (int) $state['start'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
+						esc_html( $by ? $by->display_name : __( 'WP-CLI', 'axle-read-only-mode' ) )
+					); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Every part is escaped.
 					?>
 				</dd>
 				<dt><?php esc_html_e( 'Ends', 'axle-read-only-mode' ); ?></dt>
-				<dd><?php echo esc_html( $state['end'] ? wp_date( $format, (int) $state['end'] ) : __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); ?></dd>
+				<dd><?php echo AxleUi::relative_time( (int) $state['end'], __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi. ?></dd>
 				<dt><?php esc_html_e( 'Visitor submissions', 'axle-read-only-mode' ); ?></dt>
 				<dd><?php echo esc_html( ToolsPage::visitors_label( (bool) $state['visitors'], $this->network->state->scope() ) ); ?></dd>
 				<dt><?php esc_html_e( 'Scheduled tasks', 'axle-read-only-mode' ); ?></dt>
@@ -322,8 +375,7 @@ final class NetworkPage implements Service {
 			<div class="axle-card__head">
 				<h2 class="axle-card__title">
 					<?php
-					/* translators: %s: date and time the freeze starts. */
-					echo esc_html( sprintf( __( 'Network freeze scheduled for %s', 'axle-read-only-mode' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $state['start'] ) ) );
+					esc_html_e( 'Network freeze scheduled', 'axle-read-only-mode' );
 					?>
 				</h2>
 				<?php ToolsPage::badge( 'info', __( 'Scheduled', 'axle-read-only-mode' ) ); ?>
@@ -522,7 +574,6 @@ final class NetworkPage implements Service {
 			'expired' => __( 'Ended on time', 'axle-read-only-mode' ),
 			'ability' => __( 'Unfrozen by an AI agent or app', 'axle-read-only-mode' ),
 		);
-		$format  = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
 		?>
 		<section class="axle-card aro-history">
 			<h2 class="axle-card__title"><?php esc_html_e( 'Recent network freezes', 'axle-read-only-mode' ); ?></h2>
@@ -545,7 +596,7 @@ final class NetworkPage implements Service {
 							<?php $by = get_userdata( (int) $entry['by'] ); ?>
 							<tr>
 								<td>
-									<?php echo esc_html( wp_date( $format, (int) $entry['start'] ) ); ?><br>
+									<?php echo AxleUi::relative_time( (int) $entry['start'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi. ?><br>
 									<span class="axle-muted"><?php echo esc_html( $by ? $by->display_name : ( BlockedLog::ERASED === (int) $entry['by'] ? __( '(removed)', 'axle-read-only-mode' ) : __( 'WP-CLI', 'axle-read-only-mode' ) ) ); ?></span>
 								</td>
 								<td><?php echo esc_html( human_time_diff( (int) $entry['start'], (int) $entry['end'] ) ); ?></td>
@@ -617,6 +668,13 @@ final class NetworkPage implements Service {
 			'added'     => __( 'Entry added to the allow-list.', 'axle-read-only-mode' ),
 		);
 
+		$plan_say = PlansView::messages();
+		if ( isset( $plan_say['done'][ $done ] ) ) {
+			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $plan_say['done'][ $done ] ) );
+		} elseif ( isset( $plan_say['error'][ $error ] ) && 'no_sites' !== $error ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $plan_say['error'][ $error ] ) );
+		}
+
 		if ( isset( $messages[ $done ] ) ) {
 			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $messages[ $done ] ) );
 		}
@@ -653,6 +711,14 @@ final class NetworkPage implements Service {
 			case 'add_allow':
 				$done = SettingsView::handle( $this->network->settings );
 				$tab  = 'settings';
+				break;
+
+			case 'plan_save':
+			case 'plan_cancel':
+				$tab    = 'plans';
+				$result = PlansView::handle( $this->network->planner, $task );
+				$done   = $result['done'];
+				$error  = $result['error'];
 				break;
 
 			case 'unfreeze':
