@@ -4,7 +4,7 @@ Tags: maintenance, migration, read only, deploy, freeze
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 3.1.0
+Stable tag: 3.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -181,6 +181,10 @@ Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mai
 4. Tools > Read-Only Mode > Settings, with the allow-list and the email choices.
 
 == Changelog ==
+
+= 3.2.0 =
+* Fix: write relative times in lower case so they read well mid-sentence
+* New: plan freezes with a countdown, keep edits made during a freeze
 
 = 3.1.0 =
 * New: check what a freeze would interrupt, and freeze part of the site
