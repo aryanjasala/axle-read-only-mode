@@ -175,6 +175,7 @@ final class SettingsView {
 								<label><input type="checkbox" name="notify[events][]" value="<?php echo esc_attr( $event ); ?>" <?php checked( in_array( $event, $notify['events'], true ) ); ?>> <?php echo esc_html( $label ); ?></label><br>
 							<?php endforeach; ?>
 						</fieldset>
+						<p class="description"><?php esc_html_e( 'A freeze that ends when the smoke test passes also emails you when a run is not green, and when it reaches its hard limit. Those always send while email is on.', 'axle-read-only-mode' ); ?></p>
 					</td>
 				</tr>
 			</table>

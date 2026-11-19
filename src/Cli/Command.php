@@ -11,6 +11,7 @@ use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Checks;
 use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Green;
 use AryanX\Axle\ReadOnlyMode\Health\SiteHealth;
 use AryanX\Axle\ReadOnlyMode\Network;
 use AryanX\Axle\ReadOnlyMode\Notifier;
@@ -97,6 +98,13 @@ final class Command {
 	private Checks $checks;
 
 	/**
+	 * Freeze until green: the link to Axle Smoke Test.
+	 *
+	 * @var Green|null
+	 */
+	private ?Green $green;
+
+	/**
 	 * Sets up the command.
 	 *
 	 * @param State           $state    Saved freeze.
@@ -107,8 +115,10 @@ final class Command {
 	 * @param SiteHealth|null $health The Site Health check.
 	 * @param Checks|null     $checks The "Before you freeze" checks.
 	 * @param Planner|null    $planner This site's planned freezes.
+	 * @param Green|null      $green   Freeze until green.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null, ?Checks $checks = null, ?Planner $planner = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Network $network = null, ?Settings $settings = null, ?SiteHealth $health = null, ?Checks $checks = null, ?Planner $planner = null, ?Green $green = null ) {
+		$this->green    = $green;
 		$this->planner  = $planner;
 		$this->checks   = $checks ?? new Checks();
 		$this->state    = $state;
@@ -163,6 +173,9 @@ final class Command {
 	 * default: all
 	 * ---
 	 *
+	 * [--until-green]
+	 * : End the freeze when the smoke test passes instead of at a time. Asks Axle Smoke Test for a run now. A run that is not green keeps the site frozen, and Smoke Test can roll an update back meanwhile. A hard limit (2 hours, or the axle_read_only_mode_green_max_minutes filter) ends it with a warning. Needs Axle Smoke Test. --minutes is ignored. Not for --network.
+	 *
 	 * [--network]
 	 * : Freeze the whole multisite network instead of one site. Without it, the command freezes the site WP-CLI loaded: the main site, or the one given with --url.
 	 *
@@ -174,6 +187,7 @@ final class Command {
 	 *     wp axle-read-only-mode on --minutes=30 --reason="Moving servers"
 	 *     wp axle-read-only-mode on --scope=content --minutes=120 --reason="Content migration"
 	 *     wp axle-read-only-mode on --scope=code --minutes=30
+	 *     wp axle-read-only-mode on --until-green --reason="Release night"
 	 *     wp axle-read-only-mode on --url=shop.example.com --minutes=30
 	 *     wp axle-read-only-mode on --network --minutes=30
 	 *     wp axle-read-only-mode on --network --sites=2,5 --minutes=30
@@ -191,6 +205,16 @@ final class Command {
 			'cron'            => \WP_CLI\Utils\get_flag_value( $assoc_args, 'cron', true ),
 			'area'            => $this->scope_arg( $assoc_args ),
 		);
+
+		if ( \WP_CLI\Utils\get_flag_value( $assoc_args, 'until-green', false ) ) {
+			if ( $network ) {
+				\WP_CLI::error( '--until-green is for one site, not --network.' );
+			}
+			if ( ! Green::available() ) {
+				\WP_CLI::error( '--until-green needs Axle Smoke Test. Activate it, or give --minutes instead.' );
+			}
+			$freeze['until_green'] = true;
+		}
 
 		if ( ! $network ) {
 			if ( isset( $assoc_args['sites'] ) ) {
@@ -595,6 +619,34 @@ final class Command {
 		\WP_CLI::line( 'Visitor submissions paused: ' . ( $this->state->get( 'visitors' ) ? 'yes' : 'no' ) );
 		\WP_CLI::line( 'Scheduled tasks paused:     ' . ( $this->state->get( 'cron' ) ? 'yes' : 'no' ) );
 		\WP_CLI::line( 'Blocked so far:             ' . $this->log->count( $this->state->log_since() ) );
+
+		$green = $this->state->green_status();
+		if ( '' !== $green ) {
+			$run = (array) $this->state->own_value( 'green_run' );
+			\WP_CLI::line( 'Waiting for smoke test:    ' . ( 'failed' === $green ? 'last run was ' . ( $run['verdict'] ?? 'not green' ) . ' (run ' . (int) ( $run['id'] ?? 0 ) . '), still frozen' : 'yes, no result yet' ) );
+			\WP_CLI::line( 'Hard limit:                ' . wp_date( 'Y-m-d H:i', (int) $this->state->own_value( 'green_deadline' ) ) );
+		}
+	}
+
+	/**
+	 * Asks Axle Smoke Test for another run, for a freeze that waits for it.
+	 *
+	 * Use it after a fix, or after a rollback that did not run the test again.
+	 * The freeze ends on the next green result.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-read-only-mode retest
+	 */
+	public function retest(): void {
+		if ( ! $this->green || ! $this->state->waits_for_green() ) {
+			\WP_CLI::error( 'The site is not frozen until the smoke test passes.' );
+		}
+		if ( ! $this->green->request_run() ) {
+			\WP_CLI::error( 'Axle Smoke Test is not active, so no run could be asked for.' );
+		}
+
+		\WP_CLI::success( 'Asked Axle Smoke Test for a run. The freeze ends when one passes.' );
 	}
 
 	/**

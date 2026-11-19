@@ -8,6 +8,7 @@
 namespace AryanX\Axle\ReadOnlyMode\Admin;
 
 use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Green;
 use AryanX\Axle\ReadOnlyMode\Scopes;
 
 defined( 'ABSPATH' ) || exit;
@@ -26,8 +27,9 @@ final class Forms {
 	 * @param string        $title               Heading and button text.
 	 * @param string        $visitor_placeholder Placeholder of the visitor message field.
 	 * @param callable|null $extra_rows          Prints extra table rows, such as which sites.
+	 * @param bool|null     $green_available     Show the "Until the smoke test passes" option: true when Smoke Test is active, false to show it greyed out. Null leaves it out (the network freeze).
 	 */
-	public static function freeze( string $post_url, string $action, string $title, string $visitor_placeholder, ?callable $extra_rows = null ): void {
+	public static function freeze( string $post_url, string $action, string $title, string $visitor_placeholder, ?callable $extra_rows = null, ?bool $green_available = null ): void {
 		?>
 		<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="axle-card aro-form">
 			<h2 class="axle-card__title"><?php echo esc_html( $title ); ?></h2>
@@ -93,6 +95,24 @@ final class Forms {
 						<p class="description"><?php esc_html_e( 'With an end time, a failed deploy cannot leave the site frozen.', 'axle-read-only-mode' ); ?></p>
 					</td>
 				</tr>
+				<?php if ( null !== $green_available ) : ?>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Or end when', 'axle-read-only-mode' ); ?></th>
+						<td>
+							<label><input type="checkbox" name="until_green" value="1" id="aro-until-green" aria-describedby="aro-until-green-help" <?php disabled( ! $green_available ); ?>> <?php esc_html_e( 'The smoke test passes', 'axle-read-only-mode' ); ?></label>
+							<p class="description" id="aro-until-green-help">
+								<?php
+								if ( $green_available ) {
+									/* translators: %s: length, e.g. "2 hours". */
+									echo esc_html( sprintf( __( 'Asks Axle Smoke Test for a run now and ends the freeze on the first green result. A run that is not green keeps the site frozen, and Smoke Test can roll an update back meanwhile. It ends after %s whatever happens. This replaces the end time above.', 'axle-read-only-mode' ), ToolsPage::duration_label( Green::max_minutes() ) ) );
+								} else {
+									esc_html_e( 'Needs Axle Smoke Test. Activate it to end a freeze when your pages pass their checks.', 'axle-read-only-mode' );
+								}
+								?>
+							</p>
+						</td>
+					</tr>
+				<?php endif; ?>
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Also pause', 'axle-read-only-mode' ); ?></th>
 					<td>

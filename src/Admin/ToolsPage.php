@@ -11,6 +11,7 @@ use AryanX\Axle\ReadOnlyMode\AllowList;
 use AryanX\Axle\ReadOnlyMode\BlockedLog;
 use AryanX\Axle\ReadOnlyMode\Checks;
 use AryanX\Axle\ReadOnlyMode\Freezer;
+use AryanX\Axle\ReadOnlyMode\Green;
 use AryanX\Axle\ReadOnlyMode\History;
 use AryanX\Axle\ReadOnlyMode\Planner;
 use AryanX\Axle\ReadOnlyMode\Scopes;
@@ -90,6 +91,13 @@ final class ToolsPage implements Service {
 	private ?Planner $planner;
 
 	/**
+	 * Freeze until green.
+	 *
+	 * @var Green|null
+	 */
+	private ?Green $green;
+
+	/**
 	 * Sets up the screen.
 	 *
 	 * @param State        $state    Saved freeze.
@@ -99,8 +107,10 @@ final class ToolsPage implements Service {
 	 * @param Settings     $settings This site's settings.
 	 * @param Checks       $checks   The "Before you freeze" checks.
 	 * @param Planner|null $planner  Planned freezes.
+	 * @param Green|null   $green    Freeze until green.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, History $history, Settings $settings, Checks $checks, ?Planner $planner = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, History $history, Settings $settings, Checks $checks, ?Planner $planner = null, ?Green $green = null ) {
+		$this->green    = $green;
 		$this->planner  = $planner;
 		$this->checks   = $checks;
 		$this->state    = $state;
@@ -304,11 +314,45 @@ final class ToolsPage implements Service {
 					'content' => '<p>' . esc_html__( 'If a freeze starts while you are in the block editor, your changes wait in your browser. When the freeze ends they are saved for you, unless someone else changed the post meanwhile. Then you see both versions and choose. In the classic editor the form stays as it is.', 'axle-read-only-mode' ) . '</p>',
 				),
 				array(
+					'id'      => 'cli',
+					'title'   => __( 'From a deploy script', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'WP-CLI is never blocked, so scripts can freeze, import and unfreeze:', 'axle-read-only-mode' ) . '</p><ul>'
+						. implode(
+							'',
+							array_map(
+								static function ( string $command ): string {
+									return '<li><code>' . esc_html( $command ) . '</code></li>';
+								},
+								self::cli_commands()
+							)
+						) . '</ul>',
+				),
+				array(
+					'id'      => 'green',
+					'title'   => __( 'Until the smoke test passes', 'axle-read-only-mode' ),
+					'content' => '<p>' . esc_html__( 'With Axle Smoke Test active, a freeze can end when the smoke test passes instead of at a time. The freeze asks Smoke Test for a run when it starts and ends on the first green result. A run that is not green keeps the site frozen and tells you why, and Smoke Test can roll an update back while the freeze is on. A hard limit, two hours by default, ends the freeze with a warning so a stuck run cannot hold the site forever.', 'axle-read-only-mode' ) . '</p>',
+				),
+				array(
 					'id'      => 'allow',
 					'title'   => __( 'What keeps working', 'axle-read-only-mode' ),
 					'content' => '<p>' . esc_html__( 'On the Settings tab, the allow-list names requests, ajax actions, paths and users that keep working during a freeze, such as a payment webhook. Emails tell you when a freeze starts, ends or is extended.', 'axle-read-only-mode' ) . '</p>',
 				),
 			)
+		);
+	}
+
+	/**
+	 * The deploy-script commands shown in the Help tab.
+	 *
+	 * @return string[]
+	 */
+	public static function cli_commands(): array {
+		return array(
+			'wp axle-read-only-mode check --minutes=30',
+			'wp axle-read-only-mode on --minutes=30 --reason="Moving servers"',
+			'wp axle-read-only-mode on --minutes=30 --scope=content',
+			'wp axle-read-only-mode on --until-green --reason="Release night"',
+			'wp axle-read-only-mode off',
 		);
 	}
 
@@ -477,6 +521,7 @@ final class ToolsPage implements Service {
 
 		<?php
 		$this->render_notices();
+		$this->render_green_timeout_notice();
 
 		if ( $this->state->forced_by_constant() ) {
 			printf( '<div class="notice notice-warning inline"><p>%s</p></div>', esc_html__( 'The site is frozen by the AXLE_READ_ONLY_MODE constant in wp-config.php. Remove it to unfreeze.', 'axle-read-only-mode' ) );
@@ -499,11 +544,25 @@ final class ToolsPage implements Service {
 		$this->render_blocked();
 		?>
 
-		<div class="axle-grid aro-columns">
-			<?php $this->render_history(); ?>
-			<?php $this->render_cli(); ?>
-		</div>
 		<?php
+		$this->render_history();
+	}
+
+	/**
+	 * Warns for a day after a freeze ended at its hard limit without a green smoke test.
+	 */
+	private function render_green_timeout_notice(): void {
+		$latest = $this->history->all()[0] ?? array();
+		if ( 'green_timeout' !== ( $latest['ended_by'] ?? '' ) || time() - (int) ( $latest['end'] ?? 0 ) > DAY_IN_SECONDS || $this->state->is_frozen() ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
+			esc_html__( 'The last freeze ended at its hard limit without a green smoke test. Saving works again. Check the site before you trust it.', 'axle-read-only-mode' ),
+			esc_url( Green::smoke_test_url( (int) ( $latest['run'] ?? 0 ) ) ),
+			esc_html__( 'See the smoke test', 'axle-read-only-mode' )
+		);
 	}
 
 	/**
@@ -636,11 +695,24 @@ final class ToolsPage implements Service {
 		$state  = $this->state->own();
 		$by     = get_userdata( (int) $state['by'] );
 		$exempt = array_filter( array_map( 'get_userdata', array_map( 'intval', $state['exempt'] ) ) );
+		$green  = $this->state->green_status();
+		$run    = (array) $state['green_run'];
 		?>
-		<section class="axle-card aro-status">
+		<section class="axle-card aro-status<?php echo '' !== $green ? ' is-green-' . esc_attr( $green ) : ''; ?>">
 			<div class="axle-card__head">
 				<h2 class="axle-card__title"><?php esc_html_e( 'The site is frozen', 'axle-read-only-mode' ); ?></h2>
-				<?php if ( $state['end'] ) : ?>
+				<?php if ( 'waiting' === $green ) : ?>
+					<?php self::badge( 'info', __( 'Waiting for the smoke test', 'axle-read-only-mode' ) ); ?>
+				<?php elseif ( 'failed' === $green ) : ?>
+					<?php
+					self::badge(
+						'error',
+						'amber' === ( $run['verdict'] ?? '' )
+							? __( 'Smoke test amber', 'axle-read-only-mode' )
+							: __( 'Smoke test red', 'axle-read-only-mode' )
+					);
+					?>
+				<?php elseif ( $state['end'] ) : ?>
 					<span class="axle-badge axle-badge--info aro-countdown" role="timer" data-aro-end="<?php echo esc_attr( (string) $state['end'] ); ?>" data-aro-label="<?php /* translators: %s: time left, e.g. 1:23:45. */ esc_attr_e( 'Ends in %s', 'axle-read-only-mode' ); ?>">
 						<?php
 						/* translators: %s: time left, e.g. "2 hours". */
@@ -652,6 +724,26 @@ final class ToolsPage implements Service {
 
 			<?php if ( '' !== $state['reason'] ) : ?>
 				<p class="aro-reason"><?php echo esc_html( $state['reason'] ); ?></p>
+			<?php endif; ?>
+
+			<?php if ( 'waiting' === $green ) : ?>
+				<p class="aro-green" role="status">
+					<?php esc_html_e( 'The freeze ends by itself when the smoke test passes.', 'axle-read-only-mode' ); ?>
+					<a href="<?php echo esc_url( Green::smoke_test_url() ); ?>"><?php esc_html_e( 'See the smoke test run', 'axle-read-only-mode' ); ?></a>
+				</p>
+			<?php elseif ( 'failed' === $green ) : ?>
+				<p class="aro-green" role="status">
+					<?php
+					printf(
+						/* translators: 1: smoke test verdict, red or amber, 2: run number. */
+						esc_html__( 'The last smoke test was %1$s (run %2$d), so the site stays frozen.', 'axle-read-only-mode' ),
+						esc_html( (string) ( $run['verdict'] ?? 'red' ) ),
+						(int) ( $run['id'] ?? 0 )
+					);
+					?>
+					<a href="<?php echo esc_url( Green::smoke_test_url( (int) ( $run['id'] ?? 0 ) ) ); ?>"><?php esc_html_e( 'See what failed', 'axle-read-only-mode' ); ?></a>
+				</p>
+				<p class="description"><?php esc_html_e( 'Smoke Test can roll the update back while the freeze is on. Fix it or roll it back, then run the smoke test again.', 'axle-read-only-mode' ); ?></p>
 			<?php endif; ?>
 
 			<dl class="axle-facts">
@@ -667,7 +759,19 @@ final class ToolsPage implements Service {
 					?>
 				</dd>
 				<dt><?php esc_html_e( 'Ends', 'axle-read-only-mode' ); ?></dt>
-				<dd><?php echo AxleUi::relative_time( (int) $state['end'], __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi. ?></dd>
+				<dd>
+					<?php
+					if ( '' !== $green ) {
+						printf(
+							/* translators: %s: the hard limit, such as "in 2 hours". */
+							esc_html__( 'When the smoke test passes, and at the latest %s', 'axle-read-only-mode' ),
+							AxleUi::relative_time( (int) $state['green_deadline'] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
+						);
+					} else {
+						echo AxleUi::relative_time( (int) $state['end'], __( 'No end time: lasts until you unfreeze', 'axle-read-only-mode' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
+					}
+					?>
+				</dd>
 				<dt><?php esc_html_e( 'Scope', 'axle-read-only-mode' ); ?></dt>
 				<dd><?php echo esc_html( Scopes::label( $this->state->scope() ) ); ?></dd>
 				<dt><?php esc_html_e( 'Visitor submissions', 'axle-read-only-mode' ); ?></dt>
@@ -683,7 +787,10 @@ final class ToolsPage implements Service {
 			<div class="axle-actions">
 				<?php
 				$this->render_button( 'unfreeze', __( 'Unfreeze now', 'axle-read-only-mode' ), 'primary' );
-				if ( $state['end'] ) {
+				if ( '' !== $green ) {
+					$this->render_button( 'green_retest', __( 'Run the smoke test again', 'axle-read-only-mode' ), 'secondary' );
+				}
+				if ( $state['end'] || '' !== $green ) {
 					foreach ( Freezer::extend_steps() as $step ) {
 						/* translators: %s: length, e.g. "30 minutes". */
 						$this->render_button( 'extend', sprintf( __( 'Add %s', 'axle-read-only-mode' ), self::duration_label( $step ) ), 'secondary', array( 'minutes' => $step ) );
@@ -723,6 +830,9 @@ final class ToolsPage implements Service {
 				echo ' ';
 				/* translators: %s: scope of the freeze, e.g. "Content only". */
 				echo esc_html( sprintf( __( 'Scope: %s', 'axle-read-only-mode' ), Scopes::label( (string) $state['area'] ) ) );
+				if ( ! empty( $state['until_green'] ) ) {
+					echo ' ' . esc_html__( 'It ends when the smoke test passes.', 'axle-read-only-mode' );
+				}
 				?>
 			</p>
 			<div class="axle-actions"><?php $this->render_button( 'unfreeze', __( 'Cancel scheduled freeze', 'axle-read-only-mode' ), 'secondary' ); ?></div>
@@ -825,7 +935,7 @@ final class ToolsPage implements Service {
 	 */
 	private function render_form(): void {
 		$this->render_checks();
-		Forms::freeze( admin_url( 'admin-post.php' ), self::ACTION, __( 'Freeze the site', 'axle-read-only-mode' ), $this->state->visitor_message() );
+		Forms::freeze( admin_url( 'admin-post.php' ), self::ACTION, __( 'Freeze the site', 'axle-read-only-mode' ), $this->state->visitor_message(), null, Green::available() );
 	}
 
 	/**
@@ -924,10 +1034,12 @@ final class ToolsPage implements Service {
 	private function render_history(): void {
 		$entries = $this->history->all();
 		$ended   = array(
-			'user'    => __( 'Unfrozen', 'axle-read-only-mode' ),
-			'cli'     => __( 'Unfrozen by WP-CLI', 'axle-read-only-mode' ),
-			'expired' => __( 'Ended on time', 'axle-read-only-mode' ),
-			'ability' => __( 'Unfrozen by an AI agent or app', 'axle-read-only-mode' ),
+			'user'          => __( 'Unfrozen', 'axle-read-only-mode' ),
+			'cli'           => __( 'Unfrozen by WP-CLI', 'axle-read-only-mode' ),
+			'expired'       => __( 'Ended on time', 'axle-read-only-mode' ),
+			'ability'       => __( 'Unfrozen by an AI agent or app', 'axle-read-only-mode' ),
+			'green'         => __( 'Smoke test passed', 'axle-read-only-mode' ),
+			'green_timeout' => __( 'Hard limit, no green run', 'axle-read-only-mode' ),
 		);
 		?>
 		<section class="axle-card aro-history">
@@ -974,32 +1086,6 @@ final class ToolsPage implements Service {
 	}
 
 	/**
-	 * Prints the deploy-script commands with Copy buttons.
-	 */
-	private function render_cli(): void {
-		$commands = array(
-			'wp axle-read-only-mode check --minutes=30',
-			'wp axle-read-only-mode on --minutes=30 --reason="Moving servers"',
-			'wp axle-read-only-mode on --minutes=30 --scope=content',
-			'wp axle-read-only-mode off',
-		);
-		?>
-		<section class="axle-card aro-cli">
-			<h2 class="axle-card__title"><?php esc_html_e( 'From a deploy script', 'axle-read-only-mode' ); ?></h2>
-			<p><?php esc_html_e( 'WP-CLI is never blocked, so scripts can freeze, import and unfreeze:', 'axle-read-only-mode' ); ?></p>
-			<ul class="aro-commands">
-				<?php foreach ( $commands as $command ) : ?>
-					<li>
-						<code class="axle-code"><?php echo esc_html( $command ); ?></code>
-						<button type="button" class="button button-small axle-copy" data-aro-copy="<?php echo esc_attr( $command ); ?>" data-aro-copied="<?php esc_attr_e( 'Copied.', 'axle-read-only-mode' ); ?>"><?php esc_html_e( 'Copy', 'axle-read-only-mode' ); ?></button>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-		</section>
-		<?php
-	}
-
-	/**
 	 * Prints a one-button form that runs a task.
 	 *
 	 * @param string $task   Task name.
@@ -1022,6 +1108,7 @@ final class ToolsPage implements Service {
 			'scheduled' => __( 'Freeze scheduled.', 'axle-read-only-mode' ),
 			'unfrozen'  => __( 'The site is unfrozen.', 'axle-read-only-mode' ),
 			'extended'  => __( 'Freeze extended.', 'axle-read-only-mode' ),
+			'retested'  => __( 'Asked Axle Smoke Test for another run. The freeze ends when one passes.', 'axle-read-only-mode' ),
 			'saved'     => __( 'Settings saved.', 'axle-read-only-mode' ),
 			'added'     => __( 'Entry added to the allow-list.', 'axle-read-only-mode' ),
 		);
@@ -1032,6 +1119,9 @@ final class ToolsPage implements Service {
 		$error    = isset( $_GET['aro_error'] ) ? sanitize_key( wp_unslash( $_GET['aro_error'] ) ) : '';
 		$plan_say = PlansView::messages();
 
+		if ( 'no_smoke_test' === $error ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html__( 'Axle Smoke Test is not active, so the freeze could not wait for it. Activate Smoke Test, or choose an end time.', 'axle-read-only-mode' ) );
+		}
 		if ( isset( $plan_say['error'][ $error ] ) ) {
 			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $plan_say['error'][ $error ] ) );
 		}
@@ -1125,6 +1215,14 @@ final class ToolsPage implements Service {
 				$done = 'unfrozen';
 				break;
 
+			case 'green_retest':
+				if ( $this->green && $this->green->request_run() ) {
+					$done = 'retested';
+				} else {
+					$error = 'no_smoke_test';
+				}
+				break;
+
 			case 'extend':
 				$done = $this->freezer->extend( $minutes ? $minutes : Freezer::extend_steps()[0] ) ? 'extended' : '';
 				break;
@@ -1137,6 +1235,12 @@ final class ToolsPage implements Service {
 				break;
 
 			case 'freeze':
+				$until_green = ! empty( $_POST['until_green'] );
+				if ( $until_green && ! Green::available() ) {
+					$error = 'no_smoke_test';
+					break;
+				}
+
 				$start = 0;
 				if ( isset( $_POST['when'], $_POST['start'] ) && 'later' === $_POST['when'] ) {
 					$start = self::parse_start( sanitize_text_field( wp_unslash( $_POST['start'] ) ) );
@@ -1152,6 +1256,7 @@ final class ToolsPage implements Service {
 						'cron'            => ! empty( $_POST['cron'] ),
 						'exempt'          => ! empty( $_POST['exempt_me'] ) ? array( get_current_user_id() ) : array(),
 						'area'            => isset( $_POST['freeze_scope'] ) ? sanitize_key( wp_unslash( $_POST['freeze_scope'] ) ) : Scopes::default_scope(),
+						'until_green'     => $until_green,
 					)
 				);
 				$done = $start > time() ? 'scheduled' : 'frozen';

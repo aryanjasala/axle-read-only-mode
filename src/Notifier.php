@@ -26,6 +26,11 @@ final class Notifier implements Service {
 	public const EVENTS = array( 'started', 'ended', 'expired', 'extended', 'scheduled_start' );
 
 	/**
+	 * Warnings from Freeze until green. They send whenever email is on, because the site is still frozen or was opened without a green run.
+	 */
+	public const WARNINGS = array( 'green_red', 'green_timeout' );
+
+	/**
 	 * Saved freeze.
 	 *
 	 * @var State
@@ -69,6 +74,31 @@ final class Notifier implements Service {
 		add_action( $prefix . 'scheduled_started', array( $this, 'on_scheduled_started' ) );
 		add_action( $prefix . 'extended', array( $this, 'on_extended' ), 10, 2 );
 		add_action( $prefix . 'ended', array( $this, 'on_ended' ), 10, 2 );
+
+		// Freeze until green is a site freeze only.
+		if ( ! $this->state->is_network() ) {
+			add_action( 'axle_read_only_mode_green_failed', array( $this, 'on_green_failed' ), 10, 2 );
+			add_action( 'axle_read_only_mode_green_timeout', array( $this, 'on_green_timeout' ) );
+		}
+	}
+
+	/**
+	 * The smoke test finished and was not green, so the freeze stays.
+	 *
+	 * @param array $freeze The freeze, with the failed run in green_run.
+	 * @param array $run    The run Smoke Test sent.
+	 */
+	public function on_green_failed( $freeze, $run = array() ): void {
+		$this->send( 'green_red', (array) $freeze, array( 'run' => (array) ( ( (array) $freeze )['green_run'] ?? (array) $run ) ) );
+	}
+
+	/**
+	 * A freeze that waited for the smoke test reached its hard limit and is about to end.
+	 *
+	 * @param array $freeze The freeze.
+	 */
+	public function on_green_timeout( $freeze ): void {
+		$this->send( 'green_timeout', (array) $freeze, array( 'run' => (array) ( ( (array) $freeze )['green_run'] ?? array() ) ) );
 	}
 
 	/**
@@ -125,6 +155,11 @@ final class Notifier implements Service {
 	 * @param string $ended_by user, cli, ability or expired.
 	 */
 	public function on_ended( $freeze, $ended_by = 'user' ): void {
+		// The hard limit sends its own, louder, email before the freeze ends.
+		if ( 'green_timeout' === $ended_by ) {
+			return;
+		}
+
 		$freeze  = (array) $freeze;
 		$latest  = $this->history->all()[0] ?? array();
 		$blocked = null;
@@ -160,10 +195,10 @@ final class Notifier implements Service {
 		/**
 		 * Filters the events that send an email.
 		 *
-		 * @param string[] $events  The events ticked on the settings screen: started, ended, expired, extended and scheduled_start.
+		 * @param string[] $events  The events ticked on the settings screen (started, ended, expired, extended and scheduled_start), and the two Freeze until green warnings, green_red and green_timeout, which always send.
 		 * @param bool     $network Whether this is the network's freeze.
 		 */
-		$events = (array) apply_filters( 'axle_read_only_mode_notify_events', $notify['events'], $network );
+		$events = (array) apply_filters( 'axle_read_only_mode_notify_events', array_merge( $notify['events'], self::WARNINGS ), $network );
 		if ( ! in_array( $event, $events, true ) || ! $this->claim( $event ) ) {
 			return false;
 		}
@@ -298,6 +333,14 @@ final class Notifier implements Service {
 				/* translators: %s: site name. */
 				$subject = $network ? __( '[%s] Network freeze extended', 'axle-read-only-mode' ) : __( '[%s] Freeze extended', 'axle-read-only-mode' );
 				break;
+			case 'green_red':
+				/* translators: %s: site name. */
+				$subject = __( '[%s] Smoke test failed, the site stays frozen', 'axle-read-only-mode' );
+				break;
+			case 'green_timeout':
+				/* translators: %s: site name. */
+				$subject = __( '[%s] Freeze ended without a green smoke test', 'axle-read-only-mode' );
+				break;
 			case 'scheduled_start':
 				/* translators: %s: site name. */
 				$subject = $network ? __( '[%s] Scheduled network freeze started', 'axle-read-only-mode' ) : __( '[%s] Scheduled freeze started', 'axle-read-only-mode' );
@@ -336,6 +379,10 @@ final class Notifier implements Service {
 			'ended'           => __( 'The freeze on %s ended.', 'axle-read-only-mode' ),
 			/* translators: %s: site name. */
 			'expired'         => __( 'The freeze on %s ended by itself at its end time.', 'axle-read-only-mode' ),
+			/* translators: %s: site name. */
+			'green_red'       => __( 'The smoke test on %s was not green, so the site stays frozen.', 'axle-read-only-mode' ),
+			/* translators: %s: site name. */
+			'green_timeout'   => __( 'WARNING: the freeze on %s ended without a green smoke test.', 'axle-read-only-mode' ),
 		);
 		$lines    = array(
 			sprintf( $headline[ $event ] ?? $headline['started'], $this->name() ),
@@ -359,7 +406,12 @@ final class Notifier implements Service {
 		/* translators: %s: what the freeze covers, e.g. "Content only". */
 		$lines[] = sprintf( __( 'Scope: %s', 'axle-read-only-mode' ), Scopes::label( (string) ( $freeze['area'] ?? Scopes::ALL ) ) );
 
-		if ( ! in_array( $event, array( 'ended', 'expired' ), true ) ) {
+		if ( ! in_array( $event, array( 'ended', 'expired' ), true ) && ! empty( $freeze['until_green'] ) ) {
+			$lines[] = ! empty( $freeze['green_deadline'] )
+				/* translators: 1: date and time of the hard limit, 2: site time zone. */
+				? sprintf( __( 'Until: the smoke test passes (at the latest %1$s, %2$s)', 'axle-read-only-mode' ), wp_date( $format, (int) $freeze['green_deadline'] ), wp_timezone_string() )
+				: __( 'Until: the smoke test passes', 'axle-read-only-mode' );
+		} elseif ( ! in_array( $event, array( 'ended', 'expired' ), true ) ) {
 			$lines[] = $end
 				/* translators: 1: date and time the freeze ends, 2: site time zone. */
 				? sprintf( __( 'Until: %1$s (%2$s)', 'axle-read-only-mode' ), wp_date( $format, $end ), wp_timezone_string() )
@@ -384,6 +436,27 @@ final class Notifier implements Service {
 				$lines[] = '';
 				$lines[] = __( 'The check before freezing found:', 'axle-read-only-mode' );
 				$lines   = array_merge( $lines, $findings );
+			}
+		}
+
+		if ( in_array( $event, self::WARNINGS, true ) ) {
+			$run     = (array) ( $context['run'] ?? array() );
+			$verdict = (string) ( $run['verdict'] ?? '' );
+			$lines[] = '';
+			if ( '' !== $verdict ) {
+				/* translators: 1: verdict (red or amber), 2: run number. */
+				$lines[] = sprintf( __( 'Last smoke test: %1$s (run %2$d)', 'axle-read-only-mode' ), $verdict, (int) ( $run['id'] ?? 0 ) );
+				/* translators: %s: address of the smoke test results. */
+				$lines[] = sprintf( __( 'See what failed: %s', 'axle-read-only-mode' ), Green::smoke_test_url( (int) ( $run['id'] ?? 0 ) ) );
+			} else {
+				$lines[] = __( 'No smoke test finished in time.', 'axle-read-only-mode' );
+				/* translators: %s: address of the smoke test screen. */
+				$lines[] = sprintf( __( 'Smoke test: %s', 'axle-read-only-mode' ), Green::smoke_test_url() );
+			}
+			if ( 'green_red' === $event ) {
+				$lines[] = __( 'Axle Smoke Test can roll an update back while the freeze is on. The freeze ends when a run passes, or at the hard limit.', 'axle-read-only-mode' );
+			} else {
+				$lines[] = __( 'Saving works again. Check the site before you trust it.', 'axle-read-only-mode' );
 			}
 		}
 
@@ -414,6 +487,12 @@ final class Notifier implements Service {
 	private function who( string $event, string $ended_by ): string {
 		if ( 'expired' === $event || 'expired' === $ended_by ) {
 			return __( 'Nobody: it ended by itself', 'axle-read-only-mode' );
+		}
+		if ( in_array( $event, self::WARNINGS, true ) ) {
+			return __( 'Nobody: the smoke test finished', 'axle-read-only-mode' );
+		}
+		if ( 'green' === $ended_by ) {
+			return __( 'Nobody: the smoke test passed', 'axle-read-only-mode' );
 		}
 		if ( 'scheduled_start' === $event ) {
 			return __( 'Nobody: it was scheduled', 'axle-read-only-mode' );

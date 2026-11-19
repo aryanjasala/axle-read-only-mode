@@ -65,17 +65,20 @@ final class Freezer {
 	 *     @type bool   $cron            Also pause scheduled tasks.
 	 *     @type int[]  $exempt          Users who can keep working.
 	 *     @type string $area            What the freeze covers: all (default), content or code. See Scopes.
+	 *     @type bool   $until_green     End when the smoke test passes instead of at a time. Needs Axle Smoke Test; `minutes` is ignored. Not for network freezes.
 	 *     @type string $scope           For a network freeze: all, or sites for the ones in $sites.
 	 *     @type int[]  $sites           For a network freeze with scope sites: the sites it covers.
 	 * }
 	 */
 	public function freeze( array $args ): void {
 		$start   = ! empty( $args['start'] ) ? (int) $args['start'] : time();
-		$minutes = isset( $args['minutes'] ) ? max( 0, (int) $args['minutes'] ) : self::default_duration();
+		$green   = ! empty( $args['until_green'] ) && ! $this->state->is_network() && Green::available();
+		$minutes = $green ? 0 : ( isset( $args['minutes'] ) ? max( 0, (int) $args['minutes'] ) : self::default_duration() );
 
 		// The previous freeze's one-time expiry marker is no longer needed.
 		$this->forget_marker( self::expiry_key( (int) $this->state->own_value( 'start' ), $this->state->is_network() ) );
 		$this->forget_marker( self::marker_key( 'started', (int) $this->state->own_value( 'start' ), $this->state->is_network() ) );
+		$this->forget_marker( self::marker_key( 'greentimeout', (int) $this->state->own_value( 'start' ), $this->state->is_network() ) );
 		$this->log->clear();
 
 		$changes = array(
@@ -91,6 +94,10 @@ final class Freezer {
 			'area'            => isset( $args['area'] ) ? Scopes::normalize( (string) $args['area'] ) : Scopes::default_scope(),
 			// A freeze set for later announces itself once it starts.
 			'announce'        => $start > time(),
+			'until_green'     => $green,
+			'green_deadline'  => $green ? $start + Green::max_minutes() * MINUTE_IN_SECONDS : 0,
+			'green_requested' => 0,
+			'green_run'       => array(),
 		);
 
 		if ( $this->state->is_network() ) {
@@ -127,6 +134,15 @@ final class Freezer {
 	 */
 	public function extend( int $minutes ): bool {
 		$end = (int) $this->state->own_value( 'end' );
+		if ( $this->state->waits_for_green() && $minutes > 0 ) {
+			// A freeze that waits for the smoke test has no end time. Extending moves its hard limit.
+			$this->state->update( array( 'green_deadline' => max( (int) $this->state->own_value( 'green_deadline' ), time() ) + $minutes * MINUTE_IN_SECONDS ) );
+			Green::schedule_deadline( (int) $this->state->own_value( 'green_deadline' ) );
+
+			do_action( 'axle_read_only_mode_extended', $this->state->own(), $minutes );
+
+			return true;
+		}
 		if ( ! $this->state->is_running() || ! $end || $minutes <= 0 ) {
 			return false;
 		}
@@ -219,7 +235,7 @@ final class Freezer {
 	/**
 	 * Ends the freeze (or cancels a scheduled one) and records it.
 	 *
-	 * @param string $ended_by user, cli or expired.
+	 * @param string $ended_by user, cli, ability, expired, green (the smoke test passed) or green_timeout (the hard limit came first).
 	 */
 	public function unfreeze( string $ended_by = 'user' ): void {
 		$state = $this->state->own();
@@ -237,6 +253,11 @@ final class Freezer {
 				'blocked'  => $this->log->count(),
 				'scope'    => Scopes::normalize( (string) $state['area'] ),
 			);
+			if ( ! empty( $state['until_green'] ) ) {
+				$entry['until_green'] = true;
+				$entry['run']         = (int) ( $state['green_run']['id'] ?? 0 );
+				$entry['verdict']     = (string) ( $state['green_run']['verdict'] ?? '' );
+			}
 			if ( $this->state->is_network() ) {
 				$entry['sites'] = 'sites' === ( $state['scope'] ?? 'all' ) ? count( (array) ( $state['sites'] ?? array() ) ) : 0;
 			}
@@ -244,6 +265,10 @@ final class Freezer {
 		}
 
 		$this->state->update( array( 'active' => false ) );
+
+		if ( ! empty( $state['until_green'] ) ) {
+			Green::schedule_deadline( 0 );
+		}
 
 		if ( $this->state->is_network() ) {
 			/**
@@ -279,6 +304,38 @@ final class Freezer {
 		if ( $this->claim_marker( self::expiry_key( (int) $this->state->own_value( 'start' ), $this->state->is_network() ) ) ) {
 			$this->unfreeze( 'expired' );
 		}
+	}
+
+	/**
+	 * Ends a freeze that waited for the smoke test when its hard limit has passed.
+	 *
+	 * Runs on every request and from one WP-Cron event, and reads only the
+	 * saved freeze, so a stuck run cannot hold the site forever and the check
+	 * costs no query.
+	 */
+	public function end_green_wait_if_needed(): void {
+		if ( ! $this->state->waits_for_green() ) {
+			return;
+		}
+
+		$deadline = (int) $this->state->own_value( 'green_deadline' );
+		if ( ! $deadline || time() < $deadline ) {
+			return;
+		}
+
+		// Many requests can notice the limit at once. Only one claims it.
+		if ( ! $this->claim_marker( self::marker_key( 'greentimeout', (int) $this->state->own_value( 'start' ), false ) ) ) {
+			return;
+		}
+
+		/**
+		 * Fires when a freeze that waited for the smoke test reaches its hard limit and ends without a green run.
+		 *
+		 * @param array $state The freeze, with the last run that finished (green_run) if any.
+		 */
+		do_action( 'axle_read_only_mode_green_timeout', $this->state->own() );
+
+		$this->unfreeze( 'green_timeout' );
 	}
 
 	/**

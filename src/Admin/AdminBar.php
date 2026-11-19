@@ -72,7 +72,18 @@ final class AdminBar implements Service {
 		$network = $this->state->network_applies() && ! $this->state->forced_by_constant();
 		$scope   = $this->state->scope();
 		$status  = Scopes::status( $scope );
-		if ( Scopes::ALL !== $scope ) {
+		$green   = $this->state->green_status();
+		if ( 'failed' === $green && ! $network ) {
+			$title = Scopes::ALL === $scope
+				? __( 'Frozen: smoke test not green', 'axle-read-only-mode' )
+				/* translators: %s: what is frozen, e.g. "Content frozen". */
+				: sprintf( __( '%s: smoke test not green', 'axle-read-only-mode' ), $status );
+		} elseif ( 'waiting' === $green && ! $network ) {
+			$title = Scopes::ALL === $scope
+				? __( 'Frozen until the smoke test passes', 'axle-read-only-mode' )
+				/* translators: %s: what is frozen, e.g. "Content frozen". */
+				: sprintf( __( '%s until the smoke test passes', 'axle-read-only-mode' ), $status );
+		} elseif ( Scopes::ALL !== $scope ) {
 			// For example: content frozen until 3 pm, or settings and code frozen by the network.
 			if ( $network ) {
 				$title = $until
@@ -107,6 +118,9 @@ final class AdminBar implements Service {
 			)
 		);
 
+		// Core hides top-level nodes it does not know below 782 px. Keep this one visible as a lock.
+		AxleUi::admin_bar_mobile( 'axle-read-only-mode', 'dashicons-lock' );
+
 		if ( $network ) {
 			if ( current_user_can( NetworkPage::capability() ) && is_multisite() ) {
 				$admin_bar->add_node(
@@ -134,7 +148,7 @@ final class AdminBar implements Service {
 			)
 		);
 
-		if ( $this->state->get( 'end' ) ) {
+		if ( $this->state->get( 'end' ) || $this->state->waits_for_green() ) {
 			$admin_bar->add_node(
 				array(
 					'parent' => 'axle-read-only-mode',
