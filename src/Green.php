@@ -13,8 +13,9 @@ defined( 'ABSPATH' ) || exit;
  * Talks to Axle Smoke Test through two hooks and nothing else.
  *
  * - `axle_smoke_test_run_now( $source )` asks it to queue a full run.
- * - `axle_smoke_test_run_finished( $run )` tells us a run is done: `id`,
- *   `verdict` (green, amber, red), `source` and `finished`.
+ * - `axle_smoke_test_run_finished( $run )` tells us about a run: `id`,
+ *   `verdict` (green, amber, red), `source`, `finished` and `final` (true on
+ *   the last report of a run; only that one counts).
  *
  * Both are guarded, so nothing here breaks when Smoke Test is not active. A
  * freeze that waits for the smoke test:
@@ -223,6 +224,13 @@ final class Green implements Service {
 	 */
 	public function on_run_finished( $run ): void {
 		if ( ! $this->state->waits_for_green() || ! is_array( $run ) ) {
+			return;
+		}
+
+		// Smoke Test reports a run after the server checks and again as browser
+		// checks arrive; only the last report (final) has the whole verdict.
+		// Runs without the key come from versions that report once.
+		if ( array_key_exists( 'final', $run ) && ! $run['final'] ) {
 			return;
 		}
 
