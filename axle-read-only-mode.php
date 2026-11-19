@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name:       Axle Read-Only Mode
- * Plugin URI:        https://wordpress.org/plugins/axle-read-only-mode/
+ * Plugin URI:        https://axlewp.com/plugins/axle-read-only-mode/
  * Description:       Puts the site in read-only mode during a migration or deploy, so nothing written in the meantime gets lost. Visitors still see the site; edits, uploads, comments, forms and scheduled tasks wait until you unfreeze.
  * Version:           3.1.0
  * Requires at least: 6.6
  * Requires PHP:      7.4
  * Author:            Aryan Jasala
- * Author URI:        https://profiles.wordpress.org/aryanjasala/
+ * Author URI:        https://axlewp.com/about/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       axle-read-only-mode
