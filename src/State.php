@@ -34,6 +34,10 @@ final class State {
 		'by'              => 0,
 		'announce'        => false,
 		'area'            => 'all',
+		'until_green'     => false,
+		'green_deadline'  => 0,
+		'green_requested' => 0,
+		'green_run'       => array(),
 	);
 
 	/**
@@ -110,7 +114,7 @@ final class State {
 	/**
 	 * The freeze saved here, merged with defaults, whatever the network says.
 	 *
-	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, area: string, scope?: string, sites?: int[]}
+	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, area: string, until_green: bool, green_deadline: int, green_requested: int, green_run: array, scope?: string, sites?: int[]}
 	 */
 	public function own(): array {
 		$defaults = $this->is_network() ? self::DEFAULTS + self::NETWORK_DEFAULTS : self::DEFAULTS;
@@ -122,7 +126,7 @@ final class State {
 	/**
 	 * The freeze in force on this site: the network's when it applies, else the site's own.
 	 *
-	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, area: string}
+	 * @return array{active: bool, start: int, end: int, reason: string, visitor_message: string, visitors: bool, cron: bool, exempt: int[], by: int, announce: bool, area: string, until_green: bool, green_deadline: int, green_requested: int, green_run: array}
 	 */
 	public function all(): array {
 		if ( $this->network_applies() && $this->network ) {
@@ -154,6 +158,42 @@ final class State {
 		 * @param array  $state The freeze in force on this site.
 		 */
 		return Scopes::normalize( (string) apply_filters( 'axle_read_only_mode_scope', Scopes::normalize( $scope ), $this->all() ) );
+	}
+
+	/**
+	 * Whether this site's own freeze ends when the smoke test passes, and is still running.
+	 *
+	 * @return bool
+	 */
+	public function waits_for_green(): bool {
+		$own = $this->own();
+
+		return ! $this->is_network() && ! empty( $own['until_green'] ) && $this->is_running();
+	}
+
+	/**
+	 * Where a freeze that waits for the smoke test stands.
+	 *
+	 * @return string Empty when the freeze does not wait for the smoke test, `waiting` until a run
+	 *                finishes, `failed` once a run finished and was not green.
+	 */
+	public function green_status(): string {
+		if ( ! $this->waits_for_green() ) {
+			return '';
+		}
+
+		return ! empty( $this->own()['green_run'] ) ? 'failed' : 'waiting';
+	}
+
+	/**
+	 * Whether Smoke Test may roll an update back inside this freeze.
+	 *
+	 * True only while a freeze waits for the smoke test and its last run was not green.
+	 *
+	 * @return bool
+	 */
+	public function rollback_allowed(): bool {
+		return 'failed' === $this->green_status();
 	}
 
 	/**
@@ -420,6 +460,12 @@ final class State {
 		if ( ! in_array( $scope, array( Scopes::ALL, Scopes::CONTENT, Scopes::CODE ), true ) ) {
 			/* translators: %s: scope of the freeze, e.g. "Content only". */
 			$message .= ' ' . sprintf( __( 'Scope: %s.', 'axle-read-only-mode' ), Scopes::label( $scope ) );
+		}
+
+		if ( $this->waits_for_green() ) {
+			$message .= ' ' . ( 'failed' === $this->green_status()
+				? __( 'The last smoke test was not green, so the site stays frozen until one passes.', 'axle-read-only-mode' )
+				: __( 'It stays frozen until the smoke test passes.', 'axle-read-only-mode' ) );
 		}
 
 		if ( '' !== $reason ) {

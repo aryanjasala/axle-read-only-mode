@@ -122,3 +122,12 @@
 .axle-heads-up .dashicons {
 	vertical-align: text-bottom;
 }
+
+.aro-green {
+	margin: 0 0 12px;
+}
+
+/* A scroll box must also hold the absolutely placed screen-reader text of its cells, or older WordPress scrolls the whole page sideways. */
+.aro-page .axle-scroll {
+	position: relative;
+}

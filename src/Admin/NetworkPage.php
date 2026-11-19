@@ -502,6 +502,7 @@ final class NetworkPage implements Service {
 			<?php if ( ! $sites ) : ?>
 				<div class="axle-empty"><p><?php esc_html_e( 'Nothing yet. Attempts to save, upload, comment or submit a form on any covered site will be listed here, with the site they came from.', 'axle-read-only-mode' ); ?></p></div>
 			<?php else : ?>
+				<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php echo esc_attr__( 'Blocked on each site', 'axle-read-only-mode' ); ?>">
 				<table class="widefat striped aro-site-log">
 					<thead>
 						<tr>
@@ -520,8 +521,10 @@ final class NetworkPage implements Service {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 
 				<h3><?php esc_html_e( 'Latest attempts across the network', 'axle-read-only-mode' ); ?></h3>
+				<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php echo esc_attr__( 'Latest attempts across the network', 'axle-read-only-mode' ); ?>">
 				<table class="widefat striped aro-network-log">
 					<thead>
 						<tr>
@@ -546,6 +549,7 @@ final class NetworkPage implements Service {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 			<?php endif; ?>
 		</section>
 		<?php
@@ -580,6 +584,7 @@ final class NetworkPage implements Service {
 			<?php if ( ! $entries ) : ?>
 				<div class="axle-empty"><p><?php esc_html_e( 'No network freezes yet. Each one is listed here once it ends, with how many attempts it blocked across the network.', 'axle-read-only-mode' ); ?></p></div>
 			<?php else : ?>
+				<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php esc_attr_e( 'Recent network freezes', 'axle-read-only-mode' ); ?>">
 				<table class="widefat striped">
 					<thead>
 						<tr>
@@ -608,6 +613,7 @@ final class NetworkPage implements Service {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 			<?php endif; ?>
 		</section>
 		<?php

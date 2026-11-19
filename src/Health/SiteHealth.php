@@ -222,6 +222,11 @@ final class SiteHealth implements Service {
 
 			$start = (int) $freeze['start'];
 			$end   = (int) $freeze['end'];
+			$green = ! empty( $freeze['until_green'] );
+			if ( $green ) {
+				// A freeze that waits for the smoke test ends at its hard limit at the latest.
+				$end = (int) $freeze['green_deadline'];
+			}
 
 			if ( $start > $now ) {
 				/* translators: %s: date and time a scheduled freeze starts. */
@@ -259,7 +264,14 @@ final class SiteHealth implements Service {
 					'status'      => 'recommended',
 					'code'        => 'frozen',
 					'label'       => __( 'The site is read-only', 'axle-read-only-mode' ),
-					'description' => $end
+					'description' => $green
+						? sprintf(
+							/* translators: 1: "the network" or "this site", 2: date and time of the hard limit. */
+							__( 'The freeze set by %1$s ends when the smoke test passes, and at the latest on %2$s. Nothing can be saved until then. This is expected during a deploy.', 'axle-read-only-mode' ),
+							$who,
+							wp_date( $format, $end )
+						)
+						: ( $end
 						? sprintf(
 							/* translators: 1: "the network" or "this site", 2: date and time the freeze ends. */
 							__( 'The freeze set by %1$s is on until %2$s. Nothing can be saved until then. This is expected during a migration or deploy.', 'axle-read-only-mode' ),
@@ -270,7 +282,7 @@ final class SiteHealth implements Service {
 							/* translators: %s: "the network" or "this site". */
 							__( 'The freeze set by %s has no end time. Nothing can be saved until someone unfreezes the site.', 'axle-read-only-mode' ),
 							$who
-						),
+						) ),
 				);
 			} else {
 				// Past its end, but inside the allowance: the next request records the end.
@@ -400,7 +412,7 @@ final class SiteHealth implements Service {
 			),
 			'end'    => array(
 				'label' => __( 'End time', 'axle-read-only-mode' ),
-				'value' => $frozen ? ( $freeze['end'] && 'constant' !== $source ? wp_date( $format, (int) $freeze['end'] ) : __( 'None: lasts until someone unfreezes', 'axle-read-only-mode' ) ) : __( 'Not applicable', 'axle-read-only-mode' ),
+				'value' => $frozen ? ( $freeze['end'] && 'constant' !== $source ? wp_date( $format, (int) $freeze['end'] ) : ( ! empty( $freeze['until_green'] ) && 'constant' !== $source ? __( 'When the smoke test passes', 'axle-read-only-mode' ) : __( 'None: lasts until someone unfreezes', 'axle-read-only-mode' ) ) ) : __( 'Not applicable', 'axle-read-only-mode' ),
 				'debug' => $frozen ? (int) $freeze['end'] : 0,
 			),
 			'allow'  => array(

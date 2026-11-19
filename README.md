@@ -34,6 +34,7 @@ When you move a site to a new server, or replace the live database with one from
 ## Features
 
 - **Check before freezing**: a "Before you freeze" card shows who has a post open in the editor, scheduled posts and tasks due during the freeze, and WooCommerce orders waiting for payment. It updates as you change the length, start or scope, and it only informs
+- **Freeze until green**: with Axle Smoke Test active, a freeze can end when the smoke test passes instead of at a time. It asks Smoke Test for a run, ends on the first green result, and stays on after a red one, with the reason on the status card and in an email. Smoke Test can roll an update back inside it. A hard limit (two hours by default) ends it with a warning, so a stuck run cannot freeze the site forever
 - **Planned freezes with a heads-up**: plan a freeze for later, once or every week on chosen days. From 15 minutes before (you choose), everyone who is writing sees a countdown in wp-admin and in the block editor, and people with a post open can get an email. The plan starts on the first request after its time, even when WP-Cron is late, and the check before freezing runs again at the start
 - **Nothing typed during a freeze is lost**: in the block editor your changes wait in the browser, and are saved when the freeze ends, unless the post changed on the server meanwhile. Then you see both versions and choose. The classic editor keeps its form
 - **Freeze part of the site**: Everything (the default), Content only (settings, plugins, themes and updates keep working) or Settings and code only (editors and visitors keep working)
@@ -75,6 +76,15 @@ wp axle-read-only-mode off
 
 If the script dies halfway, the freeze still ends after 30 minutes.
 
+With Axle Smoke Test active, end the freeze when the site checks out instead of at a time:
+
+```sh
+wp axle-read-only-mode on --until-green --reason="Release night"
+# ... deploy ...
+```
+
+The freeze ends on the first green smoke test, or after two hours.
+
 ## Screenshots
 
 <table>
@@ -85,6 +95,13 @@ If the script dies halfway, the freeze still ends after 30 minutes.
   <tr>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-3.png" alt="What visitors see when they send a form during a freeze"><br><sub>What visitors see when they send a form during a freeze</sub></td>
     <td width="50%" valign="top"><img src=".wordpress-org/screenshot-4.png" alt="Tools > Read-Only Mode > Settings, with the allow-list and the email choices"><br><sub>Tools > Read-Only Mode > Settings, with the allow-list and the email choices</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-5.png" alt="A freeze that ends when the smoke test passes, waiting for the result"><br><sub>A freeze that ends when the smoke test passes, waiting for the result</sub></td>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-6.png" alt="Tools > Read-Only Mode > Planned, a weekly freeze with a heads-up"><br><sub>Tools > Read-Only Mode > Planned, a weekly freeze with a heads-up</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src=".wordpress-org/screenshot-7.png" alt="The check before you freeze, listing who has a post open and what is due"><br><sub>The check before you freeze, listing who has a post open and what is due</sub></td>
   </tr>
 </table>
 
@@ -145,15 +162,15 @@ Small plugins that each fill one gap in WordPress, all free with no pro version.
 | <img src="https://raw.githubusercontent.com/aryanjasala/agent-governance/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Agent Governance](https://github.com/aryanjasala/agent-governance) | Hold risky AI agent calls for approval, preview what they change, and roll back a session |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-ai-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle AI Guard](https://github.com/aryanjasala/axle-ai-guard) | See and control every AI call your plugins make: cost, data sent, budgets and a kill switch |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-config-sync/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Config Sync](https://github.com/aryanjasala/axle-config-sync) | Keep settings in git, diff them against the live site, apply with a preview and undo |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-leftovers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Leftovers](https://github.com/aryanjasala/axle-leftovers) | Find what deleted plugins left behind, see who owns it and why, and clean it up with undo |
+| <img src="https://raw.githubusercontent.com/aryanjasala/axle-leftovers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Leftovers](https://github.com/aryanjasala/axle-leftovers) | Find what deleted plugins and themes left behind, see who owns it and why, and clean it up with undo |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-license-tracker/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle License Tracker](https://github.com/aryanjasala/axle-license-tracker) | See which premium plugins are licensed, which lapsed and stopped getting updates, and what renews when |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-review/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Review](https://github.com/aryanjasala/axle-review) | Share drafts through private links, collect outside feedback as block Notes, and know when an approval is out of date |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-runtime-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Runtime Doctor](https://github.com/aryanjasala/axle-runtime-doctor) | Check OPcache coverage, the object cache, PHP support and limits, cron and more, with the fix for your host |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-smoke-test/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Smoke Test](https://github.com/aryanjasala/axle-smoke-test) | Check key pages after every update or deploy, see what broke and roll it back |
 | <img src="https://raw.githubusercontent.com/aryanjasala/block-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Doctor](https://github.com/aryanjasala/block-doctor) | Scan the site for broken blocks and fix them in bulk, with undo. See which posts use each block before you switch a plugin off |
-| <img src="https://raw.githubusercontent.com/aryanjasala/block-theme-ops/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Theme Ops](https://github.com/aryanjasala/block-theme-ops) | Find Site Editor changes that override your theme files, see the diff, reset them or send them to Git |
+| <img src="https://raw.githubusercontent.com/aryanjasala/block-theme-ops/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Theme Ops](https://github.com/aryanjasala/block-theme-ops) | Find Site Editor changes that override your theme files, see the diff, reset them, send them to Git, move them to another site or lock them |
 | <img src="https://raw.githubusercontent.com/aryanjasala/role-right-sizer/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Role Right-Sizer](https://github.com/aryanjasala/role-right-sizer) | Recommends the smallest role each user needs, from what they actually do |
-| <img src="https://raw.githubusercontent.com/aryanjasala/update-rehearsal/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Update Rehearsal](https://github.com/aryanjasala/update-rehearsal) | Try plugin, theme, core and PHP updates on a disposable copy of your site in WordPress Playground first |
+| <img src="https://raw.githubusercontent.com/aryanjasala/update-rehearsal/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Update Rehearsal](https://github.com/aryanjasala/update-rehearsal) | Try plugin, theme, core and PHP updates, a new plugin, or life without one, on a disposable copy of your site in WordPress Playground first |
 | <img src="https://raw.githubusercontent.com/aryanjasala/user-session-manager/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [User Session Manager](https://github.com/aryanjasala/user-session-manager) | See every device signed in, sign out one, and limit sessions per role |
 
 ## License

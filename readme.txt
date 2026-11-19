@@ -49,6 +49,16 @@ From 15 minutes before (you can change it per plan), everyone who is writing see
 
 If a freeze starts while you are writing in the block editor, your changes stay in the editor and a copy waits in your browser. One notice says when the freeze ends. When it ends, your changes are saved for you, unless the post changed on the server meanwhile. Then you see both versions and choose which one to keep. Nothing is overwritten without a choice. In the classic editor, Update does nothing during a freeze and the form keeps what you typed.
 
+= Freeze until the smoke test passes =
+
+With [Axle Smoke Test](https://axlewp.com/plugins/axle-smoke-test/), another free Axle plugin, active, a freeze can end when the smoke test passes instead of at a time. Tick "The smoke test passes" on the freeze form, or run `wp axle-read-only-mode on --until-green`.
+
+* The freeze asks Smoke Test for a run when it starts, and ends on the first green result.
+* A run that is not green keeps the site frozen. The status card says what the verdict was and links to the run, and an email says the same. Smoke Test can roll an update back inside the freeze. "Run the smoke test again" asks for another run.
+* A hard limit, two hours by default, ends the freeze with a warning, so a stuck run cannot freeze the site forever.
+
+Without Smoke Test the option is greyed out, with a line saying why. Nothing else changes.
+
 = Freeze part of the site =
 
 A freeze has a scope:
@@ -89,7 +99,7 @@ Freeze the whole network, or chosen sites, from **Network Admin > Settings > Rea
 
 = Email when a freeze starts or ends =
 
-Off by default. Choose who gets it (the admin email if you leave it empty) and when: a freeze starts, someone ends it, it ends by itself at its end time, it is extended, or a scheduled freeze starts. The email says who, why and until when, and for an end, how many attempts were blocked with a link to the list. It uses `wp_mail()`, and the same event never sends more than one email a minute.
+Off by default. Choose who gets it (the admin email if you leave it empty) and when: a freeze starts, someone ends it, it ends by itself at its end time, it is extended, or a scheduled freeze starts. A freeze that waits for the smoke test also emails you when a run is not green and when it reaches its hard limit. The email says who, why and until when, and for an end, how many attempts were blocked with a link to the list. It uses `wp_mail()`, and the same event never sends more than one email a minute.
 
 = Site Health =
 
@@ -101,6 +111,7 @@ Tools > Site Health has a read-only mode test, and a second one that says when a
 `wp axle-read-only-mode off`
 `wp axle-read-only-mode status`
 `wp axle-read-only-mode extend 30`
+`wp axle-read-only-mode on --until-green`
 `wp axle-read-only-mode plan --start="2026-11-20 02:00" --minutes=45 --days=fri`
 `wp axle-read-only-mode plans`
 `wp axle-read-only-mode log`
@@ -169,6 +180,10 @@ No. Every request checks the list of plans and starts the first one whose time h
 
 In the block editor they stay in the editor, and a copy waits in your browser. When the freeze ends they are saved, unless someone else changed the post meanwhile: then you choose between your version and the saved one. In the classic editor the form keeps what you typed, and you press Update again when the freeze ends.
 
+= Does Freeze until green need another plugin? =
+
+It needs Axle Smoke Test, which runs the checks. Without it the option is greyed out and every other freeze works as before. The two plugins only talk through two WordPress hooks.
+
 = Does it send email? =
 
 Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mail()` and sends at most one email per event per minute. A planned freeze can also email the people who have a post open when its heads-up starts, if you tick that on the plan.
@@ -179,6 +194,9 @@ Only if you turn it on, under Tools > Read-Only Mode > Settings. It uses `wp_mai
 2. Tools > Read-Only Mode during a freeze, with countdown and blocked attempts.
 3. What visitors see when they send a form during a freeze.
 4. Tools > Read-Only Mode > Settings, with the allow-list and the email choices.
+5. A freeze that ends when the smoke test passes, waiting for the result.
+6. Tools > Read-Only Mode > Planned, a weekly freeze with a heads-up.
+7. The check before you freeze, listing who has a post open and what is due.
 
 == Changelog ==
 

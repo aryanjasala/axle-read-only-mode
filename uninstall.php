@@ -19,6 +19,9 @@ function axle_read_only_mode_uninstall_site(): void {
 		delete_option( 'axle_read_only_mode_' . $name );
 	}
 
+	// The one event that checks the hard limit of a freeze that waits for the smoke test.
+	wp_clear_scheduled_hook( 'axle_read_only_mode_green_deadline' );
+
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off cleanup on uninstall.
 	foreach ( array( 'axle_read_only_mode_', '_transient_axle_read_only_mode_', '_transient_timeout_axle_read_only_mode_' ) as $prefix ) {
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) );

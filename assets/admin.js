@@ -38,6 +38,15 @@
 		timer = window.setInterval( tick, 1000 );
 	} );
 
+	// "End when the smoke test passes" replaces the end time, so the length is switched off while it is ticked.
+	var untilGreen = document.getElementById( 'aro-until-green' );
+	var lengthSelect = document.getElementById( 'aro-minutes' );
+	if ( untilGreen && lengthSelect ) {
+		untilGreen.addEventListener( 'change', function () {
+			lengthSelect.disabled = untilGreen.checked;
+		} );
+	}
+
 	document.querySelectorAll( '[data-aro-copy]' ).forEach( function ( button ) {
 		button.addEventListener( 'click', function () {
 			if ( ! navigator.clipboard || ! navigator.clipboard.writeText ) {

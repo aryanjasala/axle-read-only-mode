@@ -25,7 +25,7 @@ test.describe.serial( 'Screenshots', () => {
 
 	test.afterAll( () => {
 		wp( 'axle-read-only-mode', 'off' );
-		for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings' ] ) {
+		for ( const option of [ 'axle_read_only_mode_state', 'axle_read_only_mode_log', 'axle_read_only_mode_history', 'axle_read_only_mode_settings', 'axle_read_only_mode_plans' ] ) {
 			wp( 'option', 'delete', option );
 		}
 		wp( 'post', 'delete', postId, '--force' );
@@ -66,5 +66,30 @@ test.describe.serial( 'Screenshots', () => {
 		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode&tab=settings' );
 		await expect( page.locator( '.aro-matches' ).first() ).toBeVisible();
 		await shot( page, 4, { fullPage: true } );
+	} );
+
+	test( '5: a freeze that ends when the smoke test passes', async ( { page } ) => {
+		// Axle Smoke Test is a separate plugin. A stand-in listens to its hook so the option is on.
+		wpEval( `wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( WP_PLUGIN_DIR . '/axle-read-only-mode/tests/e2e/fixtures/aro-e2e-smoketest.php', WPMU_PLUGIN_DIR . '/aro-e2e-smoketest.php' );` );
+		wp( 'axle-read-only-mode', 'off' );
+		wp( 'axle-read-only-mode', 'on', '--until-green', '--reason=Release night' );
+		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode' );
+		await expect( page.locator( '.aro-status.is-green-waiting' ) ).toBeVisible();
+		await shot( page, 5 );
+		wpEval( `@unlink( WPMU_PLUGIN_DIR . '/aro-e2e-smoketest.php' ); delete_option( 'aro_e2e_asks' );` );
+	} );
+
+	test( '6: Tools > Read-Only Mode > Planned, a weekly freeze with a heads-up', async ( { page } ) => {
+		wp( 'axle-read-only-mode', 'off' );
+		wp( 'axle-read-only-mode', 'plan', `--start=${ wpEval( "echo wp_date( 'Y-m-d 02:00', time() + 2 * DAY_IN_SECONDS );" ) }`, '--minutes=45', '--scope=content', '--days=mon,thu', '--reason=Release night' );
+		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode&tab=plans' );
+		await expect( page.locator( '.aro-plans tbody tr' ).first() ).toBeVisible();
+		await shot( page, 6 );
+	} );
+
+	test( '7: the check before you freeze', async ( { page } ) => {
+		await page.goto( '/wp-admin/tools.php?page=axle-read-only-mode' );
+		await expect( page.locator( '.aro-before .aro-check' ).first() ).toBeVisible();
+		await shot( page, 7, { fullPage: true } );
 	} );
 } );

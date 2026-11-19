@@ -143,6 +143,12 @@ final class Blocker {
 			header( 'Retry-After: ' . max( 60, $remaining ) );
 		}
 
+		// The classic WooCommerce checkout reads a JSON answer in its own shape. A bare 503 shows "Service Unavailable" instead of the message.
+		$woo = self::woo_checkout_response( $this->state->visitor_message() );
+		if ( null !== $woo ) {
+			wp_send_json( $woo, 200 );
+		}
+
 		wp_die(
 			esc_html( $visitor ? $this->state->visitor_message() : $this->state->message() ),
 			esc_html( $visitor ? __( 'Back soon', 'axle-read-only-mode' ) : __( 'Site frozen', 'axle-read-only-mode' ) ),
@@ -150,6 +156,37 @@ final class Blocker {
 				'response'  => $visitor ? 503 : 423,
 				'back_link' => true,
 			)
+		);
+	}
+
+	/**
+	 * Whether this is the classic WooCommerce checkout posting through `?wc-ajax=checkout`.
+	 *
+	 * @return bool
+	 */
+	public static function is_woo_checkout_ajax(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only inspected.
+		return 'POST' === self::method() && isset( $_GET['wc-ajax'] ) && 'checkout' === sanitize_key( wp_unslash( $_GET['wc-ajax'] ) );
+	}
+
+	/**
+	 * What the classic WooCommerce checkout script expects when an order cannot be placed.
+	 *
+	 * Its script shows `messages` above the form when `result` is `failure`.
+	 *
+	 * @param string $message What to tell the shopper.
+	 * @return array|null Null when the request is not that checkout.
+	 */
+	public static function woo_checkout_response( string $message ): ?array {
+		if ( ! self::is_woo_checkout_ajax() ) {
+			return null;
+		}
+
+		return array(
+			'result'   => 'failure',
+			'messages' => '<ul class="woocommerce-error" role="alert"><li>' . esc_html( $message ) . '</li></ul>',
+			'refresh'  => false,
+			'reload'   => false,
 		);
 	}
 

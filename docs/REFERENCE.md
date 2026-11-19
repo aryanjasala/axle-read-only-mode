@@ -17,6 +17,23 @@ Users marked exempt when the freeze starts, users on the [allow-list](#allow-lis
 
 The table is for the default scope, Everything. A [scope](#scopes) can freeze only part of it.
 
+## Freeze until green
+
+With Axle Smoke Test active, tick **The smoke test passes** on the freeze form, run `wp axle-read-only-mode on --until-green`, or pass `until_green` to the `freeze` ability. The option is greyed out, with a line saying why, when Smoke Test is not active.
+
+| Step | What happens |
+| --- | --- |
+| Start | The freeze has no end time. It fires `axle_smoke_test_run_now( 'axle-read-only-mode' )`, which asks Smoke Test for a full run. A freeze set for later asks when it starts |
+| Green | The first counted run with a green verdict ends the freeze. The history says `Smoke test passed` and the emails say so |
+| Not green | The freeze stays. The status card names the verdict and links to the run, and an email says the same. Smoke Test may roll an update back meanwhile. **Run the smoke test again** (or `wp axle-read-only-mode retest`) asks for another run, and the next green one ends the freeze |
+| Hard limit | After two hours (`axle_read_only_mode_green_max_minutes`) the freeze ends with a warning email, a notice on the screen for a day and `Hard limit, no green run` in the history. **Add 30 minutes** moves the limit |
+
+The two sides talk through two hooks only. Smoke Test listens to `axle_smoke_test_run_now( string $source )` and fires `axle_smoke_test_run_finished( array $run )` with at least `id`, `verdict` (`green`, `amber` or `red`), `source` and `finished`. Both are guarded, so nothing changes when Smoke Test is not active.
+
+A run counts when it finished after the freeze asked for one, and its `source` is `axle-read-only-mode` or it is the run after a rollback. A run Smoke Test started for another reason does not end the freeze. `axle_read_only_mode_green_run_counts` changes that.
+
+While a freeze waits, three things get through that a freeze would otherwise stop: Smoke Test's runner calls (`/axle-smoke-test/v1/runs`, `next`, `start`, `browser`, `results`, `complete`), its scheduled events, and, once a run was not green, its rollback (the REST route, the Tools screen form and the `rollback-update` ability). In the one request that rolls back, `axle_read_only_mode_is_frozen` and the scope filter answer as if code were open, so Smoke Test can ask the freeze "frozen?" and get a yes it can act on. Everything else stays frozen. Freezes of the whole network never wait for the smoke test.
+
 ## Scopes
 
 A freeze covers one scope. Every request, ability and scheduled task belongs to one of two areas, and a freeze stops it only when its scope covers that area.
@@ -140,7 +157,7 @@ add_filter( 'axle_read_only_mode_checks', function ( $checks ) {
 | `axle_read_only_mode_allow_limit` | filter | `( int $limit )`. Entries each part of the allow-list holds. Default 50 |
 | `axle_read_only_mode_validate_allow_entry` | filter | `( string $error, string $type, string\|int $value )`. Runs after the built-in checks of an allow-list entry. Return a message to refuse it. `$type` is `rest`, `paths`, `ajax` or `users` |
 | `axle_read_only_mode_allow_suggestions` | filter | `( array $suggestions )`. The "Add" buttons on the Settings tab. Each: `plugin`, `type`, `value`, `why`. They are only suggestions: nothing is added without a click |
-| `axle_read_only_mode_notify_events` | filter | `( string[] $events, bool $network )`. The events that send an email: `started`, `ended`, `expired`, `extended`, `scheduled_start` |
+| `axle_read_only_mode_notify_events` | filter | `( string[] $events, bool $network )`. The events that send an email: `started`, `ended`, `expired`, `extended`, `scheduled_start`, and the two warnings `green_red` and `green_timeout`, which always send while email is on |
 | `axle_read_only_mode_notify_recipients` | filter | `( string[] $recipients, string $event, array $freeze, bool $network )`. Who gets the email. Default the addresses in the settings, or the admin email |
 | `axle_read_only_mode_notify_subject` | filter | `( string $subject, string $event, array $freeze, bool $network )`. The email subject |
 | `axle_read_only_mode_notify_body` | filter | `( string $body, string $event, array $freeze, bool $network, array $context )`. The plain-text body. `$context` has `minutes` (extended), `ended_by` and `blocked` (ended) |
@@ -153,7 +170,16 @@ add_filter( 'axle_read_only_mode_checks', function ( $checks ) {
 | `axle_read_only_mode_network_log_sites` | filter | `( int $limit )`. Sites the network log reads, most recently active first. Default 100 |
 | `axle_read_only_mode_network_site_picker_limit` | filter | `( int $limit )`. Sites the "chosen sites" list shows. Default 200 |
 | `axle_read_only_mode_started` | action | `( array $state )`. A freeze started or was scheduled. `$state['area']` is its scope: `all`, `content` or `code` |
-| `axle_read_only_mode_ended` | action | `( array $state, string $ended_by )`. A freeze ended: `user`, `cli`, `ability` or `expired` |
+| `axle_read_only_mode_ended` | action | `( array $state, string $ended_by )`. A freeze ended: `user`, `cli`, `ability`, `expired`, `green` (the smoke test passed) or `green_timeout` (the hard limit came first) |
+| `axle_read_only_mode_green_available` | filter | `( bool $available )`. Whether a freeze can wait for the smoke test. Default: something listens to `axle_smoke_test_run_now`, which Axle Smoke Test does while it is active |
+| `axle_read_only_mode_green_max_minutes` | filter | `( int $minutes )`. The longest a freeze waits for a green smoke test. Default 120, clamped 5 to 1440 |
+| `axle_read_only_mode_green_verdicts` | filter | `( string[] $verdicts )`. The verdicts that end the freeze. Default `green`. Add `amber` to accept runs with warnings |
+| `axle_read_only_mode_green_run_counts` | filter | `( bool $counts, array $run, array $state )`. Whether a finished run counts. Default: it finished after the freeze asked, and the freeze asked for it or it is the run after a rollback |
+| `axle_read_only_mode_green_cron_prefixes` | filter | `( string[] $prefixes )`. Scheduled events that keep running while a freeze waits for the smoke test, even when the freeze pauses tasks. Default `axle_smoke_test_` and `axle_read_only_mode_green_` |
+| `axle_read_only_mode_green_requested` | action | `( array $state )`. The freeze asked Smoke Test for a run, at the start or from the status card |
+| `axle_read_only_mode_green_passed` | action | `( array $state, array $run )`. A counted run passed, and the freeze is about to end. `$state['green_run']` has the run |
+| `axle_read_only_mode_green_failed` | action | `( array $state, array $run )`. A counted run was not green, so the freeze stays |
+| `axle_read_only_mode_green_timeout` | action | `( array $state )`. The hard limit came before a green run. The freeze ends right after, with a warning email |
 | `axle_read_only_mode_extended` | action | `( array $state, int $minutes )`. A freeze got longer |
 | `axle_read_only_mode_blocked` | action | `( string $where, string $source, int $user_id, string $area )`. Every blocked request, including the ones the log leaves out. `$area` is `content` or `code`. For an outside log or an alert channel |
 | `axle_read_only_mode_checked` | action | `( array $result )`. The Before you freeze checks ran, from the screen, WP-CLI or an ability. `$result` has `items`, `editing`, `attention` and `context` |
@@ -268,13 +294,14 @@ On WordPress 6.9 and later, Axle Read-Only Mode registers [abilities](https://de
 
 | Ability | Does | Needs |
 | --- | --- | --- |
-| `axle-read-only-mode/get-status` | Read-only. Whether the site is frozen, until when and why, what holds it (`source`: `site`, `network` or `constant`), and its `scope` | `edit_posts` |
+| `axle-read-only-mode/get-status` | Read-only. Whether the site is frozen, until when and why, what holds it (`source`: `site`, `network` or `constant`), and its `scope`. Also `until_green`, `green_status` (`waiting` or `failed`), `green_deadline`, `green_run` and `green_verdict` | `edit_posts` |
 | `axle-read-only-mode/check-freeze` | Read-only. What a freeze would interrupt right now: people editing, scheduled posts and tasks due, orders waiting for payment. Input: `minutes`, `start`, `scope`, `cron`, `visitors`. Run it before `freeze` | the freeze capability |
-| `axle-read-only-mode/freeze` | Freezes the site. Input: `minutes`, `reason`, `visitor_message`, `visitors`, `cron`, `scope` (`all`, `content` or `code`) | the freeze capability |
+| `axle-read-only-mode/freeze` | Freezes the site. Input: `minutes`, `reason`, `visitor_message`, `visitors`, `cron`, `scope` (`all`, `content` or `code`), `until_green` (end when the smoke test passes, needs Axle Smoke Test) | the freeze capability |
 | `axle-read-only-mode/list-plans` | Read-only. The planned freezes: next start, length, scope, repeat days and lead | the freeze capability |
 | `axle-read-only-mode/plan-freeze` | Plans a freeze for later. Input: `start` (required, in the future), `minutes`, `reason`, `scope`, `days` (0 Sunday to 6 Saturday, to repeat every week), `lead`, `email`, `visitors`, `cron` | the freeze capability |
 | `axle-read-only-mode/cancel-plan` | Destructive, idempotent. Cancels a planned freeze by `id`. A freeze it already started keeps running | the freeze capability |
-| `axle-read-only-mode/extend` | Adds `minutes` to the running freeze | the freeze capability |
+| `axle-read-only-mode/retest` | Asks Axle Smoke Test for another run, for a freeze that waits for it. Fails when the freeze does not | the freeze capability |
+| `axle-read-only-mode/extend` | Adds `minutes` to the running freeze. For a freeze that waits for the smoke test, it moves the hard limit | the freeze capability |
 | `axle-read-only-mode/unfreeze` | Ends the freeze now | the freeze capability |
 | `axle-read-only-mode/get-blocked` | Read-only. What the freeze blocked, and the requests the allow-list let through (`result`), newest first. Input: `limit` | the freeze capability |
 | `axle-read-only-mode/get-allow-list` | Read-only. The allow-list: REST routes, paths, ajax actions and user IDs | the freeze capability |
@@ -293,13 +320,14 @@ There is no ability that changes the allow-list. It loosens the freeze, so only 
 
 ```sh
 wp axle-read-only-mode check [--minutes=<n>] [--start=<datetime>] [--scope=<all|content|code>] [--no-cron] [--no-visitors] [--format=table|json]
-wp axle-read-only-mode on [--minutes=<n>] [--reason=<text>] [--visitor-message=<text>] [--scope=<all|content|code>] [--no-visitors] [--no-cron] [--network] [--sites=<ids>]
+wp axle-read-only-mode on [--minutes=<n>] [--reason=<text>] [--visitor-message=<text>] [--scope=<all|content|code>] [--until-green] [--no-visitors] [--no-cron] [--network] [--sites=<ids>]
 wp axle-read-only-mode off [--network]
 wp axle-read-only-mode plan --start=<datetime> [--minutes=<n>] [--reason=<text>] [--scope=<all|content|code>] [--days=<sun,mon,...>] [--lead=<minutes>] [--email-editors] [--no-visitors] [--no-cron] [--id=<id>] [--network] [--sites=<ids>]
 wp axle-read-only-mode plans [--network] [--format=table|csv|json|yaml]
 wp axle-read-only-mode cancel <id> [--network]
 wp axle-read-only-mode extend <minutes> [--network]
 wp axle-read-only-mode status [--network]
+wp axle-read-only-mode retest
 wp axle-read-only-mode log [--network] [--format=table|csv|json|count]
 wp axle-read-only-mode allow <rest|path|ajax|user> <value> [--network]
 wp axle-read-only-mode disallow <rest|path|ajax|user> <value> [--network]

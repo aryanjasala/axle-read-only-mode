@@ -87,6 +87,13 @@ final class Plugin {
 	private Planner $planner;
 
 	/**
+	 * Freeze until green: the link to Axle Smoke Test.
+	 *
+	 * @var Green
+	 */
+	private Green $green;
+
+	/**
 	 * The network's freeze, history and log. Null on a single site.
 	 *
 	 * @var Network|null
@@ -122,6 +129,7 @@ final class Plugin {
 		$this->history  = new History();
 		$this->log      = new BlockedLog( $this->history, $this->network ? $this->network->history : null );
 		$this->freezer  = new Freezer( $this->state, $this->log, $this->history );
+		$this->green    = new Green( $this->state, $this->freezer );
 		$this->checks   = new Checks();
 		$this->planner  = Planner::for_site( $this->freezer, $this->state );
 	}
@@ -172,6 +180,15 @@ final class Plugin {
 	}
 
 	/**
+	 * Freeze until green, for other plugins.
+	 *
+	 * @return Green
+	 */
+	public function green(): Green {
+		return $this->green;
+	}
+
+	/**
 	 * The network's freeze controls, on a multisite network.
 	 *
 	 * @return Network|null
@@ -193,8 +210,12 @@ final class Plugin {
 			$notifier->register();
 		}
 
+		// Freeze until green listens too: a planned freeze asks for its smoke test when it starts.
+		$this->green->register();
+
 		// A plan starts on the first request after its time, with no help from WP-Cron.
 		$this->freezer->expire_if_needed();
+		$this->freezer->end_green_wait_if_needed();
 		$this->planner->tick();
 		$this->freezer->announce_scheduled_start();
 		if ( $this->network ) {
@@ -221,11 +242,11 @@ final class Plugin {
 		$services = array(
 			$this->log,
 			$this->planner,
-			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings, $this->checks, $this->planner ),
+			new ToolsPage( $this->state, $this->freezer, $this->log, $this->history, $this->settings, $this->checks, $this->planner, $this->green ),
 			new AdminBar( $this->state ),
 			new EditorLock( $this->state, $heads_up ),
 			$heads_up,
-			new Abilities( $this->state, $this->freezer, $this->log, $this->checks, $this->planner ),
+			new Abilities( $this->state, $this->freezer, $this->log, $this->checks, $this->planner, $this->green ),
 			new SiteHealth( $this->state, $this->network, $this->settings, $this->planner ),
 		);
 
@@ -253,7 +274,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings, $this->planner ), $this->checks, $this->planner ) );
+			\WP_CLI::add_command( 'axle-read-only-mode', new Command( $this->state, $this->freezer, $this->log, $this->network, $this->settings, new SiteHealth( $this->state, $this->network, $this->settings, $this->planner ), $this->checks, $this->planner, $this->green ) );
 		}
 	}
 }

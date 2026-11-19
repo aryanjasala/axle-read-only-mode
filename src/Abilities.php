@@ -66,6 +66,13 @@ final class Abilities implements Service {
 	private ?Planner $planner;
 
 	/**
+	 * Freeze until green.
+	 *
+	 * @var Green|null
+	 */
+	private ?Green $green;
+
+	/**
 	 * Sets up the abilities.
 	 *
 	 * @param State        $state   The freeze state.
@@ -73,8 +80,10 @@ final class Abilities implements Service {
 	 * @param BlockedLog   $log     What the freeze stopped.
 	 * @param Checks|null  $checks  The "Before you freeze" checks.
 	 * @param Planner|null $planner Planned freezes.
+	 * @param Green|null   $green   Freeze until green.
 	 */
-	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Checks $checks = null, ?Planner $planner = null ) {
+	public function __construct( State $state, Freezer $freezer, BlockedLog $log, ?Checks $checks = null, ?Planner $planner = null, ?Green $green = null ) {
+		$this->green   = $green;
 		$this->planner = $planner;
 		$this->checks  = $checks ?? new Checks();
 		$this->state   = $state;
@@ -244,12 +253,32 @@ final class Abilities implements Service {
 						'description' => __( 'Pause scheduled tasks until the freeze ends.', 'axle-read-only-mode' ),
 					),
 					'scope'           => $this->scope_schema(),
+					'until_green'     => array(
+						'type'        => 'boolean',
+						'default'     => false,
+						'description' => __( 'End the freeze when the smoke test passes instead of at a time. Asks Axle Smoke Test for a run now. A run that is not green keeps the site frozen. A hard limit (2 hours by default) ends it with a warning. Needs Axle Smoke Test, and ignores minutes.', 'axle-read-only-mode' ),
+					),
 				),
 				'additionalProperties' => false,
 				'default'              => array(),
 			),
 			$status,
 			array( $this, 'freeze' ),
+			$can_manage,
+			array(
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			)
+		);
+
+		$this->ability(
+			'retest',
+			__( 'Ask for another smoke test', 'axle-read-only-mode' ),
+			__( 'For a freeze that ends when the smoke test passes: asks Axle Smoke Test for another run, for example after a fix or a rollback. Fails when the freeze does not wait for the smoke test.', 'axle-read-only-mode' ),
+			array(),
+			$status,
+			array( $this, 'retest' ),
 			$can_manage,
 			array(
 				'readonly'    => false,
@@ -516,6 +545,11 @@ final class Abilities implements Service {
 			'scope'              => $this->state->scope(),
 			'forced_by_constant' => $this->state->forced_by_constant(),
 			'blocked'            => $this->log->count( $this->state->log_since() ),
+			'until_green'        => $this->state->waits_for_green(),
+			'green_status'       => $this->state->green_status(),
+			'green_deadline'     => $this->state->waits_for_green() ? gmdate( 'c', (int) $state['green_deadline'] ) : '',
+			'green_run'          => $this->state->waits_for_green() ? (int) ( $state['green_run']['id'] ?? 0 ) : 0,
+			'green_verdict'      => $this->state->waits_for_green() ? (string) ( $state['green_run']['verdict'] ?? '' ) : '',
 		);
 	}
 
@@ -666,6 +700,10 @@ final class Abilities implements Service {
 		}
 
 		$input = (array) $input;
+		if ( ! empty( $input['until_green'] ) && ! Green::available() ) {
+			return new \WP_Error( 'axle_read_only_mode_no_smoke_test', __( 'Freezing until the smoke test passes needs Axle Smoke Test, which is not active. Give minutes instead.', 'axle-read-only-mode' ) );
+		}
+
 		$this->freezer->freeze(
 			array(
 				'minutes'         => isset( $input['minutes'] ) ? (int) $input['minutes'] : Freezer::default_duration(),
@@ -674,8 +712,25 @@ final class Abilities implements Service {
 				'visitors'        => ! isset( $input['visitors'] ) || (bool) $input['visitors'],
 				'cron'            => ! isset( $input['cron'] ) || (bool) $input['cron'],
 				'area'            => isset( $input['scope'] ) ? (string) $input['scope'] : Scopes::default_scope(),
+				'until_green'     => ! empty( $input['until_green'] ),
 			)
 		);
+
+		return $this->get_status();
+	}
+
+	/**
+	 * Ability: asks Smoke Test for another run.
+	 *
+	 * @return array|\WP_Error
+	 */
+	public function retest() {
+		if ( ! $this->green || ! $this->state->waits_for_green() ) {
+			return new \WP_Error( 'axle_read_only_mode_not_waiting', __( 'The freeze does not wait for the smoke test.', 'axle-read-only-mode' ) );
+		}
+		if ( ! $this->green->request_run() ) {
+			return new \WP_Error( 'axle_read_only_mode_no_smoke_test', __( 'Axle Smoke Test is not active, so no run could be asked for.', 'axle-read-only-mode' ) );
+		}
 
 		return $this->get_status();
 	}
@@ -908,6 +963,23 @@ final class Abilities implements Service {
 					'description' => 'What holds the site frozen: site, network (a multisite network freeze) or constant (wp-config.php). Empty when it is not frozen.',
 				),
 				'blocked'            => array( 'type' => 'integer' ),
+				'until_green'        => array(
+					'type'        => 'boolean',
+					'description' => 'Whether the freeze ends when the smoke test passes.',
+				),
+				'green_status'       => array(
+					'type'        => 'string',
+					'description' => 'For a freeze that waits for the smoke test: waiting (no result yet) or failed (the last run was not green). Empty otherwise.',
+				),
+				'green_deadline'     => array(
+					'type'        => 'string',
+					'description' => 'ISO 8601, UTC. The hard limit: the freeze ends here even without a green run.',
+				),
+				'green_run'          => array(
+					'type'        => 'integer',
+					'description' => 'ID of the last smoke test run that finished and was not green. 0 when there is none.',
+				),
+				'green_verdict'      => array( 'type' => 'string' ),
 			),
 		);
 	}
