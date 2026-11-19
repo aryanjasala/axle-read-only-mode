@@ -126,3 +126,16 @@
 .aro-green {
 	margin: 0 0 12px;
 }
+
+/* Older WordPress leaves wide fields at their desktop width on phones. */
+.aro-form .form-table input[type="text"],
+.aro-form .form-table input[type="datetime-local"],
+.aro-form .form-table select {
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.aro-form .form-table td,
+.aro-form .form-table th {
+	min-width: 0;
+}
