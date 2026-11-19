@@ -258,6 +258,44 @@ final class GreenTest extends TestCase {
 		$this->assertTrue( $entry['until_green'] );
 	}
 
+	public function test_an_early_green_report_waits_for_the_final_one(): void {
+		$this->waiting();
+		list( $state, , $green ) = $this->parts();
+
+		Actions\expectDone( 'axle_read_only_mode_green_passed' )->never();
+
+		$green->on_run_finished(
+			array(
+				'id'       => 13,
+				'verdict'  => 'green',
+				'source'   => 'axle-read-only-mode',
+				'finished' => time(),
+				'final'    => false,
+			)
+		);
+
+		$this->assertTrue( $state->own()['active'] );
+	}
+
+	public function test_the_final_green_report_ends_the_freeze(): void {
+		$this->waiting();
+		list( $state, , $green ) = $this->parts();
+
+		Actions\expectDone( 'axle_read_only_mode_green_passed' )->once();
+
+		$green->on_run_finished(
+			array(
+				'id'       => 14,
+				'verdict'  => 'green',
+				'source'   => 'axle-read-only-mode',
+				'finished' => time(),
+				'final'    => true,
+			)
+		);
+
+		$this->assertFalse( $state->own()['active'] );
+	}
+
 	public function test_a_red_run_keeps_the_freeze_and_says_why(): void {
 		$this->waiting();
 		list( $state, , $green ) = $this->parts();
