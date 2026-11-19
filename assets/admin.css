@@ -127,15 +127,7 @@
 	margin: 0 0 12px;
 }
 
-/* Older WordPress leaves wide fields at their desktop width on phones. */
-.aro-form .form-table input[type="text"],
-.aro-form .form-table input[type="datetime-local"],
-.aro-form .form-table select {
-	max-width: 100%;
-	box-sizing: border-box;
-}
-
-.aro-form .form-table td,
-.aro-form .form-table th {
-	min-width: 0;
+/* A scroll box must also hold the absolutely placed screen-reader text of its cells, or older WordPress scrolls the whole page sideways. */
+.aro-page .axle-scroll {
+	position: relative;
 }
